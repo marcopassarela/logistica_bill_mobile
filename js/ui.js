@@ -1,30 +1,66 @@
 const UI = {
+  _navBound: false,
+  _modalBound: false,
+
   initNav() {
+    // Só liga os eventos uma vez (antes, sair e entrar de novo duplicava os cliques)
+    if (this._navBound) return;
+    this._navBound = true;
+
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => this.goTo(btn.dataset.page));
     });
-    document.getElementById('menuToggle')?.addEventListener('click', () => this.openSidebar());
-    document.getElementById('sidebarClose')?.addEventListener('click', () => this.closeSidebar());
-    document.getElementById('sidebarBackdrop')?.addEventListener('click', () => this.closeSidebar());
+
+    const toggle = document.getElementById('menuToggle');
+    if (toggle) {
+      toggle.addEventListener('click', e => {
+        e.preventDefault();
+        this.toggleSidebar();
+      });
+    }
+    const close = document.getElementById('sidebarClose');
+    if (close) close.addEventListener('click', () => this.closeSidebar());
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (backdrop) backdrop.addEventListener('click', () => this.closeSidebar());
+  },
+
+  isSidebarOpen() {
+    const sb = document.getElementById('sidebar');
+    return !!(sb && sb.classList.contains('open'));
+  },
+
+  toggleSidebar() {
+    if (this.isSidebarOpen()) this.closeSidebar();
+    else this.openSidebar();
   },
 
   openSidebar() {
-    document.getElementById('sidebar')?.classList.add('open');
-    document.getElementById('sidebarBackdrop')?.classList.add('show');
+    const sb = document.getElementById('sidebar');
+    const bd = document.getElementById('sidebarBackdrop');
+    if (sb) sb.classList.add('open');
+    if (bd) bd.classList.add('show');
+    const toggle = document.getElementById('menuToggle');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
   },
 
   closeSidebar() {
-    document.getElementById('sidebar')?.classList.remove('open');
-    document.getElementById('sidebarBackdrop')?.classList.remove('show');
+    const sb = document.getElementById('sidebar');
+    const bd = document.getElementById('sidebarBackdrop');
+    if (sb) sb.classList.remove('open');
+    if (bd) bd.classList.remove('show');
+    const toggle = document.getElementById('menuToggle');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
   },
 
   goTo(page) {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+    const navBtn = document.querySelector('[data-page="' + page + '"]');
+    if (navBtn) navBtn.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(`page-${page}`)?.classList.add('active');
+    const pageEl = document.getElementById('page-' + page);
+    if (pageEl) pageEl.classList.add('active');
     this.closeSidebar();
     const titles = {
       dashboard: 'Dashboard',
@@ -57,6 +93,8 @@ const UI = {
   },
 
   initModal() {
+    if (this._modalBound) return;
+    this._modalBound = true;
     document.getElementById('modalClose').addEventListener('click', () => this.closeModal());
     document.getElementById('modal').addEventListener('click', e => {
       if (e.target.id === 'modal') this.closeModal();
@@ -89,7 +127,7 @@ const UI = {
 
   toast(msg, type = 'ok') {
     const el = document.createElement('div');
-    el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;background:${type==='ok'?'#059669':'#dc2626'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s`;
+    el.style.cssText = `position:fixed;bottom:24px;right:24px;max-width:calc(100vw - 48px);z-index:9999;background:${type==='ok'?'#059669':'#dc2626'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s`;
     el.textContent = msg;
     document.body.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2800);

@@ -1,4 +1,5 @@
 /**
+<<<<<<< HEAD
  * Logísticas Bill — Camada de dados
  *
  * - Cópia local no aparelho (localStorage) = rápido e funciona sem internet
@@ -68,6 +69,16 @@ const DB = {
   _status: 'local', _timer: null, _retryT: null, _poll: null, _listeners: false,
 
   default: function () {
+=======
+ * Logísticas Bill — Banco de dados local (LocalStorage)
+ * Preparado para embutir no .exe futuramente
+ */
+const DB = {
+  KEY: 'logisticas_bill_v1',
+  AUTH_KEY: 'logisticas_bill_auth',
+
+  default() {
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     return {
       config: {
         usuario: 'Admin',
@@ -90,6 +101,7 @@ const DB = {
     };
   },
 
+<<<<<<< HEAD
   // ==================== Armazenamento local ====================
   load: function () {
     try {
@@ -97,10 +109,19 @@ const DB = {
       if (!this._raw) return this.default();
       return Object.assign(this.default(), JSON.parse(this._raw));
     } catch (e) {
+=======
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      if (!raw) return this.default();
+      return { ...this.default(), ...JSON.parse(raw) };
+    } catch {
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
       return this.default();
     }
   },
 
+<<<<<<< HEAD
   save: function (data) {
     const raw = JSON.stringify(data);
     this._raw = raw;
@@ -111,12 +132,22 @@ const DB = {
   get: function () { return this.load(); },
 
   update: function (fn) {
+=======
+  save(data) {
+    localStorage.setItem(this.KEY, JSON.stringify(data));
+  },
+
+  get() { return this.load(); },
+
+  update(fn) {
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     const data = this.load();
     fn(data);
     this.save(data);
     return data;
   },
 
+<<<<<<< HEAD
   uid: function () {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   },
@@ -203,6 +234,16 @@ const DB = {
   getAuth: function () {
     try {
       const raw = LS.get(this.AUTH_KEY);
+=======
+  uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  },
+
+  // Auth
+  getAuth() {
+    try {
+      const raw = localStorage.getItem(this.AUTH_KEY);
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
       if (!raw) return null;
       const auth = JSON.parse(raw);
       if (!auth.loginAt) return null;
@@ -212,6 +253,7 @@ const DB = {
         return null;
       }
       return auth;
+<<<<<<< HEAD
     } catch (e) { return null; }
   },
 
@@ -247,11 +289,22 @@ const DB = {
     const d = this.load();
     if (user === d.config.usuario && pass === d.config.senha) {
       LS.set(this.AUTH_KEY, JSON.stringify({ user: user, loginAt: Date.now() }));
+=======
+    } catch { return null; }
+  },
+
+  login(user, pass) {
+    const d = this.load();
+    if (user === d.config.usuario && pass === d.config.senha) {
+      const auth = { user, loginAt: Date.now() };
+      localStorage.setItem(this.AUTH_KEY, JSON.stringify(auth));
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
       return true;
     }
     return false;
   },
 
+<<<<<<< HEAD
   logout: function () {
     LS.del(this.AUTH_KEY);
   },
@@ -303,10 +356,60 @@ const DB = {
         { id: self.uid(), codigo: 'P-12M-350', nome: 'Poste Circular 12m', comprimento: 12, diametro: 350, peso: 720, preco: 1150, status: 'disponivel' },
         { id: self.uid(), codigo: 'P-8M-200', nome: 'Poste Circular 8m', comprimento: 8, diametro: 200, peso: 320, preco: 520, status: 'disponivel' },
         { id: self.uid(), codigo: 'P-10M-300', nome: 'Poste Circular 10m', comprimento: 10, diametro: 300, peso: 510, preco: 850, status: 'disponivel' }
+=======
+  logout() {
+    localStorage.removeItem(this.AUTH_KEY);
+  },
+
+  requireAdmPassword(senha) {
+    return senha === this.load().config.senha;
+  },
+
+  // CRUD helpers
+  add(collection, obj) {
+    return this.update(d => {
+      d[collection].push({ id: this.uid(), ...obj });
+    });
+  },
+  updateItem(collection, id, fields) {
+    return this.update(d => {
+      const i = d[collection].findIndex(x => x.id === id);
+      if (i >= 0) d[collection][i] = { ...d[collection][i], ...fields };
+    });
+  },
+  remove(collection, id) {
+    return this.update(d => {
+      d[collection] = d[collection].filter(x => x.id !== id);
+    });
+  },
+
+  seedIfEmpty() {
+    const d = this.load();
+    if (d.caminhoes.length || d.produtos.length) return;
+    this.update(data => {
+      data.funcionarios = [
+        { id: this.uid(), nome: 'Carlos Silva', cargoId: 'cargo_mot', telefone: '(11) 99999-1111', cnh: '12345678900', status: 'ativo' },
+        { id: this.uid(), nome: 'João Oliveira', cargoId: 'cargo_mot', telefone: '(11) 98888-2222', cnh: '98765432100', status: 'ativo' },
+        { id: this.uid(), nome: 'Marcos Lima', cargoId: 'cargo_aju', telefone: '(11) 96666-4444', cnh: '', status: 'ativo' },
+        { id: this.uid(), nome: 'Rafael Costa', cargoId: 'cargo_aju', telefone: '(11) 95555-5555', cnh: '', status: 'ativo' }
+      ];
+      data.caminhoes = [
+        { id: this.uid(), placa: 'CJM0R23', modelo: 'MB Accelo 1017 2024', capacidadeKg: 8000, status: 'disponivel' },
+        { id: this.uid(), placa: 'DEF4G56', modelo: 'MB Accelo 1017 2024', capacidadeKg: 8000, status: 'disponivel' }
+      ];
+      data.produtos = [
+        { id: this.uid(), codigo: 'P-7M-200', nome: 'Poste Circular 7m', comprimento: 7, diametro: 200, peso: 280, preco: 450, status: 'disponivel' },
+        { id: this.uid(), codigo: 'P-9M-250', nome: 'Poste Circular 9m', comprimento: 9, diametro: 250, peso: 420, preco: 680, status: 'disponivel' },
+        { id: this.uid(), codigo: 'P-11M-300', nome: 'Poste Circular 11m', comprimento: 11, diametro: 300, peso: 580, preco: 920, status: 'disponivel' },
+        { id: this.uid(), codigo: 'P-12M-350', nome: 'Poste Circular 12m', comprimento: 12, diametro: 350, peso: 720, preco: 1150, status: 'disponivel' },
+        { id: this.uid(), codigo: 'P-8M-200', nome: 'Poste Circular 8m', comprimento: 8, diametro: 200, peso: 320, preco: 520, status: 'disponivel' },
+        { id: this.uid(), codigo: 'P-10M-300', nome: 'Poste Circular 10m', comprimento: 10, diametro: 300, peso: 510, preco: 850, status: 'disponivel' }
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
       ];
     });
   },
 
+<<<<<<< HEAD
   clearAll: function () {
     if (!this.remote) {
       this._raw = null;
@@ -546,5 +649,9 @@ const DB = {
     clearInterval(this._poll);
     clearTimeout(this._timer);
     clearTimeout(this._retryT);
+=======
+  clearAll() {
+    localStorage.removeItem(this.KEY);
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
   }
 };

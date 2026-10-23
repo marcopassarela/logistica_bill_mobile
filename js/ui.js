@@ -1,4 +1,5 @@
 const UI = {
+<<<<<<< HEAD
   _navBound: false,
   _modalBound: false,
 
@@ -41,26 +42,51 @@ const UI = {
     if (bd) bd.classList.add('show');
     const toggle = document.getElementById('menuToggle');
     if (toggle) toggle.setAttribute('aria-expanded', 'true');
+=======
+  initNav() {
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => this.goTo(btn.dataset.page));
+    });
+    document.getElementById('menuToggle')?.addEventListener('click', () => this.openSidebar());
+    document.getElementById('sidebarClose')?.addEventListener('click', () => this.closeSidebar());
+    document.getElementById('sidebarBackdrop')?.addEventListener('click', () => this.closeSidebar());
+  },
+
+  openSidebar() {
+    document.getElementById('sidebar')?.classList.add('open');
+    document.getElementById('sidebarBackdrop')?.classList.add('show');
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     document.body.style.overflow = 'hidden';
   },
 
   closeSidebar() {
+<<<<<<< HEAD
     const sb = document.getElementById('sidebar');
     const bd = document.getElementById('sidebarBackdrop');
     if (sb) sb.classList.remove('open');
     if (bd) bd.classList.remove('show');
     const toggle = document.getElementById('menuToggle');
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
+=======
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebarBackdrop')?.classList.remove('show');
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     document.body.style.overflow = '';
   },
 
   goTo(page) {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+<<<<<<< HEAD
     const navBtn = document.querySelector('[data-page="' + page + '"]');
     if (navBtn) navBtn.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const pageEl = document.getElementById('page-' + page);
     if (pageEl) pageEl.classList.add('active');
+=======
+    document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(`page-${page}`)?.classList.add('active');
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     this.closeSidebar();
     const titles = {
       dashboard: 'Dashboard',
@@ -93,8 +119,11 @@ const UI = {
   },
 
   initModal() {
+<<<<<<< HEAD
     if (this._modalBound) return;
     this._modalBound = true;
+=======
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     document.getElementById('modalClose').addEventListener('click', () => this.closeModal());
     document.getElementById('modal').addEventListener('click', e => {
       if (e.target.id === 'modal') this.closeModal();
@@ -127,7 +156,11 @@ const UI = {
 
   toast(msg, type = 'ok') {
     const el = document.createElement('div');
+<<<<<<< HEAD
     el.style.cssText = `position:fixed;bottom:24px;right:24px;max-width:calc(100vw - 48px);z-index:9999;background:${type==='ok'?'#059669':'#dc2626'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s`;
+=======
+    el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;background:${type==='ok'?'#059669':'#dc2626'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s`;
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)
     el.textContent = msg;
     document.body.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2800);

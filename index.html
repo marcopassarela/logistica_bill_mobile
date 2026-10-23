@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logísticas Bill</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/leaflet/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="assets/leaflet/leaflet.js"></script>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/logo.png" alt="Logísticas Bill" class="login-logo-img">
+        <h1>Logísticas Bill</h1>
+        <p>Centro de Logística</p>
+      </div>
+      <div class="form-group">
+        <label>Usuário</label>
+        <input type="text" id="loginUser" class="form-control" autocomplete="username" placeholder="Usuário">
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="loginPass" class="form-control" autocomplete="current-password" placeholder="Senha">
+      </div>
+      <p id="loginError" class="login-error" style="display:none"></p>
+      <button class="btn btn-primary btn-block" id="btnLogin" style="margin-top:8px">Entrar</button>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none">
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <img src="assets/logo.png" alt="LB" class="logo-img">
+        <div class="logo-text">
+          <strong>Logísticas Bill</strong>
+          <span>Centro de Logística</span>
+        </div>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Fechar menu">&times;</button>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-page="dashboard">Dashboard</button>
+        <button class="nav-item" data-page="carregamento">Carregamento</button>
+        <button class="nav-item" data-page="rotas">Rotas</button>
+        <button class="nav-item" data-page="caminhoes">Caminhões</button>
+        <button class="nav-item" data-page="funcionarios">Funcionários</button>
+        <button class="nav-item" data-page="produtos">Produtos</button>
+        <button class="nav-item" data-page="diarias">Diárias</button>
+        <button class="nav-item" data-page="faltas">Faltas</button>
+        <button class="nav-item" data-page="relatorios">Relatórios</button>
+        <button class="nav-item" data-page="config">Configurações</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="avatar" id="userAvatar">A</div>
+          <div style="flex:1;min-width:0">
+            <strong id="userName">Admin</strong>
+            <span>Administrador</span>
+          </div>
+          <button class="btn-sair" id="btnSair" title="Sair">Sair</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="topbar-actions">
+          <span class="date-display" id="currentDate"></span>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- DASHBOARD -->
+        <section class="page active" id="page-dashboard">
+          <div class="stats-grid" id="dashStats"></div>
+          <div class="grid-2" style="margin-bottom:16px">
+            <div class="card">
+              <div class="card-header"><h3>Status das Cargas (Peso)</h3></div>
+              <div class="card-body" style="height:260px">
+                <canvas id="chartPeso"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Status dos Caminhões</h3></div>
+              <div class="card-body" style="height:260px">
+                <canvas id="chartCaminhoes"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3>Carregamentos Recentes</h3></div>
+              <div class="card-body" id="dashRecentes"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Alertas de Peso</h3></div>
+              <div class="card-body" id="dashAlertas"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARREGAMENTO -->
+        <section class="page" id="page-carregamento">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovoCarregamento">+ Novo Carregamento</button>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="table-responsive"><table class="table" id="tableCarregamentos">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Placa</th>
+                    <th>Motorista</th>
+                    <th>Ajudante</th>
+                    <th>Itens</th>
+                    <th>Peso Total</th>
+                    <th>Capacidade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ROTAS -->
+        <section class="page" id="page-rotas">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovaRota">+ Nova Rota</button>
+          </div>
+          <div class="rotas-layout">
+            <div class="rotas-lista card">
+              <div class="card-header"><h3>Rotas do Dia</h3></div>
+              <div class="card-body" id="listaRotas"></div>
+            </div>
+            <div class="rotas-mapa card">
+              <div class="card-header" style="flex-wrap:wrap;gap:8px">
+                <h3>Mapa OpenStreetMap</h3>
+                <div class="map-search" style="display:flex;gap:6px;align-items:center;flex:1;min-width:200px;justify-content:flex-end">
+                  <input type="text" id="mapSearch" class="form-control" placeholder="Cidade, bairro ou lat, lng..." style="max-width:280px;padding:6px 10px;font-size:12px">
+                  <button class="btn btn-sm btn-primary" id="btnMapSearch" type="button">Buscar</button>
+                </div>
+              </div>
+              <div class="card-body map-body">
+                <div id="map"></div>
+                <div class="map-attribution-note">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Leaflet</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CAMINHÕES -->
+        <section class="page" id="page-caminhoes">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovoCaminhao">+ Novo Caminhão</button>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="table-responsive"><table class="table" id="tableCaminhoes">
+                <thead>
+                  <tr>
+                    <th>Placa</th>
+                    <th>Modelo</th>
+                    <th>Capacidade (kg)</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- FUNCIONÁRIOS -->
+        <section class="page" id="page-funcionarios">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovoFuncionario">+ Novo Funcionário</button>
+            <button class="btn btn-outline" id="btnNovoCargo">+ Novo Cargo</button>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3>Funcionários</h3></div>
+              <div class="card-body">
+                <div class="table-responsive"><table class="table" id="tableFuncionarios">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Cargo</th>
+                      <th>Telefone</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Cargos</h3></div>
+              <div class="card-body">
+                <div class="table-responsive"><table class="table" id="tableCargos">
+                  <thead>
+                    <tr>
+                      <th>Nome do Cargo</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRODUTOS -->
+        <section class="page" id="page-produtos">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovoProduto">+ Novo Produto</button>
+            <input type="text" id="buscaProduto" class="form-control" placeholder="Buscar por código ou nome..." style="max-width:280px">
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="table-responsive"><table class="table" id="tableProdutos">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Nome</th>
+                    <th>Comprimento</th>
+                    <th>Diâmetro</th>
+                    <th>Peso (kg)</th>
+                    <th>Preço (R$)</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DIÁRIAS -->
+        <section class="page" id="page-diarias">
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3>Registrar Diária</h3></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Data</label>
+                  <input type="date" id="diaData" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Caminhão (placa)</label>
+                  <select id="diaCaminhao" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                  <label>Funcionário</label>
+                  <select id="diaFuncionario" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                  <label>Valor (R$)</label>
+                  <input type="number" id="diaValor" class="form-control" value="350">
+                </div>
+                <div class="form-group">
+                  <label>Observação</label>
+                  <input type="text" id="diaObs" class="form-control" placeholder="Opcional">
+                </div>
+                <button class="btn btn-primary btn-block" id="btnSalvarDiaria">Salvar Diária</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Pré-visualização</h3></div>
+              <div class="card-body" id="diaPreview" style="max-height:60vh;overflow-y:auto;font-size:13px"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- FALTAS -->
+        <section class="page" id="page-faltas">
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btnNovaFalta">+ Registrar Falta</button>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="table-responsive"><table class="table" id="tableFaltas">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Funcionário</th>
+                    <th>Tipo</th>
+                    <th>Motivo</th>
+                    <th>Atestado</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RELATÓRIOS -->
+        <section class="page" id="page-relatorios">
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3>Gerar Relatório</h3></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Tipo</label>
+                  <select id="relTipo" class="form-control">
+                    <option value="completo">Relatório Completo Operacional</option>
+                    <option value="carregamentos">Carregamentos</option>
+                    <option value="diarias">Diárias</option>
+                    <option value="faltas">Faltas</option>
+                    <option value="estoque">Estoque de Produtos</option>
+                    <option value="frota">Frota e Equipe</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Data Início</label>
+                  <input type="date" id="relInicio" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Data Fim</label>
+                  <input type="date" id="relFim" class="form-control">
+                </div>
+                <button class="btn btn-primary btn-block" id="btnGerarRelatorio">Gerar Relatório</button>
+                <button class="btn btn-outline btn-block" id="btnImprimirRelatorio">Imprimir / PDF</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Pré-visualização</h3></div>
+              <div class="card-body" id="relPreview" style="max-height:60vh;overflow-y:auto;font-size:13px">
+                <p class="empty">Selecione o tipo e clique em Gerar.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CONFIG -->
+        <section class="page" id="page-config">
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3>Acesso (Login)</h3></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Usuário</label>
+                  <input type="text" id="cfgUser" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Nova Senha</label>
+                  <input type="password" id="cfgSenha" class="form-control" placeholder="Deixe em branco para não alterar">
+                </div>
+                <div class="form-group">
+                  <label>Senha atual (obrigatória para salvar)</label>
+                  <input type="password" id="cfgSenhaAtual" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Valor padrão da diária (R$)</label>
+                  <input type="number" id="cfgDiaria" class="form-control">
+                </div>
+                <button class="btn btn-primary" id="btnSalvarConfig">Salvar Configurações</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Dados do Sistema</h3></div>
+              <div class="card-body">
+                <p class="text-muted">Dados salvos localmente neste computador.</p>
+                <button class="btn btn-outline btn-block" id="btnExportar">Exportar Backup (JSON)</button>
+                <button class="btn btn-outline btn-block" id="btnImportar">Importar Backup</button>
+                <button class="btn btn-danger btn-block" id="btnLimparDados">Excluir Todos os Dados</button>
+                <input type="file" id="fileImport" accept=".json" style="display:none">
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal" id="modalBox">
+      <div class="modal-header">
+        <h3 id="modalTitle">Título</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

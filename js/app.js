@@ -6,14 +6,20 @@ const App = {
   chartCaminhoes: null,
   cargaItens: [], // temp items for new loading
 
-  init() {
+  async init() {
+    this.bindGlobal();
+    const remote = await DB.initRemote();
+    if (remote.mode === 'layerbase') {
+      console.log('[App] Banco Layerbase ativo');
+    } else if (remote.error) {
+      console.warn('[App] Layerbase offline:', remote.error);
+    }
     const auth = DB.getAuth();
     if (auth) {
       this.showApp(auth);
     } else {
       this.showLogin();
     }
-    this.bindGlobal();
   },
 
   showLogin() {
@@ -1154,14 +1160,55 @@ const App = {
     document.getElementById('cfgDiaria').value = d.config.diariaPadrao || 350;
   },
 
-  salvarConfig() {
+  async salvarConfig() {
     const senhaAtual = document.getElementById('cfgSenhaAtual').value;
-    if (!DB.requireAdmPassword(senhaAtual)) return UI.toast('Senha atual incorreta', 'err');
+    const usuario = document.getElementById('cfgUser').value.trim() || 'Admin';
+    const nova = document.getElementById('cfgSenha').value;
+    const diaria = +document.getElementById('cfgDiaria').value || 350;
+
+    if (!senhaAtual) return UI.toast('Informe a senha atual', 'err');
+
+    // Se mudou senha ou usuário → Argon2 no servidor
+    if (nova || (typeof Layerbase !== 'undefined' && Layerbase.isReady())) {
+      try {
+        if (nova) {
+          await DB.changePassword(senhaAtual, nova, usuario);
+        } else {
+          const ok = await DB.requireAdmPassword(senhaAtual);
+          if (!ok) return UI.toast('Senha atual incorreta', 'err');
+          DB.update(d => {
+            d.config.usuario = usuario;
+            d.config.diariaPadrao = diaria;
+          });
+          // Atualiza só usuário no banco (sem tocar no hash)
+          if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+            await Layerbase.query(
+              "UPDATE config SET usuario = '" + usuario.replace(/'/g, "''") +
+              "', diaria_padrao = " + diaria + " WHERE id = 1"
+            );
+          }
+        }
+        if (nova) {
+          DB.update(d => {
+            d.config.usuario = usuario;
+            d.config.diariaPadrao = diaria;
+            d.config.senha = '';
+          });
+        }
+        UI.toast('Configurações salvas!');
+        this.refreshConfig();
+      } catch (e) {
+        UI.toast(e.message || 'Erro ao salvar', 'err');
+      }
+      return;
+    }
+
+    const ok = await DB.requireAdmPassword(senhaAtual);
+    if (!ok) return UI.toast('Senha atual incorreta', 'err');
     DB.update(d => {
-      d.config.usuario = document.getElementById('cfgUser').value.trim() || 'Admin';
-      const nova = document.getElementById('cfgSenha').value;
+      d.config.usuario = usuario;
       if (nova) d.config.senha = nova;
-      d.config.diariaPadrao = +document.getElementById('cfgDiaria').value || 350;
+      d.config.diariaPadrao = diaria;
     });
     UI.toast('Configurações salvas!');
     this.refreshConfig();

@@ -175,17 +175,22 @@ const UI = {
       <button class="btn btn-primary" id="btnConfirmAdm">Confirmar</button>
     `);
     setTimeout(() => {
-      document.getElementById('btnConfirmAdm').onclick = () => {
+      const confirm = async () => {
         const senha = document.getElementById('admPass').value;
-        if (!DB.requireAdmPassword(senha)) {
+        const btn = document.getElementById('btnConfirmAdm');
+        if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+        const ok = await DB.requireAdmPassword(senha);
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirmar'; }
+        if (!ok) {
           UI.toast('Senha incorreta', 'err');
           return;
         }
         UI.closeModal();
         callback();
       };
+      document.getElementById('btnConfirmAdm').onclick = () => confirm();
       document.getElementById('admPass').addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('btnConfirmAdm').click();
+        if (e.key === 'Enter') confirm();
       });
     }, 50);
   }

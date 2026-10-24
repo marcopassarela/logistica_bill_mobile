@@ -28,7 +28,7 @@ export async function GET() {
   try {
     const list = await prisma.produto.findMany({
       where: { ativo: true },
-      orderBy: { nome: "asc" },
+      orderBy: { codigo: "asc" },
       select: {
         id: true, codigo: true, nome: true, unidade: true,
         pesoUnitario: true, preco: true, categoria: true, ativo: true,

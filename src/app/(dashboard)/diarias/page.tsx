@@ -216,7 +216,7 @@ export default function DiariasPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="diaria-valor">Valor (R$)</Label>
-                <Input id="diaria-valor" type="number" min="0.01" step="0.01" required
+                <Input id="diaria-valor" type="number" min="0" step="0.01" required
                   value={form.valor} onChange={(e) => changeField("valor", e.target.value)}
                   placeholder="0,00" />
               </div>

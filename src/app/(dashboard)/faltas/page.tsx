@@ -115,7 +115,7 @@ export default function FaltasPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {f.temAnexo && (
-                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground" title="Possui anexo" />
+                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground" aria-label="Possui anexo" />
                   )}
                   <Badge variant={tipoVariant[f.tipo] || "secondary"}>{f.tipo}</Badge>
                 </div>

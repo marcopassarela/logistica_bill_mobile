@@ -91,53 +91,10 @@ export default function RelatoriosPage() {
           </CardHeader>
           <CardContent>
             {tipo === "diario" ? (
-              <div className="space-y-4">
-                <div className="rounded-lg bg-muted/50 p-4">
-                  <p className="text-sm text-muted-foreground">Total geral no período</p>
-                  <p className="text-2xl font-bold">{formatCurrency(1180)}</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="rounded-lg border p-3">
-                    <div className="flex justify-between font-medium">
-                      <span>João Silva</span>
-                      <span>{formatCurrency(700)}</span>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>23/10/2026</span>
-                        <span>{formatCurrency(350)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>22/10/2026</span>
-                        <span>{formatCurrency(350)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="flex justify-between font-medium">
-                      <span>Maria Oliveira</span>
-                      <span>{formatCurrency(280)}</span>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>23/10/2026</span>
-                        <span>{formatCurrency(280)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="flex justify-between font-medium">
-                      <span>Carlos Souza</span>
-                      <span>{formatCurrency(200)}</span>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>21/10/2026</span>
-                        <span>{formatCurrency(200)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                <FileBarChart className="h-8 w-8" />
+                <p className="font-medium">Nenhuma diária cadastrada</p>
+                <p className="text-sm">O total será exibido quando houver diárias registradas.</p>
               </div>
             ) : (
               <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">

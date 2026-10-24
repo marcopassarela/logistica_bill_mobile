@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import {
@@ -32,6 +32,14 @@ export function AdminPasswordModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setPassword("");
+      setError("");
+    }
+    onOpenChange(next);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -40,19 +48,19 @@ export function AdminPasswordModal({
       const ok = await onConfirm(password);
       if (ok) {
         setPassword("");
-        onOpenChange(false);
+        handleOpenChange(false);
       } else {
-        setError("Senha incorreta. Tente novamente.");
+        setError("Não foi possível confirmar a operação. Verifique a senha.");
       }
-    } catch {
-      setError("Erro ao verificar senha.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao executar a operação.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
@@ -64,21 +72,13 @@ export function AdminPasswordModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="admin-password">Senha do Administrador</Label>
-            <Input
-              id="admin-password"
-              type="password"
-              value={password}
+            <Input id="admin-password" type="password" value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoFocus
-              required
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
+              placeholder="" autoFocus required />
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
             <Button type="submit" variant="destructive" disabled={loading || !password}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar

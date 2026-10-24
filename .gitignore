@@ -41,3 +41,8 @@ next-env.d.ts
 
 # prisma
 prisma/migrations
+
+# Backups locais - nao enviar ao repositorio
+/backup-*/
+/backups/
+*.backup-*

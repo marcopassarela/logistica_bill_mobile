@@ -331,7 +331,7 @@ export default function RotasPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Rotas</h1>
           <p className="text-muted-foreground">
-            Rotas pelas estradas (OSRM + OpenStreetMap) — vários pontos de entrega e uma rota por caminhão
+            Organize os pontos de entrega e defina a melhor sequência de paradas para cada caminhão.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load}>

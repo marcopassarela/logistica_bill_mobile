@@ -54,7 +54,7 @@ export function Sidebar({ userName, onLogout }: SidebarProps) {
           <span className="font-semibold text-sm leading-tight truncate">
             Logísticas Bill
           </span>
-          <span className="text-xs text-muted-foreground">Sistema de Gestão</span>
+          <span className="text-xs text-muted-foreground">Controle Operacional</span>
         </div>
       </div>
 

@@ -179,7 +179,7 @@ export default function ProdutosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
           <p className="text-muted-foreground">
-            Cadastro de produtos com código automático ou personalizado.
+            Cadastro de produtos e códigos personalizados.
           </p>
         </div>
         <Button onClick={openNew}>

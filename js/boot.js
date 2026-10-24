@@ -94,6 +94,22 @@
     App.doLogout();
   };
 
+  // ---------- 4b. Configurações ----------
+  // Algumas versões do app.js trocam a senha por uma rota de API antiga e limpam a senha local.
+  // Aqui usamos sempre a regra simples: confere a senha atual e grava (o DB sincroniza com o servidor).
+  App.salvarConfig = function () {
+    const senhaAtual = document.getElementById('cfgSenhaAtual').value;
+    if (!DB.requireAdmPassword(senhaAtual)) return UI.toast('Senha atual incorreta', 'err');
+    DB.update(function (d) {
+      d.config.usuario = document.getElementById('cfgUser').value.trim() || 'Admin';
+      const nova = document.getElementById('cfgSenha').value;
+      if (nova) d.config.senha = nova;
+      d.config.diariaPadrao = +document.getElementById('cfgDiaria').value || 350;
+    });
+    UI.toast('Configurações salvas!');
+    this.refreshConfig();
+  };
+
   // ---------- 5. entrar / sair / iniciar ----------
   App.init = function () {
     DB.init();

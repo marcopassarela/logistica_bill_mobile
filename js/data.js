@@ -441,10 +441,22 @@ const DB = {
     if (!auth || !auth.token) return false;
 
     const first = !this._meta.migrated;
-    const since = first ? 0 : Math.max(0, (this._meta.rev || 0) - 5000); // 5s de sobreposição por segurança
-    const res = await this._api('GET', '/api/sync?since=' + since);
-    const recs = res.records || [];
+    let since = first ? 0 : Math.max(0, (this._meta.rev || 0) - 5000); // 5s de sobreposição por segurança
 
+    // 1) Baixa TODAS as páginas antes de mexer em qualquer coisa local
+    //    (se a internet cair no meio, nada fica pela metade).
+    const recs = [];
+    let finalRev = 0;
+    for (let page = 0; page < 500; page++) {
+      const res = await this._api('GET', '/api/sync?since=' + since);
+      const part = res.records || [];
+      for (let n = 0; n < part.length; n++) recs.push(part[n]);
+      finalRev = res.rev || finalRev;
+      if (!res.more || !part.length) break;
+      since = Math.max(0, (res.rev || 0) - 1);
+    }
+
+    // 2) Aplica
     const data = this.load();
     const localBefore = this._index(data);
     const serverKeys = {};
@@ -489,7 +501,7 @@ const DB = {
       this._raw = JSON.stringify(data);
       LS.set(this.KEY, this._raw);
     }
-    this._meta.rev = Math.max(this._meta.rev || 0, res.rev || 0);
+    this._meta.rev = Math.max(this._meta.rev || 0, finalRev);
     if (first) this._meta.migrated = true;
     LS.set(this.META_KEY, JSON.stringify(this._meta));
 

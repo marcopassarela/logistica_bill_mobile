@@ -1,11 +1,4 @@
 'use strict';
-/**
- * Servidor LOCAL para testar no seu PC (na Vercel não é usado: lá os arquivos de /api viram funções).
- * Roda o mesmo código de api/login.js e api/sync.js, e serve index.html, css/, js/ e assets/.
- *
- *   npm install     (uma vez)
- *   npm start       → http://localhost:3000
- */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

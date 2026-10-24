@@ -1,0 +1,12 @@
+<<<<<<< HEAD
+.env
+node_modules/
+=======
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+.idea/
+.vscode/
+*.local
+>>>>>>> a60888c (Initial commit: Logísticas Bill — sistema de logística web)

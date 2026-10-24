@@ -1,0 +1,102 @@
+/* ==========================================================================
+   Logísticas Bill — Ajustes para iPhone / celular
+   Carregar DEPOIS de style.css (só sobrescreve; não precisa editar o style.css)
+   ========================================================================== */
+
+html { -webkit-text-size-adjust: 100%; }
+
+/* iPhone com iOS anterior ao 14.5 não entende "inset: 0" → telas cheias não cobriam nada */
+.login-screen,
+.modal-overlay,
+.sidebar-backdrop {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* 100vh no Safari do iPhone é maior que a área visível; 100dvh acompanha a barra do Safari */
+body { height: 100vh; height: 100dvh; }
+#app { height: 100vh; height: 100dvh; }
+
+.sidebar-footer { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------- Indicador de sincronização ---------- */
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.sync-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #475569;
+}
+.sync-badge.ok      { background: #d1fae5; color: #065f46; }
+.sync-badge.syncing { background: #dbeafe; color: #1e40af; }
+.sync-badge.pending { background: #ffedd5; color: #9a3412; }
+.sync-badge.offline { background: #fee2e2; color: #991b1b; }
+
+/* ---------- Celular / tablet pequeno ---------- */
+@media (max-width: 900px) {
+
+  /* Botão do menu: área de toque de 44px, ícone desenhado em SVG (não depende de fonte) */
+  .menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    margin-left: -8px;
+    padding: 0;
+    color: var(--text);
+    background: none;
+    border: 0;
+    border-radius: 10px;
+    -webkit-appearance: none;
+    appearance: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(26, 86, 219, .18);
+    cursor: pointer;
+    position: relative;
+    z-index: 101;
+  }
+  .menu-toggle svg { display: block; pointer-events: none; }
+
+  /* Menu lateral: camada própria (translate3d) evita o sumiço/atraso de desenho no Safari */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 260px;
+    max-width: 85vw;
+    z-index: 200;
+    -webkit-transform: translate3d(-100%, 0, 0);
+    transform: translate3d(-100%, 0, 0);
+    transition: -webkit-transform .3s ease, transform .3s ease;
+    will-change: transform;
+  }
+  .sidebar.open {
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .35);
+  }
+  .sidebar-backdrop { z-index: 150; }
+  .sidebar-backdrop.show { display: block; }
+
+  .nav-item { min-height: 44px; }
+
+  .topbar h1 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* A data por extenso não cabe no topo do celular */
+@media (max-width: 600px) {
+  .date-display { display: none; }
+}

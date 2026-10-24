@@ -1,0 +1,16 @@
+{
+  "name": "logisticas-bill",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Logísticas Bill — Vercel (funções em /api) + banco Layerbase (PostgreSQL)",
+  "scripts": {
+    "start": "node dev-server.js",
+    "testar-banco": "node testar-banco.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

@@ -671,7 +671,7 @@ export default function CarregamentosPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
         title="Excluir carregamento"
-        description="Esta ação remove o registro do banco. Digite a senha do administrador."
+        description="Atenção: esta ação excluirá o carregamento e todos os itens relacionados. Digite a senha do administrador para confirmar."
       />
     </div>
   );

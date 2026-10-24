@@ -133,13 +133,28 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  const adminPassword = body.adminPassword as string | undefined;
-  if (!adminPassword || !(await verifyAdminPassword(adminPassword))) {
-    return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
-  }
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (typeof body.adminPassword !== "string" ||
+        !(await verifyAdminPassword(body.adminPassword))) {
+      return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
+    }
 
-  const { id } = await params;
-  await prisma.carregamento.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+    const { id } = await params;
+    if (!id) return NextResponse.json({ error: "ID do carregamento obrigatório" }, { status: 400 });
+
+    const carregamento = await prisma.carregamento.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!carregamento) {
+      return NextResponse.json({ error: "Carregamento não encontrado" }, { status: 404 });
+    }
+
+    await prisma.carregamento.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao excluir carregamento:", error);
+    return NextResponse.json({ error: "Não foi possível excluir o carregamento" }, { status: 500 });
+  }
 }

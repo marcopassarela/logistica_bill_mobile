@@ -42,12 +42,23 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  if (!(await verifyAdminPassword(body.adminPassword || ""))) {
-    return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
-  }
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (typeof body.adminPassword !== "string" ||
+        !(await verifyAdminPassword(body.adminPassword))) {
+      return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
+    }
 
-  const { id } = await params;
-  await prisma.rota.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+    const { id } = await params;
+    if (!id) return NextResponse.json({ error: "ID da rota obrigatório" }, { status: 400 });
+
+    const rota = await prisma.rota.findUnique({ where: { id }, select: { id: true } });
+    if (!rota) return NextResponse.json({ error: "Rota não encontrada" }, { status: 404 });
+
+    await prisma.rota.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao excluir rota:", error);
+    return NextResponse.json({ error: "Não foi possível excluir a rota" }, { status: 500 });
+  }
 }

@@ -562,7 +562,7 @@ export default function RotasPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
         title="Excluir rota"
-        description="Remove a rota do banco. Digite a senha do administrador."
+        description="Atenção: esta ação excluirá a rota e todos os pontos relacionados. Digite a senha do administrador para confirmar."
       />
     </div>
   );

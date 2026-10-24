@@ -542,10 +542,18 @@ const App = {
   },
 
   deleteCarga(id) {
-    UI.askPassword(() => {
-      DB.remove('carregamentos', id);
-      this.refreshAll();
-      UI.toast('Carregamento excluído');
+    UI.askPassword(async () => {
+      if (!confirm('Excluir este carregamento permanentemente?')) return;
+      try {
+        if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+          await Layerbase.query("DELETE FROM carregamentos WHERE id = '" + String(id).replace(/'/g, "''") + "'");
+        }
+        DB.remove('carregamentos', id);
+        this.refreshAll();
+        UI.toast('Carregamento apagado do banco');
+      } catch (e) {
+        UI.toast(e.message || 'Erro ao excluir', 'err');
+      }
     });
   },
 
@@ -613,11 +621,18 @@ const App = {
   },
 
   deleteCaminhao(id) {
-    UI.askPassword(() => {
-      if (!confirm('Excluir este caminhão?')) return;
-      DB.remove('caminhoes', id);
-      this.refreshAll();
-      UI.toast('Caminhão excluído');
+    UI.askPassword(async () => {
+      if (!confirm('Excluir este caminhão permanentemente do banco?')) return;
+      try {
+        if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+          await Layerbase.query("DELETE FROM caminhoes WHERE id = '" + String(id).replace(/'/g, "''") + "'");
+        }
+        DB.remove('caminhoes', id);
+        this.refreshAll();
+        UI.toast('Caminhão apagado do banco');
+      } catch (e) {
+        UI.toast(e.message || 'Erro ao excluir', 'err');
+      }
     });
   },
 
@@ -704,11 +719,18 @@ const App = {
   },
 
   deleteFuncionario(id) {
-    UI.askPassword(() => {
-      if (!confirm('Excluir este funcionário?')) return;
-      DB.remove('funcionarios', id);
-      this.refreshAll();
-      UI.toast('Funcionário excluído');
+    UI.askPassword(async () => {
+      if (!confirm('Excluir este funcionário permanentemente do banco?')) return;
+      try {
+        if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+          await Layerbase.query("DELETE FROM funcionarios WHERE id = '" + String(id).replace(/'/g, "''") + "'");
+        }
+        DB.remove('funcionarios', id);
+        this.refreshAll();
+        UI.toast('Funcionário apagado do banco');
+      } catch (e) {
+        UI.toast(e.message || 'Erro ao excluir', 'err');
+      }
     });
   },
 
@@ -829,11 +851,19 @@ const App = {
   },
 
   deleteProduto(id) {
-    UI.askPassword(() => {
-      if (!confirm('Excluir este produto?')) return;
-      DB.remove('produtos', id);
-      this.refreshAll();
-      UI.toast('Produto excluído');
+    UI.askPassword(async () => {
+      if (!confirm('Excluir este produto permanentemente do banco?')) return;
+      try {
+        // Remove direto no Postgres (não fica como excluido)
+        if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+          await Layerbase.query("DELETE FROM produtos WHERE id = '" + String(id).replace(/'/g, "''") + "'");
+        }
+        DB.remove('produtos', id);
+        this.refreshAll();
+        UI.toast('Produto apagado do banco');
+      } catch (e) {
+        UI.toast(e.message || 'Erro ao excluir', 'err');
+      }
     });
   },
 

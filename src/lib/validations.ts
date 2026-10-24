@@ -48,7 +48,7 @@ export const diariaSchema = z.object({
   funcionarioId: z.string().min(1, "Funcionário obrigatório"),
   caminhaoId: z.string().optional().nullable(),
   data: z.string().min(1, "Data obrigatória"),
-  valor: z.coerce.number().positive("Valor deve ser positivo"),
+  valor: z.coerce.number().min(0, "Valor não pode ser negativo"),
   observacao: z.string().optional().nullable(),
 });
 

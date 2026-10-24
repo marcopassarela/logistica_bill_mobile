@@ -168,7 +168,6 @@ export default function CarregamentosPage() {
 
   function addItem() {
     setItens((prev) => [
-      ...prev,
       {
         key: crypto.randomUUID(),
         produtoId: "",
@@ -177,9 +176,9 @@ export default function CarregamentosPage() {
         statusItem: "PENDENTE",
         observacao: "",
       },
+      ...prev,
     ]);
   }
-
   function removeItem(key: string) {
     setItens((prev) => (prev.length <= 1 ? prev : prev.filter((i) => i.key !== key)));
   }
@@ -413,7 +412,7 @@ export default function CarregamentosPage() {
                   </Button>
                 </div>
 
-                {itens.map((item, idx) => (
+                {[...itens].map((item, idx) => (
                   <div key={item.key} className="rounded-lg border p-3 space-y-2 bg-muted/30">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
@@ -450,11 +449,15 @@ export default function CarregamentosPage() {
                       <div>
                         <Label className="text-xs">Peso (kg)</Label>
                         <Input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          value={item.peso}
-                          onChange={(e) => updateItem(item.key, { peso: e.target.value })}
+                          type="text"
+                          inputMode="decimal"
+                          value={item.peso === "" ? "" : Number(item.peso).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
+                          onChange={(e) => {
+                            const valor = e.target.value.replace(/\./g, "").replace(",", ".");
+                            if (valor === "" || /^\d*\.?\d{0,3}$/.test(valor)) {
+                              updateItem(item.key, { peso: valor });
+                            }
+                          }}
                           placeholder="0"
                         />
                       </div>

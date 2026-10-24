@@ -42,6 +42,53 @@ async function pull(req, res) {
 }
 
 // Envia alterações: { ops: [ { c: "caminhoes", i: "id", d: {...} | null } ] }   (null = excluir)
+
+// Mantém a tabela operacional produtos sincronizada com records.
+// Exclusões são marcadas como excluido para preservar o histórico.
+async function syncProductTable(client, op) {
+  if (op.c !== 'produtos') return;
+
+  if (op.d === null) {
+    await client.query(
+      "UPDATE produtos SET status = 'excluido' WHERE id = $1",
+      [op.i]
+    );
+    return;
+  }
+
+  const d = op.d;
+  const numero = (valor, campo) => {
+    if (valor === null || valor === undefined || valor === '') return null;
+    const n = Number(valor);
+    if (!Number.isFinite(n)) throw new Error('Valor numerico invalido em produtos.' + campo);
+    return n;
+  };
+
+  await client.query(`
+    INSERT INTO produtos
+      (id, codigo, nome, comprimento, diametro, peso, preco, status, created_at)
+    VALUES
+      ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, NOW()))
+    ON CONFLICT (id) DO UPDATE SET
+      codigo = EXCLUDED.codigo,
+      nome = EXCLUDED.nome,
+      comprimento = EXCLUDED.comprimento,
+      diametro = EXCLUDED.diametro,
+      peso = EXCLUDED.peso,
+      preco = EXCLUDED.preco,
+      status = EXCLUDED.status
+  `, [
+    op.i,
+    d.codigo == null ? '' : String(d.codigo),
+    d.nome == null ? '' : String(d.nome),
+    numero(d.comprimento, 'comprimento'),
+    numero(d.diametro, 'diametro'),
+    numero(d.peso, 'peso'),
+    numero(d.preco, 'preco'),
+    d.status == null ? 'disponivel' : String(d.status),
+    d.created_at || d.createdAt || null
+  ]);
+}
 async function push(req, res) {
   const ops = jsonBody(req).ops;
   if (!Array.isArray(ops) || ops.length > 2000) return res.status(400).json({ error: 'Pedido inválido.' });
@@ -67,6 +114,7 @@ async function push(req, res) {
       const op = ops[i];
       const del = op.d === null;
       await client.query(UPSERT, [op.c, op.i, del ? null : JSON.stringify(op.d), del, base + i]);
+      await syncProductTable(client, op);
     }
     await client.query('COMMIT');
     return res.status(200).json({ ok: true, rev: Date.now() });

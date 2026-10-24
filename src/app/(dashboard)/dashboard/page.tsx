@@ -105,8 +105,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Visão geral do sistema Logísticas Billcls
-            .</p>
+          <p className="text-muted-foreground">Visão geral do sistema Logísticas Bill.</p>
         </div>
         <button
           type="button"

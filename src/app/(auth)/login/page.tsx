@@ -76,7 +76,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-2xl">Logísticas Bill</CardTitle>
               <CardDescription className="mt-1">
-                Acesse o sistema de gestão logística
+                Sua plataforma de gestão logística.
               </CardDescription>
             </div>
           </CardHeader>

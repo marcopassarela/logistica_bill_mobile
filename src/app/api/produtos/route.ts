@@ -1,4 +1,4 @@
-﻿import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
@@ -106,22 +106,54 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    if (typeof body.adminPassword !== "string" ||
-        !(await verifyAdminPassword(body.adminPassword))) {
-      return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
+
+    if (
+      typeof body.adminPassword !== "string" ||
+      !(await verifyAdminPassword(body.adminPassword))
+    ) {
+      return NextResponse.json(
+        { error: "Senha do administrador inválida" },
+        { status: 403 }
+      );
     }
 
     const id = typeof body.id === "string" ? body.id : "";
-    if (!id) return NextResponse.json({ error: "ID do produto obrigatório" }, { status: 400 });
 
-    const product = await prisma.produto.findUnique({ where: { id }, select: { id: true, ativo: true } });
-    if (!product) return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 });
-    if (!product.ativo) return NextResponse.json({ ok: true });
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID do produto obrigatório" },
+        { status: 400 }
+      );
+    }
 
-    await prisma.produto.update({ where: { id }, data: { ativo: false } });
+    await prisma.produto.delete({ where: { id } });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Erro ao desativar produto:", error);
-    return NextResponse.json({ error: "Não foi possível desativar o produto" }, { status: 500 });
+    const code = prismaError(error);
+
+    if (code === "P2025") {
+      return NextResponse.json(
+        { error: "Produto não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (code === "P2003") {
+      return NextResponse.json(
+        {
+          error:
+            "Este produto está vinculado a carregamentos e não pode ser excluído definitivamente. O histórico foi preservado."
+        },
+        { status: 409 }
+      );
+    }
+
+    console.error("Erro ao excluir produto:", error);
+
+    return NextResponse.json(
+      { error: "Não foi possível excluir o produto" },
+      { status: 500 }
+    );
   }
 }

@@ -832,22 +832,54 @@ const App = {
     });
   },
 
-  salvarProduto(id) {
+  async salvarProduto(id) {
     const obj = {
       codigo: document.getElementById('fCodigo').value.trim(),
       nome: document.getElementById('fNomeProd').value.trim(),
-      comprimento: +document.getElementById('fComp').value,
-      diametro: +document.getElementById('fDiam').value,
-      peso: +document.getElementById('fPeso').value,
-      preco: +document.getElementById('fPreco').value,
-      status: document.getElementById('fProdStatus').value
+      comprimento: +document.getElementById('fComp').value || 0,
+      diametro: +document.getElementById('fDiam').value || 0,
+      peso: +document.getElementById('fPeso').value || 0,
+      preco: +document.getElementById('fPreco').value || 0,
+      status: document.getElementById('fProdStatus').value || 'disponivel'
     };
     if (!obj.codigo) return UI.toast('Informe o código', 'err');
-    if (id) DB.updateItem('produtos', id, obj);
-    else DB.add('produtos', obj);
-    UI.closeModal();
-    this.refreshAll();
-    UI.toast('Produto salvo!');
+
+    const pid = id || DB.uid();
+    const esc = (v) => {
+      if (typeof Layerbase !== 'undefined' && Layerbase.esc) return Layerbase.esc(v);
+      if (v === null || v === undefined) return 'NULL';
+      if (typeof v === 'number') return String(v);
+      return "'" + String(v).replace(/'/g, "''") + "'";
+    };
+
+    try {
+      // Grava direto no Layerbase (sincroniza celular + PC)
+      if (typeof Layerbase !== 'undefined' && Layerbase.isReady()) {
+        const sql =
+          'INSERT INTO produtos (id, codigo, nome, comprimento, diametro, peso, preco, status) VALUES (' +
+          [esc(pid), esc(obj.codigo), esc(obj.nome), esc(obj.comprimento), esc(obj.diametro), esc(obj.peso), esc(obj.preco), esc(obj.status)].join(',') +
+          ') ON CONFLICT (id) DO UPDATE SET ' +
+          'codigo = EXCLUDED.codigo, nome = EXCLUDED.nome, comprimento = EXCLUDED.comprimento, ' +
+          'diametro = EXCLUDED.diametro, peso = EXCLUDED.peso, preco = EXCLUDED.preco, status = EXCLUDED.status';
+        await Layerbase.query(sql);
+      }
+
+      if (id) {
+        DB.updateItem('produtos', id, obj);
+      } else {
+        DB.update(d => {
+          d.produtos.push({ id: pid, ...obj });
+        });
+      }
+      UI.closeModal();
+      this.refreshAll();
+      UI.toast(typeof Layerbase !== 'undefined' && Layerbase.isReady()
+        ? 'Produto salvo no banco (sincronizado)!'
+        : 'Produto salvo só neste aparelho (banco offline)');
+    } catch (e) {
+      console.error(e);
+      UI.toast('Erro ao salvar no banco: ' + (e.message || e), 'err');
+    }
   },
 
   deleteProduto(id) {

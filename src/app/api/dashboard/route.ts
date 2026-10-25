@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -61,6 +61,7 @@ export async function GET() {
       weeklyLoads,
       recentLoads,
       alerts,
+      alertsCount,
     ] = await Promise.all([
       prisma.caminhao.count(),
       prisma.caminhao.groupBy({
@@ -73,8 +74,13 @@ export async function GET() {
         },
         select: {
           data: true,
-          pesoTotal: true,
           status: true,
+          itens: {
+            select: {
+              peso: true,
+              statusItem: true,
+            },
+          },
         },
       }),
       prisma.carregamento.findMany({
@@ -93,6 +99,9 @@ export async function GET() {
         where: { lido: false },
         orderBy: { createdAt: "desc" },
         take: 5,
+      }),
+      prisma.alerta.count({
+        where: { lido: false },
       }),
     ]);
 
@@ -113,10 +122,22 @@ export async function GET() {
       weeklyWeight.set(shiftDay(monday, i), 0);
     }
 
+    const loadedWeightKg = (load: {
+      itens: { peso: unknown; statusItem: string }[];
+    }) =>
+      load.itens.reduce(
+        (sum, item) =>
+          sum + (item.statusItem === "CARREGADO" ? numberOf(item.peso) : 0),
+        0
+      );
+
     for (const load of validLoads) {
       const key = dateKey(load.data);
       if (weeklyWeight.has(key)) {
-        weeklyWeight.set(key, (weeklyWeight.get(key) ?? 0) + numberOf(load.pesoTotal));
+        weeklyWeight.set(
+          key,
+          (weeklyWeight.get(key) ?? 0) + loadedWeightKg(load)
+        );
       }
     }
 
@@ -135,11 +156,11 @@ export async function GET() {
 
     const activeTrucks = truckTotal - (statusMap.MANUTENCAO ?? 0);
     const todayWeightKg = todayLoads.reduce(
-      (sum, load) => sum + numberOf(load.pesoTotal),
+      (sum, load) => sum + loadedWeightKg(load),
       0
     );
     const yesterdayWeightKg = yesterdayLoads.reduce(
-      (sum, load) => sum + numberOf(load.pesoTotal),
+      (sum, load) => sum + loadedWeightKg(load),
       0
     );
 
@@ -149,7 +170,7 @@ export async function GET() {
         caminhoesAtivos: activeTrucks,
         pesoHojeToneladas: Number((todayWeightKg / 1000).toFixed(3)),
         carregamentosHoje: todayLoads.length,
-        alertas: alerts.length,
+        alertas: alertsCount,
         carregamentosOntem: yesterdayLoads.length,
         pesoOntemToneladas: Number((yesterdayWeightKg / 1000).toFixed(3)),
       },
@@ -165,7 +186,7 @@ export async function GET() {
         id: load.id,
         placa: load.caminhao.placa,
         produtos: load.itens.map((item) => item.produto.nome).filter(Boolean),
-        pesoToneladas: Number((numberOf(load.pesoTotal) / 1000).toFixed(3)),
+        pesoToneladas: Number((load.itens.reduce((sum, item) => sum + (item.statusItem === "CARREGADO" ? numberOf(item.peso) : 0), 0) / 1000).toFixed(3)),
         status: load.status,
         data: load.data,
       })),

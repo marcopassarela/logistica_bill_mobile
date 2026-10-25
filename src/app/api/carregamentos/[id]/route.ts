@@ -58,42 +58,215 @@ export async function PATCH(
 
     const data = parsed.data;
 
-    if (data.itens) {
-      await prisma.carregamentoItem.deleteMany({ where: { carregamentoId: id } });
-      const pesoTotal = data.itens.reduce((acc, i) => acc + Number(i.peso), 0);
-      await prisma.carregamento.update({
+    // Validar o peso previsto antes de efetivar a finalização.
+    if (data.status === "FINALIZADO") {
+      const atual = await prisma.carregamento.findUnique({
         where: { id },
-        data: {
-          origem: data.origem,
-          destino: data.destino,
-          observacoes: data.observacoes,
-          status: data.status,
-          pesoTotal,
-          itens: {
-            create: data.itens.map((i) => ({
-              produtoId: i.produtoId,
-              quantidade: i.quantidade,
-              peso: i.peso,
-              statusItem: i.statusItem,
-              observacao: i.observacao || null,
-            })),
+        include: {
+          caminhao: { select: { placa: true, capacidadeKg: true } },
+          itens: { select: { id: true, peso: true, statusItem: true } },
+        },
+      });
+
+      if (!atual) {
+        return NextResponse.json(
+          { error: "Carregamento não encontrado" },
+          { status: 404 }
+        );
+      }
+
+      const idsAtuais = new Set(atual.itens.map((item) => item.id));
+
+      if (
+        data.itens?.some((item) => item.id && !idsAtuais.has(item.id))
+      ) {
+        return NextResponse.json(
+          { error: "Um dos itens não pertence a este carregamento." },
+          { status: 400 }
+        );
+      }
+
+      const itensPrevistos = new Map(
+        atual.itens.map((item) => [
+          item.id,
+          {
+            peso: Number(item.peso),
+            statusItem: item.statusItem,
           },
-        },
+        ])
+      );
+
+      for (const item of data.itens ?? []) {
+        if (item.id) {
+          itensPrevistos.set(item.id, {
+            peso: item.peso,
+            statusItem: item.statusItem,
+          });
+        } else {
+          itensPrevistos.set(`novo-${itensPrevistos.size}`, {
+            peso: item.peso,
+            statusItem: item.statusItem,
+          });
+        }
+      }
+
+      const pesoPrevisto = Array.from(itensPrevistos.values()).reduce(
+        (total, item) =>
+          total + (item.statusItem === "CARREGADO" ? item.peso : 0),
+        0
+      );
+
+      const capacidade = Number(atual.caminhao.capacidadeKg ?? 0);
+
+      if (capacidade > 0 && pesoPrevisto > capacidade) {
+        const alertaPendente = await prisma.alerta.findFirst({
+          where: {
+            tipo: "PESO",
+            referencia: id,
+            lido: false,
+          },
+          select: { id: true },
+        });
+
+        if (!alertaPendente) {
+          await prisma.alerta.create({
+            data: {
+              tipo: "PESO",
+              titulo: "Excesso de peso no carregamento",
+              mensagem: `O caminhão ${atual.caminhao.placa} está com ${pesoPrevisto.toLocaleString("pt-BR")} kg previstos, acima da capacidade de ${capacidade.toLocaleString("pt-BR")} kg.`,
+              severidade: "CRITICAL",
+              referencia: id,
+            },
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error: `Não é possível finalizar: peso carregado (${pesoPrevisto.toLocaleString("pt-BR")} kg) acima da capacidade do caminhão (${capacidade.toLocaleString("pt-BR")} kg).`,
+            pesoCarregado: pesoPrevisto,
+            capacidadeKg: capacidade,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (data.itens) {
+      const existentes = await prisma.carregamentoItem.findMany({
+        where: { carregamentoId: id },
+        select: { id: true },
       });
-    } else {
-      await prisma.carregamento.update({
-        where: { id },
-        data: {
-          origem: data.origem,
-          destino: data.destino,
-          observacoes: data.observacoes,
-          status: data.status,
+      const idsExistentes = new Set(existentes.map((item) => item.id));
+
+      if (data.itens.some((item) => item.id && !idsExistentes.has(item.id))) {
+        return NextResponse.json(
+          { error: "Um dos itens não pertence a este carregamento." },
+          { status: 400 }
+        );
+      }
+
+      for (const item of data.itens) {
+        const itemData = {
+          produtoId: item.produtoId,
+          quantidade: item.quantidade,
+          peso: item.peso,
+          statusItem: item.statusItem,
+          observacao: item.observacao || null,
+        };
+
+        if (item.id) {
+          await prisma.carregamentoItem.update({
+            where: { id: item.id },
+            data: itemData,
+          });
+        } else {
+          await prisma.carregamentoItem.create({
+            data: { ...itemData, carregamentoId: id },
+          });
+        }
+      }
+    }
+
+    await prisma.carregamento.update({
+      where: { id },
+      data: {
+        origem: data.origem,
+        destino: data.destino,
+        observacoes: data.observacoes,
+      },
+    });
+
+    const carregamentoPeso = await prisma.carregamento.findUnique({
+      where: { id },
+      include: {
+        caminhao: { select: { placa: true, capacidadeKg: true } },
+        itens: { select: { peso: true, statusItem: true } },
+      },
+    });
+
+    if (!carregamentoPeso) {
+      return NextResponse.json({ error: "Carregamento não encontrado" }, { status: 404 });
+    }
+
+    const pesoCarregado = carregamentoPeso.itens.reduce(
+      (total, item) =>
+        total + (item.statusItem === "CARREGADO" ? Number(item.peso) : 0),
+      0
+    );
+
+    await prisma.carregamento.update({
+      where: { id },
+      data: { pesoTotal: pesoCarregado },
+    });
+
+    const capacidadeKg = Number(carregamentoPeso.caminhao.capacidadeKg ?? 0);
+
+    if (capacidadeKg > 0 && pesoCarregado > capacidadeKg) {
+      const alertaPendente = await prisma.alerta.findFirst({
+        where: {
+          tipo: "PESO",
+          referencia: id,
+          lido: false,
         },
+        select: { id: true },
       });
+
+      if (!alertaPendente) {
+        await prisma.alerta.create({
+          data: {
+            tipo: "PESO",
+            titulo: "Excesso de peso no carregamento",
+            mensagem: `O caminhão ${carregamentoPeso.caminhao.placa} está com ${pesoCarregado.toLocaleString("pt-BR")} kg carregados, acima da capacidade de ${capacidadeKg.toLocaleString("pt-BR")} kg.`,
+            severidade: "CRITICAL",
+            referencia: id,
+          },
+        });
+      }
+    }
+
+    if (
+      data.status === "FINALIZADO" &&
+      capacidadeKg > 0 &&
+      pesoCarregado > capacidadeKg
+    ) {
+      return NextResponse.json(
+        {
+          error: `Não é possível finalizar: peso carregado (${pesoCarregado.toLocaleString("pt-BR")} kg) acima da capacidade do caminhão (${capacidadeKg.toLocaleString("pt-BR")} kg).`,
+          pesoCarregado,
+          capacidadeKg,
+        },
+        { status: 400 }
+      );
     }
 
     const carreg = await prisma.carregamento.findUnique({ where: { id } });
+
     if (carreg && data.status) {
+      await prisma.carregamento.update({
+        where: { id },
+        data: { status: data.status },
+      });
+
       if (data.status === "FINALIZADO") {
         await prisma.caminhao.update({
           where: { id: carreg.caminhaoId },
@@ -104,14 +277,16 @@ export async function PATCH(
           where: { id: carreg.caminhaoId },
           data: { status: "CARREGANDO" },
         });
-      } else if (data.status === "CANCELADO" || data.status === "NAO_CARREGADO") {
+      } else if (
+        data.status === "CANCELADO" ||
+        data.status === "NAO_CARREGADO"
+      ) {
         await prisma.caminhao.update({
           where: { id: carreg.caminhaoId },
           data: { status: "LIBERADO" },
         });
       }
     }
-
     const updated = await prisma.carregamento.findUnique({
       where: { id },
       include: {

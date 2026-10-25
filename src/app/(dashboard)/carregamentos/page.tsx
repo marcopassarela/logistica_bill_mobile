@@ -264,6 +264,7 @@ export default function CarregamentosPage() {
     const novosItens = carreg.itens.map((it) =>
       it.id === itemId
         ? {
+            id: it.id,
             produtoId: it.produto.id,
             quantidade: num(it.quantidade),
             peso: num(it.peso),
@@ -271,6 +272,7 @@ export default function CarregamentosPage() {
             observacao: it.observacao,
           }
         : {
+            id: it.id,
             produtoId: it.produto.id,
             quantidade: num(it.quantidade),
             peso: num(it.peso),
@@ -288,14 +290,26 @@ export default function CarregamentosPage() {
   }
 
   async function setCarregStatus(carregId: string, novoStatus: string) {
-    const res = await fetch(`/api/carregamentos/${carregId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: novoStatus }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/carregamentos/${carregId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+
+      const resultado = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(resultado.error || `Não foi possível alterar o status (${res.status}).`);
+        await loadLista();
+        await loadBase();
+        return;
+      }
+
       await loadLista();
       await loadBase();
+    } catch {
+      alert("Erro de conexão ao atualizar o carregamento.");
     }
   }
 

@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (data) {
-    const start = new Date(data + "T00:00:00");
-    const end = new Date(data + "T23:59:59.999");
+    const start = new Date(`${data}T00:00:00-03:00`);
+    const end = new Date(`${data}T23:59:59.999-03:00`);
     where.data = { gte: start, lte: end };
   }
   if (caminhaoId) where.caminhaoId = caminhaoId;
@@ -71,12 +71,12 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    const pesoTotal = data.itens.reduce((acc, i) => acc + Number(i.peso), 0);
+    const pesoTotal = data.itens.reduce((acc, i) => acc + (i.statusItem === "CARREGADO" ? Number(i.peso) : 0), 0);
 
     const created = await prisma.carregamento.create({
       data: {
         caminhaoId: data.caminhaoId,
-        data: new Date(data.data),
+        data: new Date(`${data.data}T12:00:00.000-03:00`),
         origem: data.origem || null,
         destino: data.destino || null,
         observacoes: data.observacoes || null,

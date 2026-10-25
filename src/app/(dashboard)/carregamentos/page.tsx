@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -70,7 +70,7 @@ const statusLabel: Record<string, string> = {
   EM_ANDAMENTO: "Em andamento",
   FINALIZADO: "Finalizado",
   CANCELADO: "Cancelado",
-  NAO_CARREGADO: "Não carregado",
+  NAO_CARREGADO: "NÃ£o carregado",
 };
 
 const statusVariant: Record<string, "default" | "success" | "warning" | "destructive" | "secondary"> = {
@@ -83,12 +83,15 @@ const statusVariant: Record<string, "default" | "success" | "warning" | "destruc
 const itemStatusLabel: Record<string, string> = {
   PENDENTE: "Pendente",
   CARREGADO: "Carregado",
-  NAO_CARREGADO: "Não carregou",
+  NAO_CARREGADO: "NÃ£o carregou",
 };
 
 function todayISO() {
   const d = new Date();
-  return d.toISOString().slice(0, 10);
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }
 
 function num(v: number | string | null | undefined) {
@@ -207,7 +210,7 @@ export default function CarregamentosPage() {
     setMsg(null);
 
     if (!caminhaoId) {
-      setMsg({ type: "err", text: "Selecione o caminhão (placa)." });
+      setMsg({ type: "err", text: "Selecione o caminhÃ£o (placa)." });
       return;
     }
     const validItens = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0);
@@ -251,7 +254,7 @@ export default function CarregamentosPage() {
       await loadLista();
       await loadBase();
     } catch {
-      setMsg({ type: "err", text: "Erro de conexão" });
+      setMsg({ type: "err", text: "Erro de conexÃ£o" });
     } finally {
       setSaving(false);
     }
@@ -300,7 +303,7 @@ export default function CarregamentosPage() {
       const resultado = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(resultado.error || `Não foi possível alterar o status (${res.status}).`);
+        alert(resultado.error || `NÃ£o foi possÃ­vel alterar o status (${res.status}).`);
         await loadLista();
         await loadBase();
         return;
@@ -309,7 +312,7 @@ export default function CarregamentosPage() {
       await loadLista();
       await loadBase();
     } catch {
-      alert("Erro de conexão ao atualizar o carregamento.");
+      alert("Erro de conexÃ£o ao atualizar o carregamento.");
     }
   }
 
@@ -344,7 +347,7 @@ export default function CarregamentosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Carregamentos</h1>
           <p className="text-muted-foreground">
-            Monte o que cada caminhão (placa) vai carregar — peso por produto e total, origem, destino e status
+            Monte o que cada caminhÃ£o (placa) vai carregar â€” peso por produto e total, origem, destino e status
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
@@ -354,7 +357,7 @@ export default function CarregamentosPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* FORMULÁRIO */}
+        {/* FORMULÃRIO */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -365,7 +368,7 @@ export default function CarregamentosPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Caminhão (placa) *</Label>
+                <Label>CaminhÃ£o (placa) *</Label>
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   value={caminhaoId}
@@ -375,7 +378,7 @@ export default function CarregamentosPage() {
                   <option value="">Selecione a placa...</option>
                   {caminhoes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.placa} {c.marca ? `— ${c.marca} ${c.modelo || ""}` : ""} ({c.status})
+                      {c.placa} {c.marca ? `â€” ${c.marca} ${c.modelo || ""}` : ""} ({c.status})
                     </option>
                   ))}
                 </select>
@@ -400,7 +403,7 @@ export default function CarregamentosPage() {
                   >
                     <option value="EM_ANDAMENTO">Em andamento</option>
                     <option value="FINALIZADO">Finalizado / Carregou</option>
-                    <option value="NAO_CARREGADO">Não carregou</option>
+                    <option value="NAO_CARREGADO">NÃ£o carregou</option>
                     <option value="CANCELADO">Cancelado</option>
                   </select>
                 </div>
@@ -409,7 +412,7 @@ export default function CarregamentosPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Origem</Label>
-                  <Input value={origem} onChange={(e) => setOrigem(e.target.value)} placeholder="Ex: Armazém SP" />
+                  <Input value={origem} onChange={(e) => setOrigem(e.target.value)} placeholder="Ex: ArmazÃ©m SP" />
                 </div>
                 <div className="space-y-2">
                   <Label>Destino</Label>
@@ -444,7 +447,7 @@ export default function CarregamentosPage() {
                       <option value="">Produto...</option>
                       {produtos.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.codigo} — {p.nome} ({p.unidade})
+                          {p.codigo} â€” {p.nome} ({p.unidade})
                         </option>
                       ))}
                     </select>
@@ -488,7 +491,7 @@ export default function CarregamentosPage() {
                         >
                           <option value="PENDENTE">Pendente</option>
                           <option value="CARREGADO">Carregou</option>
-                          <option value="NAO_CARREGADO">Não carregou</option>
+                          <option value="NAO_CARREGADO">NÃ£o carregou</option>
                         </select>
                       </div>
                     </div>
@@ -517,14 +520,14 @@ export default function CarregamentosPage() {
                     </div>
                     <p className={`text-xs ${percentual > 100 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                       {percentual.toFixed(1)}% da capacidade
-                      {percentual > 100 && " — ACIMA DO LIMITE!"}
+                      {percentual > 100 && " â€” ACIMA DO LIMITE!"}
                     </p>
                   </>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label>Observações</Label>
+                <Label>ObservaÃ§Ãµes</Label>
                 <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Opcional" />
               </div>
 
@@ -543,7 +546,7 @@ export default function CarregamentosPage() {
           </CardContent>
         </Card>
 
-        {/* LISTA / PRÉ-VISUALIZAÇÃO */}
+        {/* LISTA / PRÃ‰-VISUALIZAÃ‡ÃƒO */}
         <Card className="lg:col-span-3">
           <CardHeader className="space-y-3">
             <CardTitle className="text-base">Carregamentos do dia</CardTitle>
@@ -572,7 +575,7 @@ export default function CarregamentosPage() {
               </div>
             ) : listaFiltrada.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                Nenhum carregamento nesta data. Monte um à esquerda e salve.
+                Nenhum carregamento nesta data. Monte um Ã  esquerda e salve.
               </div>
             ) : (
               <div className="space-y-4">
@@ -590,7 +593,7 @@ export default function CarregamentosPage() {
                         <p className="text-xs text-muted-foreground">
                           {formatDateTime(c.data)}
                           {c.origem || c.destino
-                            ? ` • ${c.origem || "?"} → ${c.destino || "?"}`
+                            ? ` â€¢ ${c.origem || "?"} â†’ ${c.destino || "?"}`
                             : ""}
                         </p>
                       </div>
@@ -613,7 +616,7 @@ export default function CarregamentosPage() {
                           <div>
                             <span className="font-medium">{it.produto.nome}</span>
                             <span className="text-muted-foreground text-xs ml-2">
-                              {num(it.quantidade)} {it.produto.unidade} • {num(it.peso).toLocaleString("pt-BR")} kg
+                              {num(it.quantidade)} {it.produto.unidade} â€¢ {num(it.peso).toLocaleString("pt-BR")} kg
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
@@ -634,10 +637,10 @@ export default function CarregamentosPage() {
                               variant={it.statusItem === "NAO_CARREGADO" ? "destructive" : "outline"}
                               className="h-7 text-xs"
                               onClick={() => toggleItemStatus(c.id, it.id, "NAO_CARREGADO")}
-                              title="Marcar como não carregou"
+                              title="Marcar como nÃ£o carregou"
                             >
                               <XCircle className="mr-1 h-3 w-3" />
-                              Não
+                              NÃ£o
                             </Button>
                             <Button
                               type="button"
@@ -661,7 +664,7 @@ export default function CarregamentosPage() {
                         Em andamento
                       </Button>
                       <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "NAO_CARREGADO")}>
-                        Não carregou (geral)
+                        NÃ£o carregou (geral)
                       </Button>
                       <Button
                         size="sm"
@@ -688,7 +691,7 @@ export default function CarregamentosPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
         title="Excluir carregamento"
-        description="Atenção: esta ação excluirá o carregamento e todos os itens relacionados. Digite a senha do administrador para confirmar."
+        description="AtenÃ§Ã£o: esta aÃ§Ã£o excluirÃ¡ o carregamento e todos os itens relacionados. Digite a senha do administrador para confirmar."
       />
     </div>
   );

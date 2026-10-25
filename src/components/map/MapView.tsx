@@ -31,6 +31,7 @@ function makeNumberedIcon(n: number, color = "#2563eb") {
 }
 
 export type MapPoint = {
+  key?: string;
   lat: number;
   lng: number;
   label?: string;
@@ -57,15 +58,19 @@ function FitBounds({ points, geometry }: { points: MapPoint[]; geometry: [number
 
 type Props = {
   points?: MapPoint[];
-  /** Coordenadas da rota já calculada pelo OSRM (segue as estradas) [lat, lng][] */
+  /** Coordenadas da rota calculada pelo OSRM [lat, lng][] */
   routeGeometry?: [number, number][];
   height?: string;
+  editable?: boolean;
+  onPointDrag?: (key: string, lat: number, lng: number) => void;
 };
 
 export default function MapView({
   points = [],
   routeGeometry = [],
   height = "100%",
+  editable = false,
+  onPointDrag,
 }: Props) {
   const center: [number, number] = useMemo(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
@@ -93,8 +98,16 @@ export default function MapView({
 
       {points.map((p, i) => (
         <Marker
-          key={`${p.lat}-${p.lng}-${i}`}
+          key={p.key ?? `${p.lat}-${p.lng}-${i}`}
           position={[p.lat, p.lng]}
+          draggable={editable && Boolean(p.key)}
+          eventHandlers={{
+            dragend: (event) => {
+              if (!p.key || !onPointDrag) return;
+              const position = event.target.getLatLng();
+              onPointDrag(p.key, position.lat, position.lng);
+            },
+          }}
           icon={makeNumberedIcon(p.ordem ?? i + 1, i === 0 ? "#16a34a" : i === points.length - 1 ? "#dc2626" : "#2563eb")}
         >
           <Popup>
@@ -105,6 +118,7 @@ export default function MapView({
             <div className="text-xs opacity-70">
               {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
             </div>
+            {editable ? <div>Arraste para ajustar a localização</div> : null}
           </Popup>
         </Marker>
       ))}

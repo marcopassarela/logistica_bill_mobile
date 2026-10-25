@@ -12,6 +12,8 @@ import {
   Navigation,
   Truck,
   RefreshCw,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +82,7 @@ export default function RotasPage() {
   const [searching, setSearching] = useState(false);
   const [routing, setRouting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [durationMin, setDurationMin] = useState<number | null>(null);
@@ -89,23 +92,180 @@ export default function RotasPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [cRes, rRes] = await Promise.all([fetch("/api/caminhoes"), fetch("/api/rotas")]);
-    if (cRes.ok) setCaminhoes(await cRes.json());
-    if (rRes.ok) setRotas(await rRes.json());
+    setRefreshing(true);
+    try {
+      const [cRes, rRes] = await Promise.all([
+        fetch("/api/caminhoes", { cache: "no-store" }),
+        fetch("/api/rotas", { cache: "no-store" }),
+      ]);
+
+      if (!cRes.ok || !rRes.ok) {
+        throw new Error("Uma das consultas não foi concluída.");
+      }
+
+      const [caminhoesData, rotasData] = await Promise.all([
+        cRes.json(),
+        rRes.json(),
+      ]);
+
+      setCaminhoes(caminhoesData);
+      setRotas(rotasData);
+    } catch (error) {
+      console.error("Erro ao atualizar Rotas:", error);
+      setMsg({
+        type: "err",
+        text: "Não foi possível atualizar as rotas. Verifique sua conexão e tente novamente.",
+      });
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (searchIdx === null) return;
+
+    const wp = waypoints[searchIdx];
+    if (!wp || wp.query.trim().length < 3 || parseCoordinates(wp.query)) {
+      setSearchResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const query = wp.query.trim();
+
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await geocodeSearch(query);
+        if (!cancelled) setSearchResults(results);
+      } catch (error) {
+        console.error("Erro na pesquisa de endereÃ§o:", error);
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [waypoints, searchIdx]);
+
+  // Recalcula o trajeto automaticamente após alterações nos pontos.
+  // Aguarda 800 ms para evitar várias chamadas enquanto o usuário edita.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const todosValidos =
+      waypoints.length >= 2 &&
+      waypoints.every(
+        (w) =>
+          w.lat != null &&
+          w.lng != null &&
+          Number.isFinite(w.lat) &&
+          Number.isFinite(w.lng)
+      );
+
+    setRouteGeometry([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setRouting(false);
+
+    if (!todosValidos) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    timer = setTimeout(async () => {
+      setRouting(true);
+
+      try {
+        const points: LatLng[] = waypoints.map((w) => ({
+          lat: w.lat!,
+          lng: w.lng!,
+        }));
+
+        const result = await fetchDrivingRoute(points);
+
+        if (cancelled) return;
+
+        if (!result) {
+          setRouteGeometry([]);
+          setDistanceKm(null);
+          setDurationMin(null);
+          setMsg({
+            type: "err",
+            text: "Não foi possível calcular o trajeto pelas estradas. Verifique os pontos.",
+          });
+          return;
+        }
+
+        setRouteGeometry(result.geometry);
+        setDistanceKm(result.distanceKm);
+        setDurationMin(result.durationMin);
+        setMsg({
+          type: "ok",
+          text: `Trajeto atualizado automaticamente: ${result.distanceKm.toFixed(1)} km · ~${Math.round(result.durationMin)} min`,
+        });
+      } catch {
+        if (!cancelled) {
+          setRouteGeometry([]);
+          setDistanceKm(null);
+          setDurationMin(null);
+          setMsg({
+            type: "err",
+            text: "Falha ao atualizar o trajeto automaticamente. Tente novamente.",
+          });
+        }
+      } finally {
+        if (!cancelled) setRouting(false);
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [waypoints]);
   const mapPoints = waypoints
     .filter((w) => w.lat != null && w.lng != null)
     .map((w, i) => ({
+      key: w.key,
       lat: w.lat!,
       lng: w.lng!,
       label: w.nome || w.endereco || w.query,
       ordem: i + 1,
     }));
+
+  function handlePointDrag(key: string, lat: number, lng: number) {
+    setWaypoints((prev) =>
+      prev.map((w) =>
+        w.key === key
+          ? {
+              ...w,
+              lat,
+              lng,
+              endereco: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            }
+          : w
+      )
+    );
+
+    setRouteGeometry([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setMsg({
+      type: "ok",
+      text: "Localização ajustada. Clique em Calcular rota e depois em Salvar rota para persistir a alteração.",
+    });
+  }
 
   async function doSearch(idx: number) {
     const q = waypoints[idx].query.trim();
@@ -168,6 +328,25 @@ export default function RotasPage() {
     setWaypoints((prev) => (prev.length <= 2 ? prev : prev.filter((w) => w.key !== key)));
   }
 
+  function moveWaypoint(index: number, direction: -1 | 1) {
+    setWaypoints((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+
+    setRouteGeometry([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setMsg({
+      type: "ok",
+      text: "Ordem alterada. Recalcule a rota para atualizar o percurso.",
+    });
+  }
+
   async function calcularRotaNasEstradas() {
     setMsg(null);
     const pts: LatLng[] = waypoints
@@ -200,12 +379,130 @@ export default function RotasPage() {
         text: `Rota pelas estradas: ${result.distanceKm.toFixed(1)} km • ~${Math.round(result.durationMin)} min`,
       });
     } catch {
-      setMsg({ type: "err", text: "Erro ao consultar o serviço de rotas (OSRM)." });
+      setMsg({ type: "err", text: "Erro ao consultar o serviÃ§o de rotas (OSRM)." });
     } finally {
       setRouting(false);
     }
   }
 
+  async function otimizarMelhorRota() {
+    const validos =
+      waypoints.length >= 3 &&
+      waypoints.every(
+        (w) =>
+          w.lat != null &&
+          w.lng != null &&
+          Number.isFinite(w.lat) &&
+          Number.isFinite(w.lng)
+      );
+
+    if (!validos) {
+      setMsg({
+        type: "err",
+        text: "Informe origem, destino final e pelo menos uma parada intermediária com coordenadas válidas.",
+      });
+      return;
+    }
+
+    setRouting(true);
+    setMsg({
+      type: "ok",
+      text: "Comparando a distância atual com uma sequência alternativa pelas estradas...",
+    });
+
+    try {
+      const response = await fetch("/api/geo/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          points: waypoints.map((w) => ({
+            lat: w.lat,
+            lng: w.lng,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (
+        !response.ok ||
+        !Array.isArray(data.order) ||
+        !Number.isFinite(data.currentDistanceKm) ||
+        !Number.isFinite(data.optimizedDistanceKm) ||
+        !Number.isFinite(data.savingsKm)
+      ) {
+        throw new Error(
+          data.error || "Não foi possível comparar as distâncias rodoviárias."
+        );
+      }
+
+      if (
+        data.order.length !== waypoints.length ||
+        new Set(data.order).size !== waypoints.length ||
+        data.order.some(
+          (index: number) =>
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= waypoints.length
+        ) ||
+        data.order[0] !== 0 ||
+        data.order[data.order.length - 1] !== waypoints.length - 1
+      ) {
+        throw new Error("O serviço retornou uma sequência inválida.");
+      }
+
+      const distanciaAtual = data.currentDistanceKm as number;
+      const distanciaProposta = data.optimizedDistanceKm as number;
+      const economia = distanciaAtual - distanciaProposta;
+
+      const km = (valor: number) =>
+        valor.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+
+      // Exige mais de 50 metros de economia para evitar trocas irrelevantes.
+      if (economia <= 0.05) {
+        setMsg({
+          type: "ok",
+          text:
+            `Nenhuma economia relevante encontrada. ` +
+            `Trajeto atual: ${km(distanciaAtual)} km; ` +
+            `alternativa: ${km(distanciaProposta)} km. ` +
+            "A ordem original foi mantida.",
+        });
+        return;
+      }
+
+      const sequencia = data.order.map(
+        (index: number) => waypoints[index]
+      );
+
+      setWaypoints(sequencia);
+      setRouteGeometry([]);
+      setDistanceKm(null);
+      setDurationMin(null);
+
+      setMsg({
+        type: "ok",
+        text:
+          `Sequência reorganizada! Economia rodoviária estimada: ` +
+          `${km(economia)} km ` +
+          `(${km(distanciaAtual)} km → ${km(distanciaProposta)} km). ` +
+          "Recalculando o traçado e o tempo estimado.",
+      });
+    } catch (error) {
+      setMsg({
+        type: "err",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Erro ao otimizar a rota.",
+      });
+    } finally {
+      setRouting(false);
+    }
+  }
   async function salvarRota() {
     setMsg(null);
     const valid = waypoints.filter((w) => w.lat != null && w.lng != null);
@@ -232,8 +529,10 @@ export default function RotasPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/rotas", {
-        method: "POST",
+      const res = await fetch(
+        selectedRotaId ? `/api/rotas/${selectedRotaId}` : "/api/rotas",
+        {
+        method: selectedRotaId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: nomeRota.trim(),
@@ -260,14 +559,26 @@ export default function RotasPage() {
         setMsg({ type: "err", text: data.error || "Erro ao salvar" });
         return;
       }
-      setMsg({ type: "ok", text: "Rota salva no banco! Você pode criar outra para outro caminhão." });
-      setNomeRota("");
-      setCaminhaoId("");
-      setWaypoints([emptyWp(), emptyWp()]);
-      setRouteGeometry([]);
-      setDistanceKm(null);
-      setDurationMin(null);
-      await load();
+      if (selectedRotaId) {
+        setMsg({
+          type: "ok",
+          text: "Rota atualizada no banco com sucesso.",
+        });
+        await load();
+      } else {
+        setMsg({
+          type: "ok",
+          text: "Rota salva no banco! Você pode criar outra para outro caminhão.",
+        });
+        setNomeRota("");
+        setCaminhaoId("");
+        setSelectedRotaId(null);
+        setWaypoints([emptyWp(), emptyWp()]);
+        setRouteGeometry([]);
+        setDistanceKm(null);
+        setDurationMin(null);
+        await load();
+      }
     } catch {
       setMsg({ type: "err", text: "Erro de conexão" });
     } finally {
@@ -334,9 +645,9 @@ export default function RotasPage() {
             Organize os pontos de entrega e defina a melhor sequência de paradas para cada caminhão.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Atualizar
+        <Button variant="outline" size="sm" onClick={load} disabled={refreshing}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Atualizando..." : "Atualizar"}
         </Button>
       </div>
 
@@ -395,26 +706,67 @@ export default function RotasPage() {
                         ? `${idx + 1}. Destino`
                         : `${idx + 1}. Entrega / parada`}
                     </span>
-                    {waypoints.length > 2 && (
+                    <div className="flex items-center gap-1">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => removeWaypoint(wp.key)}
+                        className="h-7 w-7"
+                        title="Mover ponto para cima"
+                        aria-label="Mover ponto para cima"
+                        disabled={idx === 0}
+                        onClick={() => moveWaypoint(idx, -1)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <ArrowUp className="h-3.5 w-3.5" />
                       </Button>
-                    )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Mover ponto para baixo"
+                        aria-label="Mover ponto para baixo"
+                        disabled={idx === waypoints.length - 1}
+                        onClick={() => moveWaypoint(idx, 1)}
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
+                      {waypoints.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          title="Remover ponto"
+                          aria-label="Remover ponto"
+                          onClick={() => removeWaypoint(wp.key)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Input
                       value={wp.query}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const query = e.target.value;
                         setWaypoints((prev) =>
-                          prev.map((w, i) => (i === idx ? { ...w, query: e.target.value } : w))
-                        )
-                      }
+                          prev.map((w, i) =>
+                            i === idx
+                              ? {
+                                  ...w,
+                                  query,
+                                  lat: null,
+                                  lng: null,
+                                  endereco: "",
+                                }
+                              : w
+                          )
+                        );
+                        setSearchIdx(idx);
+                        setSearchResults([]);
+                      }}
                       placeholder="Bairro, rua, comércio ou -23.55,-46.63"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -484,9 +836,18 @@ export default function RotasPage() {
             )}
 
             <div className="flex flex-col gap-2">
-              <Button type="button" variant="secondary" onClick={calcularRotaNasEstradas} disabled={routing}>
-                {routing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Navigation className="mr-2 h-4 w-4" />}
-                Calcular rota nas estradas
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={otimizarMelhorRota}
+                disabled={routing || saving}
+              >
+                {routing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Route className="mr-2 h-4 w-4" />
+                )}
+                Otimizar melhor rota
               </Button>
               <Button type="button" onClick={salvarRota} disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
@@ -500,7 +861,12 @@ export default function RotasPage() {
         <div className="lg:col-span-3 space-y-4">
           <Card className="overflow-hidden">
             <CardContent className="p-0 h-[380px] lg:h-[420px]">
-              <MapView points={mapPoints} routeGeometry={routeGeometry} />
+              <MapView
+                points={mapPoints}
+                routeGeometry={routeGeometry}
+                editable={true}
+                onPointDrag={handlePointDrag}
+              />
             </CardContent>
           </Card>
 
@@ -562,7 +928,7 @@ export default function RotasPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
         title="Excluir rota"
-        description="Atenção: esta ação excluirá a rota e todos os pontos relacionados. Digite a senha do administrador para confirmar."
+        description="Atenção: esta aÃ§Ã£o excluirá a rota e todos os pontos relacionados. Digite a senha do administrador para confirmar."
       />
     </div>
   );

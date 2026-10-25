@@ -295,6 +295,10 @@ export default function CarregamentosPage() {
         return;
       }
 
+      if (resultado.avisoExcessoPeso) {
+        alert(resultado.avisoExcessoPeso);
+      }
+
       await loadLista();
     } catch (erro) {
       console.error("Erro ao alterar status do item:", erro);
@@ -705,3 +709,6 @@ export default function CarregamentosPage() {
     </div>
   );
 }
+
+
+

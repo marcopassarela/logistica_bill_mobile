@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { z } from "zod";
@@ -27,7 +27,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
 
   const { id } = await params;
   const item = await prisma.carregamento.findUnique({
@@ -37,7 +37,7 @@ export async function GET(
       itens: { include: { produto: true } },
     },
   });
-  if (!item) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  if (!item) return NextResponse.json({ error: "NÃ£o encontrado" }, { status: 404 });
   return NextResponse.json(item);
 }
 
@@ -47,7 +47,7 @@ export async function PATCH(
 ) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
   }
 
   const { id } = await params;
@@ -58,7 +58,7 @@ export async function PATCH(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { error: "Dados invÃ¡lidos", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -92,7 +92,7 @@ export async function PATCH(
         return { erro: "ITEM_INVALIDO" as const };
       }
 
-      // Preserva itens não enviados e aplica as alterações apenas em memória.
+      // Preserva itens nÃ£o enviados e aplica as alteraÃ§Ãµes apenas em memÃ³ria.
       const previstos = new Map(
         atual.itens.map((item) => [
           item.id,
@@ -129,20 +129,17 @@ export async function PATCH(
         return { erro: "PESO_INVALIDO" as const };
       }
 
-      if (
+      const excessoPeso =
         validarPeso &&
         capacidadeKg > 0 &&
-        pesoPrevisto > capacidadeKg
-      ) {
-        return {
-          erro: "EXCESSO_PESO" as const,
-          pesoCarregado: pesoPrevisto,
-          capacidadeKg,
-          placa: atual.caminhao.placa,
-        };
+        pesoPrevisto > capacidadeKg;
+
+      if (excessoPeso) {
+        // O excesso gera alerta, mas nao bloqueia a gravacao.
+        // A validacao continua informativa para a operacao.
       }
 
-      // Nenhuma gravação ocorre antes das validações acima.
+      // Nenhuma gravaÃ§Ã£o ocorre antes das validaÃ§Ãµes acima.
       if (data.itens !== undefined) {
         for (const item of data.itens) {
           const itemData = {
@@ -177,7 +174,7 @@ export async function PATCH(
         },
       });
 
-      // Preserva os estados operacionais especiais do caminhão.
+      // Preserva os estados operacionais especiais do caminhÃ£o.
       if (
         atual.caminhao.status !== "EM_ROTA" &&
         atual.caminhao.status !== "MANUTENCAO"
@@ -216,85 +213,88 @@ export async function PATCH(
         },
       });
 
-      return { dados: atualizado };
+      return {
+        dados: atualizado,
+        avisoExcessoPeso: excessoPeso
+          ? {
+              pesoCarregado: pesoPrevisto,
+              capacidadeKg,
+              placa: atual.caminhao.placa,
+            }
+          : null,
+      };
     });
 
     if ("erro" in resultado) {
       if (resultado.erro === "NAO_ENCONTRADO") {
         return NextResponse.json(
-          { error: "Carregamento não encontrado" },
+          { error: "Carregamento nÃ£o encontrado" },
           { status: 404 }
         );
       }
 
       if (resultado.erro === "ITEM_INVALIDO") {
         return NextResponse.json(
-          { error: "Um dos itens não pertence a este carregamento." },
+          { error: "Um dos itens nÃ£o pertence a este carregamento." },
           { status: 400 }
         );
       }
 
       if (resultado.erro === "PESO_INVALIDO") {
         return NextResponse.json(
-          { error: "Peso carregado inválido." },
-          { status: 400 }
-        );
-      }
-
-      if (resultado.erro === "EXCESSO_PESO") {
-        // Registrar alerta somente para excesso real de capacidade.
-        // A transação anterior já terminou sem gravar o carregamento inválido.
-        if (
-          Number.isFinite(resultado.pesoCarregado) &&
-          Number.isFinite(resultado.capacidadeKg) &&
-          resultado.capacidadeKg > 0 &&
-          resultado.pesoCarregado > resultado.capacidadeKg
-        ) {
-          try {
-            const alertaPendente = await prisma.alerta.findFirst({
-              where: {
-                tipo: "PESO",
-                referencia: id,
-                lido: false,
-              },
-              select: { id: true },
-            });
-
-            if (!alertaPendente) {
-              await prisma.alerta.create({
-                data: {
-                  tipo: "PESO",
-                  titulo: "Excesso de peso no carregamento",
-                  mensagem: `O caminhão ${resultado.placa} está com ${resultado.pesoCarregado.toLocaleString("pt-BR")} kg previstos, acima da capacidade de ${resultado.capacidadeKg.toLocaleString("pt-BR")} kg.`,
-                  severidade: "CRITICAL",
-                  referencia: id,
-                },
-              });
-            }
-          } catch (erroAlerta) {
-            console.error(
-              "Não foi possível registrar o alerta de excesso de peso:",
-              erroAlerta
-            );
-          }
-        }
-        return NextResponse.json(
-          {
-            error: `Carregamento não permitido: o peso previsto (${resultado.pesoCarregado.toLocaleString("pt-BR")} kg) excede a capacidade do caminhão ${resultado.placa} (${resultado.capacidadeKg.toLocaleString("pt-BR")} kg).`,
-            pesoCarregado: resultado.pesoCarregado,
-            capacidadeKg: resultado.capacidadeKg,
-          },
+          { error: "Peso carregado invÃ¡lido." },
           { status: 400 }
         );
       }
 
       return NextResponse.json(
-        { error: "Não foi possível validar o carregamento." },
+        { error: "NÃ£o foi possÃ­vel validar o carregamento." },
         { status: 400 }
       );
     }
 
-    return NextResponse.json(resultado.dados);
+    let avisoExcessoPeso: string | null = null;
+
+    if (resultado.avisoExcessoPeso) {
+      const excesso = resultado.avisoExcessoPeso;
+      const formatarKg = (valor: number) =>
+        valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+      avisoExcessoPeso =
+        `ATENCAO: o caminhao ${excesso.placa} esta com ` +
+        `${formatarKg(excesso.pesoCarregado)} kg carregados, acima da ` +
+        `capacidade cadastrada de ${formatarKg(excesso.capacidadeKg)} kg.`;
+
+      try {
+        const alertaPendente = await prisma.alerta.findFirst({
+          where: {
+            tipo: "PESO",
+            referencia: id,
+            lido: false,
+          },
+          select: { id: true },
+        });
+
+        if (!alertaPendente) {
+          await prisma.alerta.create({
+            data: {
+              tipo: "PESO",
+              titulo: "Excesso de peso no carregamento",
+              mensagem: avisoExcessoPeso,
+              severidade: "CRITICAL",
+              referencia: id,
+            },
+          });
+        }
+      } catch (erroAlerta) {
+        console.error("Carregamento salvo, mas nao foi possivel registrar o alerta de peso:", erroAlerta);
+      }
+    }
+
+    return NextResponse.json({
+      ...resultado.dados,
+      ...(avisoExcessoPeso ? { avisoExcessoPeso } : {}),
+    });
   } catch (e) {
     console.error("Erro ao atualizar carregamento:", e);
     return NextResponse.json(
@@ -309,7 +309,7 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
   }
 
   try {
@@ -320,7 +320,7 @@ export async function DELETE(
       !(await verifyAdminPassword(body.adminPassword))
     ) {
       return NextResponse.json(
-        { error: "Senha do administrador inválida" },
+        { error: "Senha do administrador invÃ¡lida" },
         { status: 403 }
       );
     }
@@ -328,7 +328,7 @@ export async function DELETE(
     const { id } = await params;
     if (!id) {
       return NextResponse.json(
-        { error: "ID do carregamento obrigatório" },
+        { error: "ID do carregamento obrigatÃ³rio" },
         { status: 400 }
       );
     }
@@ -361,7 +361,7 @@ export async function DELETE(
         return { ok: true };
       }
 
-      // Não interferir em caminhões em rota ou em manutenção.
+      // NÃ£o interferir em caminhÃµes em rota ou em manutenÃ§Ã£o.
       if (
         caminhao.status === "EM_ROTA" ||
         caminhao.status === "MANUTENCAO"
@@ -402,15 +402,16 @@ export async function DELETE(
       error.message === "CARREGAMENTO_NAO_ENCONTRADO"
     ) {
       return NextResponse.json(
-        { error: "Carregamento não encontrado" },
+        { error: "Carregamento nÃ£o encontrado" },
         { status: 404 }
       );
     }
 
     console.error("Erro ao excluir carregamento:", error);
     return NextResponse.json(
-      { error: "Não foi possível excluir o carregamento" },
+      { error: "NÃ£o foi possÃ­vel excluir o carregamento" },
       { status: 500 }
     );
   }
 }
+

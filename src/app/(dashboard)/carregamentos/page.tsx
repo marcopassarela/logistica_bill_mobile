@@ -210,7 +210,7 @@ export default function CarregamentosPage() {
     setMsg(null);
 
     if (!caminhaoId) {
-      setMsg({ type: "err", text: "Selecione o caminhÃ£o (placa)." });
+      setMsg({ type: "err", text: "Selecione o caminhão (placa)." });
       return;
     }
     const validItens = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0);
@@ -347,7 +347,7 @@ export default function CarregamentosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Carregamentos</h1>
           <p className="text-muted-foreground">
-            Monte o que cada caminhÃ£o (placa) vai carregar â€” peso por produto e total, origem, destino e status
+            Monte o que cada caminhão (placa) vai carregar — peso por produto e total, origem, destino e status
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
@@ -368,7 +368,7 @@ export default function CarregamentosPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>CaminhÃ£o (placa) *</Label>
+                <Label>Caminhão (placa) *</Label>
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   value={caminhaoId}
@@ -412,7 +412,7 @@ export default function CarregamentosPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Origem</Label>
-                  <Input value={origem} onChange={(e) => setOrigem(e.target.value)} placeholder="Ex: ArmazÃ©m SP" />
+                  <Input value={origem} onChange={(e) => setOrigem(e.target.value)} placeholder="Ex: Tubarão SC" />
                 </div>
                 <div className="space-y-2">
                   <Label>Destino</Label>
@@ -527,7 +527,7 @@ export default function CarregamentosPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>ObservaÃ§Ãµes</Label>
+                <Label>Observações</Label>
                 <Input value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Opcional" />
               </div>
 
@@ -575,7 +575,7 @@ export default function CarregamentosPage() {
               </div>
             ) : listaFiltrada.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                Nenhum carregamento nesta data. Monte um Ã  esquerda e salve.
+                Nenhum carregamento nesta data. Monte uma a esquerda e salve.
               </div>
             ) : (
               <div className="space-y-4">

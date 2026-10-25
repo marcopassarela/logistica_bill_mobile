@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { z } from "zod";
@@ -294,6 +294,9 @@ export async function PATCH(
     return NextResponse.json({
       ...resultado.dados,
       ...(avisoExcessoPeso ? { avisoExcessoPeso } : {}),
+      ...(resultado.avisoExcessoPeso
+        ? { detalhesExcessoPeso: resultado.avisoExcessoPeso }
+        : {}),
     });
   } catch (e) {
     console.error("Erro ao atualizar carregamento:", e);
@@ -414,4 +417,3 @@ export async function DELETE(
     );
   }
 }
-

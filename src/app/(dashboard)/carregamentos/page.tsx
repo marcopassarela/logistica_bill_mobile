@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +112,22 @@ export default function CarregamentosPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [avisoPeso, setAvisoPeso] = useState<{
+    pesoCarregado: number;
+    capacidadeKg: number;
+    placa: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!avisoPeso) return;
+
+    function fecharComEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setAvisoPeso(null);
+    }
+
+    window.addEventListener("keydown", fecharComEscape);
+    return () => window.removeEventListener("keydown", fecharComEscape);
+  }, [avisoPeso]);
 
   // form
   const [caminhaoId, setCaminhaoId] = useState("");
@@ -296,7 +314,7 @@ export default function CarregamentosPage() {
       }
 
       if (resultado.avisoExcessoPeso) {
-        alert(resultado.avisoExcessoPeso);
+        setAvisoPeso(resultado.detalhesExcessoPeso ?? null);
       }
 
       await loadLista();
@@ -699,6 +717,84 @@ export default function CarregamentosPage() {
         </Card>
       </div>
 
+      {avisoPeso && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setAvisoPeso(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-aviso-peso"
+            className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="mb-5 flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 id="titulo-aviso-peso" className="text-lg font-bold">
+                    Atenção: excesso de peso
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    O item foi carregado com sucesso, mas o limite de peso foi ultrapassado.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Fechar aviso"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  onClick={() => setAvisoPeso(null)}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-4 rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Caminhão</p>
+                <p className="font-semibold">{avisoPeso.placa}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-950/40">
+                  <p className="text-xs text-muted-foreground">Peso carregado</p>
+                  <p className="mt-1 text-lg font-bold text-amber-700 dark:text-amber-300">
+                    {avisoPeso.pesoCarregado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">Capacidade máxima</p>
+                  <p className="mt-1 text-lg font-bold">
+                    {avisoPeso.capacidadeKg.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-amber-500/40 p-3">
+                <p className="text-sm text-muted-foreground">Excesso de peso</p>
+                <p className="text-xl font-bold text-amber-600">
+                  {(avisoPeso.pesoCarregado - avisoPeso.capacidadeKg).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                </p>
+              </div>
+
+              <div className="mt-4 text-sm text-muted-foreground">
+                Verifique a carga e a capacidade do caminhão antes de continuar a operação.
+              </div>
+
+              <Button
+                type="button"
+                className="mt-6 w-full bg-amber-600 text-white hover:bg-amber-700"
+                onClick={() => setAvisoPeso(null)}
+              >
+                Entendi, fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AdminPasswordModal
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -709,6 +805,3 @@ export default function CarregamentosPage() {
     </div>
   );
 }
-
-
-

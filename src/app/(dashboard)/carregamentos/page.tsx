@@ -262,36 +262,45 @@ export default function CarregamentosPage() {
 
   async function toggleItemStatus(carregId: string, itemId: string, novo: "CARREGADO" | "NAO_CARREGADO" | "PENDENTE") {
     const carreg = lista.find((c) => c.id === carregId);
-    if (!carreg) return;
+    if (!carreg) {
+      alert("Carregamento nao encontrado na lista. Atualize a pagina.");
+      return;
+    }
 
-    const novosItens = carreg.itens.map((it) =>
-      it.id === itemId
-        ? {
-            id: it.id,
-            produtoId: it.produto.id,
-            quantidade: num(it.quantidade),
-            peso: num(it.peso),
-            statusItem: novo,
-            observacao: it.observacao,
-          }
-        : {
-            id: it.id,
-            produtoId: it.produto.id,
-            quantidade: num(it.quantidade),
-            peso: num(it.peso),
-            statusItem: it.statusItem as "PENDENTE" | "CARREGADO" | "NAO_CARREGADO",
-            observacao: it.observacao,
-          }
-    );
+    const novosItens = carreg.itens.map((it) => ({
+      id: it.id,
+      produtoId: it.produto.id,
+      quantidade: num(it.quantidade),
+      peso: num(it.peso),
+      statusItem: it.id === itemId
+        ? novo
+        : it.statusItem as "PENDENTE" | "CARREGADO" | "NAO_CARREGADO",
+      observacao: it.observacao,
+    }));
 
-    const res = await fetch(`/api/carregamentos/${carregId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itens: novosItens }),
-    });
-    if (res.ok) await loadLista();
+    try {
+      const res = await fetch(`/api/carregamentos/${carregId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itens: novosItens }),
+      });
+
+      const resultado = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const mensagem = resultado.error ||
+          `Nao foi possivel atualizar o item (HTTP ${res.status}).`;
+        alert(mensagem);
+        await loadLista();
+        return;
+      }
+
+      await loadLista();
+    } catch (erro) {
+      console.error("Erro ao alterar status do item:", erro);
+      alert("Erro de conexao ao atualizar o item. Verifique a conexao e tente novamente.");
+    }
   }
-
   async function setCarregStatus(carregId: string, novoStatus: string) {
     try {
       const res = await fetch(`/api/carregamentos/${carregId}`, {

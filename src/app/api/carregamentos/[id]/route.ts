@@ -46,47 +46,54 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const { id } = await params;
+
   try {
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
+
     if (!parsed.success) {
-      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const data = parsed.data;
 
-    // Validar o peso previsto antes de efetivar a finalização.
-    if (data.status === "FINALIZADO") {
-      const atual = await prisma.carregamento.findUnique({
+    const resultado = await prisma.$transaction(async (tx) => {
+      const atual = await tx.carregamento.findUnique({
         where: { id },
         include: {
-          caminhao: { select: { placa: true, capacidadeKg: true } },
-          itens: { select: { id: true, peso: true, statusItem: true } },
+          caminhao: {
+            select: { id: true, placa: true, capacidadeKg: true, status: true },
+          },
+          itens: {
+            select: {
+              id: true,
+              peso: true,
+              statusItem: true,
+            },
+          },
         },
       });
 
       if (!atual) {
-        return NextResponse.json(
-          { error: "Carregamento não encontrado" },
-          { status: 404 }
-        );
+        return { erro: "NAO_ENCONTRADO" as const };
       }
 
       const idsAtuais = new Set(atual.itens.map((item) => item.id));
 
-      if (
-        data.itens?.some((item) => item.id && !idsAtuais.has(item.id))
-      ) {
-        return NextResponse.json(
-          { error: "Um dos itens não pertence a este carregamento." },
-          { status: 400 }
-        );
+      if (data.itens?.some((item) => item.id && !idsAtuais.has(item.id))) {
+        return { erro: "ITEM_INVALIDO" as const };
       }
 
-      const itensPrevistos = new Map(
+      // Preserva itens não enviados e aplica as alterações apenas em memória.
+      const previstos = new Map(
         atual.itens.map((item) => [
           item.id,
           {
@@ -96,240 +103,314 @@ export async function PATCH(
         ])
       );
 
-      for (const item of data.itens ?? []) {
-        if (item.id) {
-          itensPrevistos.set(item.id, {
-            peso: item.peso,
-            statusItem: item.statusItem,
-          });
-        } else {
-          itensPrevistos.set(`novo-${itensPrevistos.size}`, {
-            peso: item.peso,
-            statusItem: item.statusItem,
-          });
-        }
+      for (const [indice, item] of (data.itens ?? []).entries()) {
+        previstos.set(item.id ?? `novo-${indice}`, {
+          peso: item.peso,
+          statusItem: item.statusItem,
+        });
       }
 
-      const pesoPrevisto = Array.from(itensPrevistos.values()).reduce(
+      const pesoPrevisto = Array.from(previstos.values()).reduce(
         (total, item) =>
           total + (item.statusItem === "CARREGADO" ? item.peso : 0),
         0
       );
 
-      const capacidade = Number(atual.caminhao.capacidadeKg ?? 0);
+      const capacidadeKg = Number(atual.caminhao.capacidadeKg ?? 0);
 
-      if (capacidade > 0 && pesoPrevisto > capacidade) {
-        const alertaPendente = await prisma.alerta.findFirst({
+      const validarPeso =
+        data.status === "FINALIZADO" ||
+        data.status === "EM_ANDAMENTO" ||
+        (data.itens !== undefined &&
+          data.status !== "CANCELADO" &&
+          data.status !== "NAO_CARREGADO");
+
+      if (!Number.isFinite(pesoPrevisto) || pesoPrevisto < 0) {
+        return { erro: "PESO_INVALIDO" as const };
+      }
+
+      if (
+        validarPeso &&
+        capacidadeKg > 0 &&
+        pesoPrevisto > capacidadeKg
+      ) {
+        return {
+          erro: "EXCESSO_PESO" as const,
+          pesoCarregado: pesoPrevisto,
+          capacidadeKg,
+          placa: atual.caminhao.placa,
+        };
+      }
+
+      // Nenhuma gravação ocorre antes das validações acima.
+      if (data.itens !== undefined) {
+        for (const item of data.itens) {
+          const itemData = {
+            produtoId: item.produtoId,
+            quantidade: item.quantidade,
+            peso: item.peso,
+            statusItem: item.statusItem,
+            observacao: item.observacao ?? null,
+          };
+
+          if (item.id) {
+            await tx.carregamentoItem.update({
+              where: { id: item.id },
+              data: itemData,
+            });
+          } else {
+            await tx.carregamentoItem.create({
+              data: { ...itemData, carregamentoId: id },
+            });
+          }
+        }
+      }
+
+      await tx.carregamento.update({
+        where: { id },
+        data: {
+          origem: data.origem,
+          destino: data.destino,
+          observacoes: data.observacoes,
+          ...(data.status !== undefined ? { status: data.status } : {}),
+          pesoTotal: pesoPrevisto,
+        },
+      });
+
+      // Preserva os estados operacionais especiais do caminhão.
+      if (
+        atual.caminhao.status !== "EM_ROTA" &&
+        atual.caminhao.status !== "MANUTENCAO"
+      ) {
+        const carregamentosRestantes = await tx.carregamento.findMany({
           where: {
-            tipo: "PESO",
-            referencia: id,
-            lido: false,
+            caminhaoId: atual.caminhao.id,
+            status: { in: ["EM_ANDAMENTO", "FINALIZADO"] },
           },
-          select: { id: true },
+          select: { status: true },
         });
 
-        if (!alertaPendente) {
-          await prisma.alerta.create({
-            data: {
-              tipo: "PESO",
-              titulo: "Excesso de peso no carregamento",
-              mensagem: `O caminhão ${atual.caminhao.placa} está com ${pesoPrevisto.toLocaleString("pt-BR")} kg previstos, acima da capacidade de ${capacidade.toLocaleString("pt-BR")} kg.`,
-              severidade: "CRITICAL",
-              referencia: id,
-            },
-          });
+        let novoStatus: "LIBERADO" | "CARREGANDO" | "CARREGADO";
+
+        if (carregamentosRestantes.some((c) => c.status === "EM_ANDAMENTO")) {
+          novoStatus = "CARREGANDO";
+        } else if (
+          carregamentosRestantes.some((c) => c.status === "FINALIZADO")
+        ) {
+          novoStatus = "CARREGADO";
+        } else {
+          novoStatus = "LIBERADO";
         }
 
+        await tx.caminhao.update({
+          where: { id: atual.caminhao.id },
+          data: { status: novoStatus },
+        });
+      }
+
+      const atualizado = await tx.carregamento.findUnique({
+        where: { id },
+        include: {
+          caminhao: { select: { placa: true } },
+          itens: { include: { produto: true } },
+        },
+      });
+
+      return { dados: atualizado };
+    });
+
+    if ("erro" in resultado) {
+      if (resultado.erro === "NAO_ENCONTRADO") {
         return NextResponse.json(
-          {
-            error: `Não é possível finalizar: peso carregado (${pesoPrevisto.toLocaleString("pt-BR")} kg) acima da capacidade do caminhão (${capacidade.toLocaleString("pt-BR")} kg).`,
-            pesoCarregado: pesoPrevisto,
-            capacidadeKg: capacidade,
-          },
-          { status: 400 }
+          { error: "Carregamento não encontrado" },
+          { status: 404 }
         );
       }
-    }
 
-    if (data.itens) {
-      const existentes = await prisma.carregamentoItem.findMany({
-        where: { carregamentoId: id },
-        select: { id: true },
-      });
-      const idsExistentes = new Set(existentes.map((item) => item.id));
-
-      if (data.itens.some((item) => item.id && !idsExistentes.has(item.id))) {
+      if (resultado.erro === "ITEM_INVALIDO") {
         return NextResponse.json(
           { error: "Um dos itens não pertence a este carregamento." },
           { status: 400 }
         );
       }
 
-      for (const item of data.itens) {
-        const itemData = {
-          produtoId: item.produtoId,
-          quantidade: item.quantidade,
-          peso: item.peso,
-          statusItem: item.statusItem,
-          observacao: item.observacao || null,
-        };
+      if (resultado.erro === "PESO_INVALIDO") {
+        return NextResponse.json(
+          { error: "Peso carregado inválido." },
+          { status: 400 }
+        );
+      }
 
-        if (item.id) {
-          await prisma.carregamentoItem.update({
-            where: { id: item.id },
-            data: itemData,
-          });
-        } else {
-          await prisma.carregamentoItem.create({
-            data: { ...itemData, carregamentoId: id },
-          });
+      if (resultado.erro === "EXCESSO_PESO") {
+        // Registrar alerta somente para excesso real de capacidade.
+        // A transação anterior já terminou sem gravar o carregamento inválido.
+        if (
+          Number.isFinite(resultado.pesoCarregado) &&
+          Number.isFinite(resultado.capacidadeKg) &&
+          resultado.capacidadeKg > 0 &&
+          resultado.pesoCarregado > resultado.capacidadeKg
+        ) {
+          try {
+            const alertaPendente = await prisma.alerta.findFirst({
+              where: {
+                tipo: "PESO",
+                referencia: id,
+                lido: false,
+              },
+              select: { id: true },
+            });
+
+            if (!alertaPendente) {
+              await prisma.alerta.create({
+                data: {
+                  tipo: "PESO",
+                  titulo: "Excesso de peso no carregamento",
+                  mensagem: `O caminhão ${resultado.placa} está com ${resultado.pesoCarregado.toLocaleString("pt-BR")} kg previstos, acima da capacidade de ${resultado.capacidadeKg.toLocaleString("pt-BR")} kg.`,
+                  severidade: "CRITICAL",
+                  referencia: id,
+                },
+              });
+            }
+          } catch (erroAlerta) {
+            console.error(
+              "Não foi possível registrar o alerta de excesso de peso:",
+              erroAlerta
+            );
+          }
         }
-      }
-    }
-
-    await prisma.carregamento.update({
-      where: { id },
-      data: {
-        origem: data.origem,
-        destino: data.destino,
-        observacoes: data.observacoes,
-      },
-    });
-
-    const carregamentoPeso = await prisma.carregamento.findUnique({
-      where: { id },
-      include: {
-        caminhao: { select: { placa: true, capacidadeKg: true } },
-        itens: { select: { peso: true, statusItem: true } },
-      },
-    });
-
-    if (!carregamentoPeso) {
-      return NextResponse.json({ error: "Carregamento não encontrado" }, { status: 404 });
-    }
-
-    const pesoCarregado = carregamentoPeso.itens.reduce(
-      (total, item) =>
-        total + (item.statusItem === "CARREGADO" ? Number(item.peso) : 0),
-      0
-    );
-
-    await prisma.carregamento.update({
-      where: { id },
-      data: { pesoTotal: pesoCarregado },
-    });
-
-    const capacidadeKg = Number(carregamentoPeso.caminhao.capacidadeKg ?? 0);
-
-    if (capacidadeKg > 0 && pesoCarregado > capacidadeKg) {
-      const alertaPendente = await prisma.alerta.findFirst({
-        where: {
-          tipo: "PESO",
-          referencia: id,
-          lido: false,
-        },
-        select: { id: true },
-      });
-
-      if (!alertaPendente) {
-        await prisma.alerta.create({
-          data: {
-            tipo: "PESO",
-            titulo: "Excesso de peso no carregamento",
-            mensagem: `O caminhão ${carregamentoPeso.caminhao.placa} está com ${pesoCarregado.toLocaleString("pt-BR")} kg carregados, acima da capacidade de ${capacidadeKg.toLocaleString("pt-BR")} kg.`,
-            severidade: "CRITICAL",
-            referencia: id,
+        return NextResponse.json(
+          {
+            error: `Carregamento não permitido: o peso previsto (${resultado.pesoCarregado.toLocaleString("pt-BR")} kg) excede a capacidade do caminhão ${resultado.placa} (${resultado.capacidadeKg.toLocaleString("pt-BR")} kg).`,
+            pesoCarregado: resultado.pesoCarregado,
+            capacidadeKg: resultado.capacidadeKg,
           },
-        });
+          { status: 400 }
+        );
       }
-    }
 
-    if (
-      data.status === "FINALIZADO" &&
-      capacidadeKg > 0 &&
-      pesoCarregado > capacidadeKg
-    ) {
       return NextResponse.json(
-        {
-          error: `Não é possível finalizar: peso carregado (${pesoCarregado.toLocaleString("pt-BR")} kg) acima da capacidade do caminhão (${capacidadeKg.toLocaleString("pt-BR")} kg).`,
-          pesoCarregado,
-          capacidadeKg,
-        },
+        { error: "Não foi possível validar o carregamento." },
         { status: 400 }
       );
     }
 
-    const carreg = await prisma.carregamento.findUnique({ where: { id } });
-
-    if (carreg && data.status) {
-      await prisma.carregamento.update({
-        where: { id },
-        data: { status: data.status },
-      });
-
-      if (data.status === "FINALIZADO") {
-        await prisma.caminhao.update({
-          where: { id: carreg.caminhaoId },
-          data: { status: "CARREGADO" },
-        });
-      } else if (data.status === "EM_ANDAMENTO") {
-        await prisma.caminhao.update({
-          where: { id: carreg.caminhaoId },
-          data: { status: "CARREGANDO" },
-        });
-      } else if (
-        data.status === "CANCELADO" ||
-        data.status === "NAO_CARREGADO"
-      ) {
-        await prisma.caminhao.update({
-          where: { id: carreg.caminhaoId },
-          data: { status: "LIBERADO" },
-        });
-      }
-    }
-    const updated = await prisma.carregamento.findUnique({
-      where: { id },
-      include: {
-        caminhao: { select: { placa: true } },
-        itens: { include: { produto: true } },
-      },
-    });
-    return NextResponse.json(updated);
+    return NextResponse.json(resultado.dados);
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Erro ao atualizar" }, { status: 500 });
+    console.error("Erro ao atualizar carregamento:", e);
+    return NextResponse.json(
+      { error: "Erro ao atualizar" },
+      { status: 500 }
+    );
   }
 }
-
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   try {
     const body = await req.json().catch(() => ({}));
-    if (typeof body.adminPassword !== "string" ||
-        !(await verifyAdminPassword(body.adminPassword))) {
-      return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
+
+    if (
+      typeof body.adminPassword !== "string" ||
+      !(await verifyAdminPassword(body.adminPassword))
+    ) {
+      return NextResponse.json(
+        { error: "Senha do administrador inválida" },
+        { status: 403 }
+      );
     }
 
     const { id } = await params;
-    if (!id) return NextResponse.json({ error: "ID do carregamento obrigatório" }, { status: 400 });
-
-    const carregamento = await prisma.carregamento.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-    if (!carregamento) {
-      return NextResponse.json({ error: "Carregamento não encontrado" }, { status: 404 });
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID do carregamento obrigatório" },
+        { status: 400 }
+      );
     }
 
-    await prisma.carregamento.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
+    const resultado = await prisma.$transaction(async (tx) => {
+      const carregamento = await tx.carregamento.findUnique({
+        where: { id },
+        select: { id: true, caminhaoId: true },
+      });
+
+      if (!carregamento) {
+        throw new Error("CARREGAMENTO_NAO_ENCONTRADO");
+      }
+
+      // Excluir somente alertas associados a este carregamento.
+      await tx.alerta.deleteMany({
+        where: { referencia: id, tipo: "PESO" },
+      });
+
+      await tx.carregamento.delete({
+        where: { id },
+      });
+
+      const caminhao = await tx.caminhao.findUnique({
+        where: { id: carregamento.caminhaoId },
+        select: { id: true, status: true },
+      });
+
+      if (!caminhao) {
+        return { ok: true };
+      }
+
+      // Não interferir em caminhões em rota ou em manutenção.
+      if (
+        caminhao.status === "EM_ROTA" ||
+        caminhao.status === "MANUTENCAO"
+      ) {
+        return { ok: true };
+      }
+
+      const restantes = await tx.carregamento.findMany({
+        where: {
+          caminhaoId: carregamento.caminhaoId,
+          status: { in: ["EM_ANDAMENTO", "FINALIZADO"] },
+        },
+        select: { status: true },
+      });
+
+      let novoStatus: "LIBERADO" | "CARREGANDO" | "CARREGADO";
+
+      if (restantes.some((c) => c.status === "EM_ANDAMENTO")) {
+        novoStatus = "CARREGANDO";
+      } else if (restantes.some((c) => c.status === "FINALIZADO")) {
+        novoStatus = "CARREGADO";
+      } else {
+        novoStatus = "LIBERADO";
+      }
+
+      await tx.caminhao.update({
+        where: { id: carregamento.caminhaoId },
+        data: { status: novoStatus },
+      });
+
+      return { ok: true, statusCaminhao: novoStatus };
+    });
+
+    return NextResponse.json(resultado);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "CARREGAMENTO_NAO_ENCONTRADO"
+    ) {
+      return NextResponse.json(
+        { error: "Carregamento não encontrado" },
+        { status: 404 }
+      );
+    }
+
     console.error("Erro ao excluir carregamento:", error);
-    return NextResponse.json({ error: "Não foi possível excluir o carregamento" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Não foi possível excluir o carregamento" },
+      { status: 500 }
+    );
   }
 }

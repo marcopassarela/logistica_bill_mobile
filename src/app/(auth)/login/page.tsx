@@ -244,7 +244,7 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                    placeholder="Senha"
                     className="pl-9"
                     autoComplete="current-password"
                     required
@@ -268,7 +268,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-xs text-white/50">
-          © {new Date().getFullYear()} Logísticas Bill â€” Todos os direitos reservados
+          © {new Date().getFullYear()} Logísticas Bill — Todos os direitos reservados
         </p>
       </motion.div>
       {(showStartupModal || slowConnection) && (

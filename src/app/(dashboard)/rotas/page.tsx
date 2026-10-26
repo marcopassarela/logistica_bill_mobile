@@ -1023,7 +1023,7 @@ export default function RotasPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-clip">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Rotas</h1>
@@ -1037,16 +1037,16 @@ export default function RotasPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-5">
         {/* FORM */}
-        <Card className="lg:col-span-2 h-fit">
+        <Card className="min-w-0 w-full lg:col-span-2 h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Plus className="h-4 w-4" />
               Nova rota
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="min-w-0 space-y-4">
             <div className="space-y-2">
               <Label>Nome da rota</Label>
               <Input
@@ -1142,7 +1142,7 @@ export default function RotasPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex min-w-0 gap-2">
                     <Input
                       value={wp.query}
                       onChange={(e) => {
@@ -1326,9 +1326,9 @@ export default function RotasPage() {
         </Card>
 
         {/* MAPA + LISTA */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="min-w-0 w-full lg:col-span-3 space-y-4">
           <Card className="overflow-hidden">
-            <CardContent className="p-0 h-[380px] lg:h-[420px]">
+            <CardContent className="relative h-[300px] w-full min-w-0 p-0 sm:h-[380px] lg:h-[420px]">
               <MapView
                 points={mapPoints}
                 favoritePoints={favoritos.map((f) => ({ key: f.id, lat: f.lat, lng: f.lng, label: f.nome }))}
@@ -1450,7 +1450,7 @@ export default function RotasPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-clip">
             <div className="space-y-2">
               <Label htmlFor="favorito-nome">Nome do endereço</Label>
               <Input

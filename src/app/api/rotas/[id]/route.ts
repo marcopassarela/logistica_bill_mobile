@@ -4,6 +4,7 @@ import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { z } from "zod";
 
 const updatePontoSchema = z.object({
+  id: z.string().optional(),
   ordem: z.number().int().min(0),
   nome: z.string().optional().nullable(),
   lat: z.number().min(-90).max(90),
@@ -47,6 +48,34 @@ export async function PATCH(
       );
     }
 
+    const incomingPointIds = parsed.data.pontos
+      ?.map((p) => p.id)
+      .filter((pointId): pointId is string => Boolean(pointId)) ?? [];
+
+    if (new Set(incomingPointIds).size !== incomingPointIds.length) {
+      return NextResponse.json(
+        { error: "Um ponto foi enviado mais de uma vez." },
+        { status: 400 }
+      );
+    }
+
+    if (incomingPointIds.length > 0) {
+      const ownedPoints = await prisma.rotaPonto.findMany({
+        where: {
+          rotaId: id,
+          id: { in: incomingPointIds },
+        },
+        select: { id: true },
+      });
+
+      if (ownedPoints.length !== incomingPointIds.length) {
+        return NextResponse.json(
+          { error: "Um ou mais pontos não pertencem a esta rota." },
+          { status: 400 }
+        );
+      }
+    }
+
     const { pontos, caminhaoId, ...rotaData } = parsed.data;
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -78,16 +107,9 @@ export async function PATCH(
       });
 
       if (pontos) {
-        const existentes = await tx.rotaPonto.findMany({
-          where: { rotaId: id },
-          orderBy: { ordem: "asc" },
-          select: { id: true },
-        });
-
         const manterIds: string[] = [];
 
-        for (let i = 0; i < pontos.length; i++) {
-          const p = pontos[i];
+        for (const p of pontos) {
           const dataPonto = {
             ordem: p.ordem,
             nome: p.nome || null,
@@ -96,12 +118,12 @@ export async function PATCH(
             endereco: p.endereco || null,
           };
 
-          if (existentes[i]) {
+          if (p.id) {
             await tx.rotaPonto.update({
-              where: { id: existentes[i].id },
+              where: { id: p.id },
               data: dataPonto,
             });
-            manterIds.push(existentes[i].id);
+            manterIds.push(p.id);
           } else {
             const criado = await tx.rotaPonto.create({
               data: { ...dataPonto, rotaId: id },
@@ -111,18 +133,12 @@ export async function PATCH(
           }
         }
 
-        const excedentes = existentes
-          .slice(pontos.length)
-          .map((p) => p.id);
-
-        if (excedentes.length > 0) {
-          await tx.rotaPonto.deleteMany({
-            where: {
-              rotaId: id,
-              id: { in: excedentes },
-            },
-          });
-        }
+        await tx.rotaPonto.deleteMany({
+          where: {
+            rotaId: id,
+            id: { notIn: manterIds },
+          },
+        });
       }
 
       return tx.rota.findUniqueOrThrow({

@@ -14,12 +14,18 @@ import {
   RefreshCw,
   ArrowUp,
   ArrowDown,
+  CheckCircle2,
+  Circle,
+  Star,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import {
   fetchDrivingRoute,
@@ -39,12 +45,24 @@ const MapView = dynamic(() => import("@/components/map/MapView"), {
 });
 
 type Waypoint = {
+  id?: string;
   key: string;
   query: string;
   nome: string;
   lat: number | null;
   lng: number | null;
   endereco: string;
+  concluido?: boolean;
+};
+
+type FavoritoEndereco = {
+  id: string;
+  nome: string;
+  query: string;
+  endereco: string;
+  lat: number;
+  lng: number;
+  pasta: string;
 };
 
 type Caminhao = { id: string; placa: string; marca: string | null; modelo: string | null; status: string };
@@ -57,7 +75,15 @@ type RotaSalva = {
   distanciaKm: number | null;
   status: string;
   caminhao: { id: string; placa: string } | null;
-  pontos: { ordem: number; nome: string | null; lat: number; lng: number; endereco: string | null }[];
+  pontos: {
+    id: string;
+    ordem: number;
+    nome: string | null;
+    lat: number;
+    lng: number;
+    endereco: string | null;
+    concluido: boolean;
+  }[];
 };
 
 const statusLabel: Record<string, string> = {
@@ -90,6 +116,16 @@ export default function RotasPage() {
   const [selectedRotaId, setSelectedRotaId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [pontoAtualizando, setPontoAtualizando] = useState<string | null>(null);
+  const [favoritos, setFavoritos] = useState<FavoritoEndereco[]>([]);
+  const [favoritosCarregados, setFavoritosCarregados] = useState(false);
+  const [favoritoModalOpen, setFavoritoModalOpen] = useState(false);
+  const [favoritoRascunho, setFavoritoRascunho] = useState<Waypoint | null>(null);
+  const [favoritoNome, setFavoritoNome] = useState("");
+  const [favoritoPasta, setFavoritoPasta] = useState("Favoritos");
+  const [novaPasta, setNovaPasta] = useState("");
+  const [favoritoSalvando, setFavoritoSalvando] = useState(false);
+  const [pastasAbertas, setPastasAbertas] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -126,6 +162,124 @@ export default function RotasPage() {
   }, [load]);
 
   useEffect(() => {
+    let cancelado = false;
+
+    async function carregarFavoritos() {
+      const chaveLocal = "logisticas-bill-favoritos-enderecos";
+      let locais: FavoritoEndereco[] = [];
+
+      try {
+        const salvo = window.localStorage.getItem(chaveLocal);
+        if (salvo) {
+          const dados: unknown = JSON.parse(salvo);
+
+          if (Array.isArray(dados)) {
+            locais = dados.filter(
+              (item): item is FavoritoEndereco =>
+                item !== null &&
+                typeof item === "object" &&
+                typeof item.id === "string" &&
+                typeof item.nome === "string" &&
+                typeof item.query === "string" &&
+                typeof item.endereco === "string" &&
+                typeof item.lat === "number" &&
+                typeof item.lng === "number" &&
+                Number.isFinite(item.lat) &&
+                Number.isFinite(item.lng)
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao ler favoritos locais:", error);
+      }
+
+      try {
+        const resposta = await fetch("/api/favoritos", {
+          cache: "no-store",
+        });
+
+        if (!resposta.ok) {
+          throw new Error("Não foi possível consultar favoritos no servidor.");
+        }
+
+        const dadosServidor: unknown = await resposta.json();
+        let remotos: FavoritoEndereco[] = Array.isArray(dadosServidor)
+          ? dadosServidor
+          : [];
+
+        if (remotos.length === 0 && locais.length > 0) {
+          const migrados: FavoritoEndereco[] = [];
+
+          for (const local of locais) {
+            const respostaPost = await fetch("/api/favoritos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                nome: local.nome,
+                pasta: local.pasta || "Favoritos",
+                query: local.query || local.endereco,
+                endereco: local.endereco || local.query,
+                lat: local.lat,
+                lng: local.lng,
+              }),
+            });
+
+            if (respostaPost.ok) {
+              const criado: FavoritoEndereco = await respostaPost.json();
+              migrados.push(criado);
+            } else {
+              console.error(
+                "Não foi possível migrar um favorito local:",
+                await respostaPost.text()
+              );
+            }
+          }
+
+          remotos = migrados;
+        }
+
+        if (cancelado) return;
+
+        if (remotos.length > 0 || locais.length === 0) {
+          setFavoritos(remotos);
+        } else {
+          // Preserva os favoritos locais caso a migração não tenha
+          // conseguido salvar nenhum deles no servidor.
+          setFavoritos(locais);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar favoritos do servidor:", error);
+
+        if (!cancelado) {
+          // Não descarta os favoritos locais se a API estiver indisponível.
+          setFavoritos(locais);
+        }
+      } finally {
+        if (!cancelado) {
+          setFavoritosCarregados(true);
+        }
+      }
+    }
+
+    carregarFavoritos();
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!favoritosCarregados) return;
+
+    try {
+      window.localStorage.setItem(
+        "logisticas-bill-favoritos-enderecos",
+        JSON.stringify(favoritos)
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar cópia local dos favoritos:", error);
+    }
+  }, [favoritos, favoritosCarregados]);  useEffect(() => {
     if (searchIdx === null) return;
 
     const wp = waypoints[searchIdx];
@@ -143,7 +297,7 @@ export default function RotasPage() {
         const results = await geocodeSearch(query);
         if (!cancelled) setSearchResults(results);
       } catch (error) {
-        console.error("Erro na pesquisa de endereÃ§o:", error);
+        console.error("Erro na pesquisa de endereço:", error);
         if (!cancelled) setSearchResults([]);
       } finally {
         if (!cancelled) setSearching(false);
@@ -242,6 +396,7 @@ export default function RotasPage() {
       lng: w.lng!,
       label: w.nome || w.endereco || w.query,
       ordem: i + 1,
+      concluido: w.concluido ?? false,
     }));
 
   function handlePointDrag(key: string, lat: number, lng: number) {
@@ -320,6 +475,190 @@ export default function RotasPage() {
     setSearchIdx(null);
   }
 
+
+  function salvarFavorito(wp: Waypoint) {
+    if (
+      wp.lat == null ||
+      wp.lng == null ||
+      !Number.isFinite(wp.lat) ||
+      !Number.isFinite(wp.lng)
+    ) {
+      setMsg({ type: "err", text: "Selecione um endereço no mapa antes de favoritar." });
+      return;
+    }
+
+    const existente = favoritos.find(
+      (f) => Math.abs(f.lat - wp.lat!) < 0.00001 &&
+             Math.abs(f.lng - wp.lng!) < 0.00001
+    );
+
+    if (existente) {
+      setMsg({ type: "err", text: `Este endereço já está salvo como "${existente.nome}".` });
+      return;
+    }
+
+    setFavoritoRascunho(wp);
+    setFavoritoNome(wp.nome || wp.endereco || wp.query);
+    setFavoritoPasta("Favoritos");
+    setNovaPasta("");
+    setFavoritoModalOpen(true);
+  }
+
+  async function confirmarSalvarFavorito() {
+    if (!favoritoRascunho) return;
+
+    const nomeFinal = favoritoNome.trim();
+    const pastaFinal = (novaPasta.trim() || favoritoPasta.trim() || "Favoritos").trim();
+
+    if (!nomeFinal) {
+      setMsg({ type: "err", text: "Informe um nome para o favorito." });
+      return;
+    }
+    if (nomeFinal.length > 120 || pastaFinal.length > 80) {
+      setMsg({ type: "err", text: "O nome do endereço ou da pasta é muito longo." });
+      return;
+    }
+
+    const wp = favoritoRascunho;
+    setFavoritoSalvando(true);
+
+    try {
+      const resposta = await fetch("/api/favoritos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: nomeFinal,
+          pasta: pastaFinal,
+          query: wp.query || wp.endereco,
+          endereco: wp.endereco || wp.query,
+          lat: wp.lat,
+          lng: wp.lng,
+        }),
+      });
+
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(dados?.error || "Não foi possível salvar o favorito.");
+      }
+
+      const favorito: FavoritoEndereco = dados;
+      setFavoritos((prev) => [favorito, ...prev.filter((f) => f.id !== favorito.id)]);
+      setPastasAbertas((prev) => ({ ...prev, [pastaFinal]: true }));
+      setFavoritoModalOpen(false);
+      setFavoritoRascunho(null);
+      setMsg({ type: "ok", text: `Endereço "${nomeFinal}" salvo na pasta "${pastaFinal}".` });
+    } catch (error) {
+      console.error("Erro ao salvar favorito:", error);
+      setMsg({
+        type: "err",
+        text: error instanceof Error ? error.message : "Erro ao salvar favorito. Verifique a conexão.",
+      });
+    } finally {
+      setFavoritoSalvando(false);
+    }
+  }
+  async function removerFavorito(id: string) {
+    try {
+      const resposta = await fetch(
+        `/api/favoritos/${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      );
+
+      if (!resposta.ok) {
+        const dados = await resposta.json().catch(() => null);
+        throw new Error(
+          dados?.error || "Não foi possível remover o favorito."
+        );
+      }
+
+      setFavoritos((prev) => prev.filter((f) => f.id !== id));
+      setMsg({ type: "ok", text: "Favorito removido." });
+    } catch (error) {
+      console.error("Erro ao remover favorito:", error);
+      setMsg({
+        type: "err",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Erro ao remover favorito.",
+      });
+    }
+  }
+
+  function handleMapClick(lat: number, lng: number) {
+    const indiceVazio = waypoints.findIndex(
+      (wp) => wp.lat == null || wp.lng == null
+    );
+
+    if (indiceVazio < 0) {
+      setMsg({
+        type: "err",
+        text: 'Não há linha vazia. Clique em "Ponto" para criar uma parada antes de escolher outro local no mapa.',
+      });
+      return;
+    }
+
+    const coordenadas = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    setWaypoints((prev) =>
+      prev.map((wp, i) =>
+        i === indiceVazio
+          ? {
+              ...wp,
+              query: coordenadas,
+              nome: "Ponto selecionado no mapa",
+              endereco: coordenadas,
+              lat,
+              lng,
+            }
+          : wp
+      )
+    );
+
+    setRouteGeometry([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setMsg({
+      type: "ok",
+      text: "A linha vazia foi preenchida com o ponto selecionado.",
+    });
+  }
+  function adicionarFavoritoNaRota(favorito: FavoritoEndereco) {
+    const novoPonto: Waypoint = {
+      ...emptyWp(),
+      query: favorito.query || favorito.endereco,
+      nome: favorito.nome,
+      endereco: favorito.endereco,
+      lat: favorito.lat,
+      lng: favorito.lng,
+    };
+
+    // Reutiliza a primeira linha sem coordenadas, se houver.
+    const indiceVazio = waypoints.findIndex(
+      (wp) => wp.lat == null || wp.lng == null
+    );
+
+    if (indiceVazio >= 0) {
+      setWaypoints((prev) =>
+        prev.map((wp, i) =>
+          i === indiceVazio
+            ? { ...wp, ...novoPonto, key: wp.key }
+            : wp
+        )
+      );
+    } else {
+      // Só cria uma linha quando todas as existentes já estão preenchidas.
+      setWaypoints((prev) => [...prev, novoPonto]);
+    }
+
+    setRouteGeometry([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setMsg({
+      type: "ok",
+      text: `Endereço "${favorito.nome}" colocado na rota.`,
+    });
+  }
   function addWaypoint() {
     setWaypoints((prev) => [...prev, emptyWp()]);
   }
@@ -379,7 +718,7 @@ export default function RotasPage() {
         text: `Rota pelas estradas: ${result.distanceKm.toFixed(1)} km • ~${Math.round(result.durationMin)} min`,
       });
     } catch {
-      setMsg({ type: "err", text: "Erro ao consultar o serviÃ§o de rotas (OSRM)." });
+      setMsg({ type: "err", text: "Erro ao consultar o serviço de rotas (OSRM)." });
     } finally {
       setRouting(false);
     }
@@ -488,7 +827,7 @@ export default function RotasPage() {
         text:
           `Sequência reorganizada! Economia rodoviária estimada: ` +
           `${km(economia)} km ` +
-          `(${km(distanciaAtual)} km → ${km(distanciaProposta)} km). ` +
+          `(${km(distanciaAtual)} km â†’ ${km(distanciaProposta)} km). ` +
           "Recalculando o traçado e o tempo estimado.",
       });
     } catch (error) {
@@ -546,6 +885,7 @@ export default function RotasPage() {
           caminhaoId: caminhaoId || null,
           status: "PLANEJADA",
           pontos: valid.map((w, i) => ({
+            ...(w.id ? { id: w.id } : {}),
             ordem: i,
             nome: w.nome || `Ponto ${i + 1}`,
             lat: w.lat,
@@ -597,6 +937,8 @@ export default function RotasPage() {
         .slice()
         .sort((a, b) => a.ordem - b.ordem)
         .map((p) => ({
+          id: p.id,
+          concluido: p.concluido,
           key: crypto.randomUUID(),
           query: p.endereco || p.nome || "",
           nome: p.nome || "",
@@ -618,6 +960,50 @@ export default function RotasPage() {
       }
     } finally {
       setRouting(false);
+    }
+  }
+
+  async function togglePontoConcluido(
+    rota: RotaSalva,
+    ponto: RotaSalva["pontos"][number]
+  ) {
+    if (pontoAtualizando) return;
+
+    setPontoAtualizando(ponto.id);
+    setMsg(null);
+
+    try {
+      const res = await fetch(
+        `/api/rotas/${rota.id}/pontos/${ponto.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ concluido: !ponto.concluido }),
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setMsg({
+          type: "err",
+          text: data.error || "Não foi possível atualizar a entrega.",
+        });
+        return;
+      }
+
+      const concluido = typeof data.concluido === "boolean" ? data.concluido : !ponto.concluido;
+      setWaypoints((prev) =>
+        prev.map((w) => w.id === ponto.id ? { ...w, concluido } : w)
+      );
+      await load();
+    } catch {
+      setMsg({
+        type: "err",
+        text: "Falha de conexão ao atualizar a entrega.",
+      });
+    } finally {
+      setPontoAtualizando(null);
     }
   }
 
@@ -690,7 +1076,7 @@ export default function RotasPage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Pontos (origem → paradas → destino)</Label>
+                <Label>Pontos (origem â†’ paradas â†’ destino)</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addWaypoint}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Ponto
                 </Button>
@@ -706,7 +1092,17 @@ export default function RotasPage() {
                         ? `${idx + 1}. Destino`
                         : `${idx + 1}. Entrega / parada`}
                     </span>
-                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Salvar endereço nos favoritos"
+                        aria-label="Salvar endereço nos favoritos"
+                        onClick={() => salvarFavorito(wp)}
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                      </Button>                    <div className="flex items-center gap-1">
                       <Button
                         type="button"
                         variant="ghost"
@@ -791,7 +1187,7 @@ export default function RotasPage() {
                   </div>
                   {wp.lat != null && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                      ✓ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
+                      âœ“ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
                     </p>
                   )}
                   {searchIdx === idx && searchResults.length > 0 && (
@@ -812,6 +1208,78 @@ export default function RotasPage() {
               ))}
             </div>
 
+                        {favoritos.length > 0 && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4" />
+                  <Label>Endereços favoritos</Label>
+                  <Badge variant="secondary">{favoritos.length}</Badge>
+                </div>
+
+                <div className="max-h-[26rem] space-y-2 overflow-y-auto pr-1">
+                  {Object.entries(
+                    favoritos.reduce<Record<string, FavoritoEndereco[]>>((grupos, favorito) => {
+                      const pasta = favorito.pasta?.trim() || "Favoritos";
+                      (grupos[pasta] ??= []).push(favorito);
+                      return grupos;
+                    }, {})
+                  ).sort(([a], [b]) => a.localeCompare(b, "pt-BR")).map(([pasta, itens]) => {
+                    const aberta = pastasAbertas[pasta] ?? false;
+
+                    return (
+                      <section key={pasta} className="overflow-hidden rounded-md border">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-left hover:bg-muted"
+                          onClick={() => setPastasAbertas((prev) => ({ ...prev, [pasta]: !aberta }))}
+                          aria-expanded={aberta}
+                        >
+                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${aberta ? "" : "-rotate-90"}`} />
+                          <span aria-hidden="true">📁</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{pasta}</span>
+                          <Badge variant="secondary">{itens.length}</Badge>
+                        </button>
+
+                        {aberta && (
+                          <div className="space-y-1 p-2">
+                            {itens.map((favorito) => (
+                              <div
+                                key={favorito.id}
+                                className="flex items-center justify-between gap-2 rounded-md p-2 hover:bg-muted/50"
+                              >
+                                <button
+                                  type="button"
+                                  className="min-w-0 flex-1 text-left"
+                                  title="Adicionar este endereço à rota"
+                                  onClick={() => adicionarFavoritoNaRota(favorito)}
+                                >
+                                  <span className="block truncate text-sm font-medium">{favorito.nome}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {favorito.endereco || favorito.query}
+                                  </span>
+                                  <span className="text-xs text-primary">Adicionar à rota</span>
+                                </button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 text-destructive"
+                                  title="Remover dos favoritos"
+                                  aria-label={`Remover ${favorito.nome} dos favoritos`}
+                                  onClick={() => removerFavorito(favorito.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {(distanceKm != null || durationMin != null) && (
               <div className="rounded-lg border bg-primary/5 p-3 text-sm flex flex-wrap gap-4">
                 {distanceKm != null && (
@@ -863,9 +1331,11 @@ export default function RotasPage() {
             <CardContent className="p-0 h-[380px] lg:h-[420px]">
               <MapView
                 points={mapPoints}
+                favoritePoints={favoritos.map((f) => ({ key: f.id, lat: f.lat, lng: f.lng, label: f.nome }))}
                 routeGeometry={routeGeometry}
                 editable={true}
                 onPointDrag={handlePointDrag}
+                onMapClick={handleMapClick}
               />
             </CardContent>
           </Card>
@@ -877,7 +1347,7 @@ export default function RotasPage() {
                 Rotas salvas ({rotas.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+            <CardContent className="space-y-2 max-h-[420px] overflow-y-auto overscroll-contain pr-2">
               {rotas.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
                   Nenhuma rota ainda. Crie uma à esquerda — cada caminhão pode ter a sua.
@@ -898,6 +1368,54 @@ export default function RotasPage() {
                         {r.pontos.length} pontos
                         {r.distanciaKm != null ? ` • ${Number(r.distanciaKm).toFixed(1)} km` : ""}
                       </p>
+
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-medium">
+                          Entregas concluídas: {
+                            r.pontos.slice(1).filter((p) => p.concluido).length
+                          } / {Math.max(0, r.pontos.length - 1)}
+                        </p>
+
+                        {r.pontos.slice(1).map((p, i) => (
+                          <div
+                            key={p.id}
+                            className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${p.concluido ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30" : "border-transparent bg-muted/40"}`}
+                          >
+                            <span className={`min-w-0 truncate text-xs ${
+                              p.concluido ? "text-muted-foreground line-through" : ""
+                            }`}>
+                              {i === r.pontos.length - 2
+                                ? "Destino: "
+                                : `Entrega ${i + 1}: `}
+                              {p.endereco || p.nome || `Ponto ${p.ordem + 1}`}
+                            </span>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 shrink-0 px-2"
+                              disabled={pontoAtualizando !== null}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void togglePontoConcluido(r, p);
+                              }}
+                            >
+                              {p.concluido ? (
+                                <>
+                                  <CheckCircle2 className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+                                  Reabrir
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className="mr-1 h-3.5 w-3.5" />
+                                  Concluir
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{statusLabel[r.status] || r.status}</Badge>
@@ -923,12 +1441,86 @@ export default function RotasPage() {
         </div>
       </div>
 
+      <Dialog open={favoritoModalOpen} onOpenChange={setFavoritoModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salvar endereço favorito</DialogTitle>
+            <DialogDescription>
+              Escolha um nome e organize o endereço em uma pasta. As pastas ficam disponíveis nos seus favoritos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="favorito-nome">Nome do endereço</Label>
+              <Input
+                id="favorito-nome"
+                value={favoritoNome}
+                onChange={(e) => setFavoritoNome(e.target.value)}
+                placeholder="Ex.: Cliente, depósito ou obra"
+                maxLength={120}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="favorito-pasta">Pasta de destino</Label>
+              <select
+                id="favorito-pasta"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={favoritoPasta}
+                onChange={(e) => {
+                  setFavoritoPasta(e.target.value);
+                  setNovaPasta("");
+                }}
+              >
+                {Array.from(new Set(["Favoritos", ...favoritos.map((f) => f.pasta?.trim() || "Favoritos")]))
+                  .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                  .map((pasta) => <option key={pasta} value={pasta}>{pasta}</option>)}
+                <option value="__nova__">+ Criar nova pasta...</option>
+              </select>
+            </div>
+
+            {favoritoPasta === "__nova__" && (
+              <div className="space-y-2">
+                <Label htmlFor="favorito-nova-pasta">Nome da nova pasta</Label>
+                <Input
+                  id="favorito-nova-pasta"
+                  value={novaPasta}
+                  onChange={(e) => setNovaPasta(e.target.value)}
+                  placeholder="Ex.: Clientes, Obras ou Depósitos"
+                  maxLength={80}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFavoritoModalOpen(false)}
+                disabled={favoritoSalvando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmarSalvarFavorito}
+                disabled={favoritoSalvando || !favoritoNome.trim() || (favoritoPasta === "__nova__" && !novaPasta.trim())}
+              >
+                {favoritoSalvando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
+                Salvar favorito
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <AdminPasswordModal
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
         title="Excluir rota"
-        description="Atenção: esta aÃ§Ã£o excluirá a rota e todos os pontos relacionados. Digite a senha do administrador para confirmar."
+        description="Atenção: esta ação excluirá a rota e todos os pontos relacionados. Digite a senha do administrador para confirmar."
       />
     </div>
   );

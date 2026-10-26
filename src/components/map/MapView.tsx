@@ -8,6 +8,7 @@ import {
   Popup,
   Polyline,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -36,6 +37,7 @@ export type MapPoint = {
   lng: number;
   label?: string;
   ordem?: number;
+  concluido?: boolean;
 };
 
 function FitBounds({ points, geometry }: { points: MapPoint[]; geometry: [number, number][] }) {
@@ -56,22 +58,41 @@ function FitBounds({ points, geometry }: { points: MapPoint[]; geometry: [number
   return null;
 }
 
+function MapClickHandler({
+  enabled,
+  onMapClick,
+}: {
+  enabled: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      if (enabled && onMapClick) {
+        onMapClick(event.latlng.lat, event.latlng.lng);
+      }
+    },
+  });
+  return null;
+}
 type Props = {
   points?: MapPoint[];
+  favoritePoints?: MapPoint[];
   /** Coordenadas da rota calculada pelo OSRM [lat, lng][] */
   routeGeometry?: [number, number][];
   height?: string;
   editable?: boolean;
   onPointDrag?: (key: string, lat: number, lng: number) => void;
+  onMapClick?: (lat: number, lng: number) => void;
 };
 
 export default function MapView({
   points = [],
+  favoritePoints = [],
   routeGeometry = [],
   height = "100%",
   editable = false,
   onPointDrag,
-}: Props) {
+  onMapClick,}: Props) {
   const center: [number, number] = useMemo(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     return [-15.78, -47.93];
@@ -84,6 +105,7 @@ export default function MapView({
       scrollWheelZoom
       style={{ height, width: "100%" }}
     >
+      <MapClickHandler enabled={editable} onMapClick={onMapClick} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Tiles © OSM France'
         url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
@@ -108,7 +130,7 @@ export default function MapView({
               onPointDrag(p.key, position.lat, position.lng);
             },
           }}
-          icon={makeNumberedIcon(p.ordem ?? i + 1, i === 0 ? "#16a34a" : i === points.length - 1 ? "#dc2626" : "#2563eb")}
+          icon={makeNumberedIcon(p.ordem ?? i + 1, p.concluido ? "#16a34a" : i === 0 ? "#16a34a" : i === points.length - 1 ? "#dc2626" : "#eab308")}
         >
           <Popup>
             <strong>
@@ -119,6 +141,26 @@ export default function MapView({
               {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
             </div>
             {editable ? <div>Arraste para ajustar a localização</div> : null}
+          </Popup>
+        </Marker>
+      ))}
+
+      {favoritePoints.map((favorito, i) => (
+        <Marker
+          key={`favorito-${favorito.key ?? `${favorito.lat}-${favorito.lng}-${i}`}`}
+          position={[favorito.lat, favorito.lng]}
+          icon={L.divIcon({
+            className: "",
+            html: '<div style="color:#f5b301;font-size:30px;line-height:30px;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0 2px 5px rgba(0,0,0,.5);text-align:center">★</div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          })}
+        >
+          <Popup>
+            <strong>★ {favorito.label || "Endereço favorito"}</strong>
+            <div className="text-xs opacity-70">
+              {favorito.lat.toFixed(5)}, {favorito.lng.toFixed(5)}
+            </div>
           </Popup>
         </Marker>
       ))}

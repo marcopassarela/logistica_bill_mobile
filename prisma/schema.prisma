@@ -9,19 +9,19 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  username      String   @unique
-  passwordHash  String
-  name          String
-  role          Role     @default(USER)
-  isActive      Boolean  @default(true)
-  theme         String   @default("system") // light | dark | system
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  theme        String   @default("system") // light | dark | system
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  diarias       Diaria[]  @relation("DiariaCreatedBy")
-  faltas        Falta[]   @relation("FaltaCreatedBy")
+  sessions Session[]
+  diarias  Diaria[]  @relation("DiariaCreatedBy")
+  faltas   Falta[]   @relation("FaltaCreatedBy")
 }
 
 enum Role {
@@ -43,22 +43,22 @@ model Session {
 }
 
 model Funcionario {
-  id          String   @id @default(cuid())
-  nome        String
-  cpf         String?  @unique
-  telefone    String?
-  email       String?
-  cargoId     String?
-  cargo       Cargo?   @relation(fields: [cargoId], references: [id])
+  id           String            @id @default(cuid())
+  nome         String
+  cpf          String?           @unique
+  telefone     String?
+  email        String?
+  cargoId      String?
+  cargo        Cargo?            @relation(fields: [cargoId], references: [id])
   dataAdmissao DateTime?
-  salario     Decimal? @db.Decimal(12, 2)
-  status      StatusFuncionario @default(ATIVO)
-  observacoes String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  salario      Decimal?          @db.Decimal(12, 2)
+  status       StatusFuncionario @default(ATIVO)
+  observacoes  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
-  diarias     Diaria[]
-  faltas      Falta[]
+  diarias Diaria[]
+  faltas  Falta[]
 
   @@index([nome])
   @@index([status])
@@ -71,34 +71,34 @@ enum StatusFuncionario {
 }
 
 model Cargo {
-  id          String   @id @default(cuid())
-  nome        String   @unique
-  descricao   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  descricao String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   funcionarios Funcionario[]
 }
 
 model Caminhao {
-  id              String   @id @default(cuid())
-  placa           String   @unique
-  modelo          String?
-  marca           String?
-  ano             Int?
-  capacidadeKg    Decimal? @db.Decimal(12, 2)
-  tipo            String?  // truck, carreta, bitrem etc
-  status          StatusCaminhao @default(LIBERADO)
-  quilometragem   Int?
-  renavam         String?
-  chassi          String?
-  observacoes     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String         @id @default(cuid())
+  placa         String         @unique
+  modelo        String?
+  marca         String?
+  ano           Int?
+  capacidadeKg  Decimal?       @db.Decimal(12, 2)
+  tipo          String? // truck, carreta, bitrem etc
+  status        StatusCaminhao @default(LIBERADO)
+  quilometragem Int?
+  renavam       String?
+  chassi        String?
+  observacoes   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  diarias         Diaria[]
-  rotas           Rota[]
-  carregamentos   Carregamento[]
+  diarias       Diaria[]
+  rotas         Rota[]
+  carregamentos Carregamento[]
 
   @@index([placa])
   @@index([status])
@@ -113,17 +113,17 @@ enum StatusCaminhao {
 }
 
 model Produto {
-  id          String   @id @default(cuid())
-  codigo      String   @unique
-  nome        String
-  descricao   String?
-  unidade     String   @default("KG") // KG, UN, LT, SC
+  id           String   @id @default(cuid())
+  codigo       String   @unique
+  nome         String
+  descricao    String?
+  unidade      String   @default("KG") // KG, UN, LT, SC
   pesoUnitario Decimal? @db.Decimal(12, 3)
-  preco       Decimal? @db.Decimal(12, 2)
-  categoria   String?
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  preco        Decimal? @db.Decimal(12, 2)
+  categoria    String?
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   carregamentos CarregamentoItem[]
 
@@ -132,19 +132,19 @@ model Produto {
 }
 
 model Carregamento {
-  id            String   @id @default(cuid())
-  caminhaoId    String
-  caminhao      Caminhao @relation(fields: [caminhaoId], references: [id])
-  data          DateTime @default(now())
-  origem        String?
-  destino       String?
-  pesoTotal     Decimal  @db.Decimal(14, 3)
-  status        StatusCarregamento @default(EM_ANDAMENTO)
-  observacoes   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String             @id @default(cuid())
+  caminhaoId  String
+  caminhao    Caminhao           @relation(fields: [caminhaoId], references: [id])
+  data        DateTime           @default(now())
+  origem      String?
+  destino     String?
+  pesoTotal   Decimal            @db.Decimal(14, 3)
+  status      StatusCarregamento @default(EM_ANDAMENTO)
+  observacoes String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
-  itens         CarregamentoItem[]
+  itens CarregamentoItem[]
 
   @@index([data])
   @@index([status])
@@ -159,15 +159,15 @@ enum StatusCarregamento {
 }
 
 model CarregamentoItem {
-  id              String       @id @default(cuid())
-  carregamentoId  String
-  carregamento    Carregamento @relation(fields: [carregamentoId], references: [id], onDelete: Cascade)
-  produtoId       String
-  produto         Produto      @relation(fields: [produtoId], references: [id])
-  quantidade      Decimal      @db.Decimal(14, 3)
-  peso            Decimal      @db.Decimal(14, 3)
-  statusItem      StatusItemCarregamento @default(PENDENTE)
-  observacao      String?
+  id             String                 @id @default(cuid())
+  carregamentoId String
+  carregamento   Carregamento           @relation(fields: [carregamentoId], references: [id], onDelete: Cascade)
+  produtoId      String
+  produto        Produto                @relation(fields: [produtoId], references: [id])
+  quantidade     Decimal                @db.Decimal(14, 3)
+  peso           Decimal                @db.Decimal(14, 3)
+  statusItem     StatusItemCarregamento @default(PENDENTE)
+  observacao     String?
 
   @@index([carregamentoId])
 }
@@ -179,35 +179,35 @@ enum StatusItemCarregamento {
 }
 
 model Diaria {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   funcionarioId String
   funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
   caminhaoId    String?
-  caminhao      Caminhao? @relation(fields: [caminhaoId], references: [id])
+  caminhao      Caminhao?   @relation(fields: [caminhaoId], references: [id])
   data          DateTime
-  valor         Decimal  @db.Decimal(12, 2)
+  valor         Decimal     @db.Decimal(12, 2)
   observacao    String?
   createdById   String
-  createdBy     User     @relation("DiariaCreatedBy", fields: [createdById], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdBy     User        @relation("DiariaCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([data])
   @@index([funcionarioId])
 }
 
 model Falta {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   funcionarioId String
   funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
   data          DateTime
   tipo          TipoFalta
   justificativa String?
-  atestadoUrl   String?  // path or URL do arquivo
+  atestadoUrl   String? // path or URL do arquivo
   createdById   String
-  createdBy     User     @relation("FaltaCreatedBy", fields: [createdById], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdBy     User        @relation("FaltaCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([data])
   @@index([funcionarioId])
@@ -222,23 +222,23 @@ enum TipoFalta {
 }
 
 model Rota {
-  id            String   @id @default(cuid())
-  nome          String
-  origem        String
-  destino       String
-  origemLat     Float?
-  origemLng     Float?
-  destinoLat    Float?
-  destinoLng    Float?
-  distanciaKm   Float?
-  caminhaoId    String?
-  caminhao      Caminhao? @relation(fields: [caminhaoId], references: [id])
-  status        StatusRota @default(PLANEJADA)
-  observacoes   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String     @id @default(cuid())
+  nome        String
+  origem      String
+  destino     String
+  origemLat   Float?
+  origemLng   Float?
+  destinoLat  Float?
+  destinoLng  Float?
+  distanciaKm Float?
+  caminhaoId  String?
+  caminhao    Caminhao?  @relation(fields: [caminhaoId], references: [id])
+  status      StatusRota @default(PLANEJADA)
+  observacoes String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  pontos        RotaPonto[]
+  pontos RotaPonto[]
 
   @@index([status])
 }
@@ -251,25 +251,26 @@ enum StatusRota {
 }
 
 model RotaPonto {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   rotaId    String
-  rota      Rota   @relation(fields: [rotaId], references: [id], onDelete: Cascade)
+  rota      Rota    @relation(fields: [rotaId], references: [id], onDelete: Cascade)
   ordem     Int
   nome      String?
   lat       Float
   lng       Float
   endereco  String?
+  concluido Boolean @default(false)
 }
 
 model Alerta {
-  id          String   @id @default(cuid())
-  tipo        String   // PESO, CAMINHAO, SISTEMA
-  titulo      String
-  mensagem    String
-  severidade  Severidade @default(INFO)
-  lido        Boolean  @default(false)
-  referencia  String?  // id relacionado
-  createdAt   DateTime @default(now())
+  id         String     @id @default(cuid())
+  tipo       String // PESO, CAMINHAO, SISTEMA
+  titulo     String
+  mensagem   String
+  severidade Severidade @default(INFO)
+  lido       Boolean    @default(false)
+  referencia String? // id relacionado
+  createdAt  DateTime   @default(now())
 
   @@index([lido])
   @@index([createdAt])
@@ -293,4 +294,18 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([entity])
+}
+
+model EnderecoFavorito {
+  id        String   @id @default(cuid())
+  nome      String
+  pasta     String   @default("Favoritos")
+  query     String
+  endereco  String
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
 }

@@ -1187,7 +1187,7 @@ export default function RotasPage() {
                   </div>
                   {wp.lat != null && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                      âœ“ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
+                      ✓ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
                     </p>
                   )}
                   {searchIdx === idx && searchResults.length > 0 && (

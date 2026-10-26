@@ -1076,7 +1076,7 @@ export default function RotasPage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Pontos (origem â†’ paradas â†’ destino)</Label>
+                <Label>Pontos (origem → paradas → destino)</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addWaypoint}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Ponto
                 </Button>

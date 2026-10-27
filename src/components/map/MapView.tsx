@@ -42,19 +42,36 @@ export type MapPoint = {
 
 function FitBounds({ points, geometry }: { points: MapPoint[]; geometry: [number, number][] }) {
   const map = useMap();
+
+  // Compara as coordenadas para não movimentar a câmera em todo render.
+  const signature =
+    geometry.length > 0
+      ? geometry.map(([lat, lng]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join(";")
+      : points.map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join(";");
+
   useEffect(() => {
     const coords: [number, number][] =
       geometry.length > 0
         ? geometry
         : points.map((p) => [p.lat, p.lng] as [number, number]);
+
     if (coords.length === 0) return;
+
     if (coords.length === 1) {
-      map.setView(coords[0], 14);
+      map.flyTo(coords[0], 14, { animate: true, duration: 0.8 });
       return;
     }
+
     const bounds = L.latLngBounds(coords.map((c) => L.latLng(c[0], c[1])));
-    map.fitBounds(bounds, { padding: [40, 40] });
-  }, [map, points, geometry]);
+    map.flyToBounds(bounds, {
+      padding: [40, 40],
+      animate: true,
+      duration: 0.8,
+    });
+  // A assinatura representa as coordenadas relevantes, não a identidade dos arrays.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, signature]);
+
   return null;
 }
 

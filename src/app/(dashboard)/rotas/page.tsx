@@ -326,12 +326,12 @@ export default function RotasPage() {
           Number.isFinite(w.lng)
       );
 
-    setRouteGeometry([]);
-    setDistanceKm(null);
-    setDurationMin(null);
     setRouting(false);
 
     if (!todosValidos) {
+      setRouteGeometry([]);
+      setDistanceKm(null);
+      setDurationMin(null);
       return () => {
         cancelled = true;
       };
@@ -827,7 +827,7 @@ export default function RotasPage() {
         text:
           `Sequência reorganizada! Economia rodoviária estimada: ` +
           `${km(economia)} km ` +
-          `(${km(distanciaAtual)} km â†’ ${km(distanciaProposta)} km). ` +
+          `(${km(distanciaAtual)} km → ${km(distanciaProposta)} km). ` +
           "Recalculando o traçado e o tempo estimado.",
       });
     } catch (error) {
@@ -1083,129 +1083,116 @@ export default function RotasPage() {
               </div>
 
               {waypoints.map((wp, idx) => (
-                <div key={wp.key} className="rounded-lg border p-3 space-y-2 bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {idx === 0
-                        ? "1. Origem"
-                        : idx === waypoints.length - 1
-                        ? `${idx + 1}. Destino`
-                        : `${idx + 1}. Entrega / parada`}
-                    </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Salvar endereço nos favoritos"
-                        aria-label="Salvar endereço nos favoritos"
-                        onClick={() => salvarFavorito(wp)}
-                      >
-                        <Star className="h-3.5 w-3.5" />
-                      </Button>                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Mover ponto para cima"
-                        aria-label="Mover ponto para cima"
-                        disabled={idx === 0}
-                        onClick={() => moveWaypoint(idx, -1)}
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Mover ponto para baixo"
-                        aria-label="Mover ponto para baixo"
-                        disabled={idx === waypoints.length - 1}
-                        onClick={() => moveWaypoint(idx, 1)}
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                      {waypoints.length > 2 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          title="Remover ponto"
-                          aria-label="Remover ponto"
-                          onClick={() => removeWaypoint(wp.key)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex min-w-0 gap-2">
-                    <Input
-                      value={wp.query}
-                      onChange={(e) => {
-                        const query = e.target.value;
-                        setWaypoints((prev) =>
-                          prev.map((w, i) =>
-                            i === idx
-                              ? {
-                                  ...w,
-                                  query,
-                                  lat: null,
-                                  lng: null,
-                                  endereco: "",
-                                }
-                              : w
-                          )
-                        );
-                        setSearchIdx(idx);
-                        setSearchResults([]);
-                      }}
-                      placeholder="Bairro, rua, comércio ou -23.55,-46.63"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          doSearch(idx);
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => doSearch(idx)}
-                      disabled={searching && searchIdx === idx}
-                    >
-                      {searching && searchIdx === idx ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Search className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {wp.lat != null && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                      ✓ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
-                    </p>
-                  )}
-                  {searchIdx === idx && searchResults.length > 0 && (
-                    <div className="max-h-36 overflow-y-auto rounded-md border bg-background text-sm">
-                      {searchResults.map((r, ri) => (
-                        <button
-                          key={ri}
-                          type="button"
-                          className="block w-full px-3 py-2 text-left hover:bg-muted border-b last:border-0"
-                          onClick={() => pickResult(idx, r)}
-                        >
-                          {r.displayName}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+  <div key={wp.key} className="relative flex gap-3 pb-3 last:pb-0">
+    <div className="flex w-7 shrink-0 flex-col items-center">
+      <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border ${
+        idx === 0
+          ? "border-blue-500 bg-blue-500 text-white"
+          : idx === waypoints.length - 1
+          ? "border-emerald-500 bg-emerald-500 text-white"
+          : "border-muted-foreground/30 bg-background text-muted-foreground"
+      }`}>
+        {idx === 0 ? (
+          <Navigation className="h-3.5 w-3.5" />
+        ) : idx === waypoints.length - 1 ? (
+          <MapPin className="h-3.5 w-3.5" />
+        ) : (
+          <Circle className="h-3 w-3" />
+        )}
+      </div>
+      {idx < waypoints.length - 1 && (
+        <div className="mt-1 min-h-8 flex-1 border-l-2 border-dotted border-muted-foreground/30" />
+      )}
+    </div>
+
+    <div className="min-w-0 flex-1 space-y-2 rounded-xl border bg-card p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">
+          {idx === 0
+            ? "Origem"
+            : idx === waypoints.length - 1
+            ? "Destino"
+            : `Parada ${idx + 1}`}
+        </span>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+            title="Salvar endereço nos favoritos" aria-label="Salvar endereço nos favoritos"
+            onClick={() => salvarFavorito(wp)}>
+            <Star className="h-3.5 w-3.5" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+            title="Mover ponto para cima" aria-label="Mover ponto para cima"
+            disabled={idx === 0} onClick={() => moveWaypoint(idx, -1)}>
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+            title="Mover ponto para baixo" aria-label="Mover ponto para baixo"
+            disabled={idx === waypoints.length - 1} onClick={() => moveWaypoint(idx, 1)}>
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+          {waypoints.length > 2 && (
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+              title="Remover ponto" aria-label="Remover ponto"
+              onClick={() => removeWaypoint(wp.key)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex min-w-0 gap-2">
+        <Input
+          value={wp.query}
+          onChange={(e) => {
+            const query = e.target.value;
+            setWaypoints((prev) =>
+              prev.map((w, i) =>
+                i === idx
+                  ? { ...w, query, lat: null, lng: null, endereco: "" }
+                  : w
+              )
+            );
+            setSearchIdx(idx);
+            setSearchResults([]);
+          }}
+          placeholder="Bairro, rua, comércio ou coordenadas"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              doSearch(idx);
+            }
+          }}
+        />
+        <Button type="button" variant="outline" size="icon"
+          aria-label="Pesquisar endereço" title="Pesquisar endereço"
+          onClick={() => doSearch(idx)}
+          disabled={searching && searchIdx === idx}>
+          {searching && searchIdx === idx
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <Search className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {wp.lat != null && (
+        <p className="truncate text-xs text-emerald-600 dark:text-emerald-400">
+          ✓ {wp.endereco || `${wp.lat.toFixed(4)}, ${wp.lng!.toFixed(4)}`}
+        </p>
+      )}
+
+      {searchIdx === idx && searchResults.length > 0 && (
+        <div className="max-h-36 overflow-y-auto rounded-md border bg-background text-sm">
+          {searchResults.map((r, ri) => (
+            <button key={ri} type="button"
+              className="block w-full border-b px-3 py-2 text-left last:border-0 hover:bg-muted"
+              onClick={() => pickResult(idx, r)}>
+              {r.displayName}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+))}
             </div>
 
                         {favoritos.length > 0 && (

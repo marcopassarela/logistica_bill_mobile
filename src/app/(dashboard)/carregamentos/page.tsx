@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Plus,
+  Pencil,
   Trash2,
   PackageCheck,
   Search,
@@ -42,6 +43,7 @@ type Produto = {
 
 type ItemForm = {
   key: string;
+  id?: string;
   produtoId: string;
   quantidade: string;
   peso: string;
@@ -130,6 +132,7 @@ export default function CarregamentosPage() {
   }, [avisoPeso]);
 
   // form
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [caminhaoId, setCaminhaoId] = useState("");
   const [data, setData] = useState(todayISO());
   const [origem, setOrigem] = useState("");
@@ -223,6 +226,48 @@ export default function CarregamentosPage() {
     );
   }
 
+  function startEdit(carreg: Carregamento) {
+    setEditingId(carreg.id);
+    setCaminhaoId(carreg.caminhao.id);
+    setData(carreg.data.slice(0, 10));
+    setOrigem(carreg.origem ?? "");
+    setDestino(carreg.destino ?? "");
+    setStatus(
+      carreg.status as "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO" | "NAO_CARREGADO"
+    );
+    setObservacoes(carreg.observacoes ?? "");
+    setItens(
+      carreg.itens.map((item) => ({
+        key: item.id,
+        id: item.id,
+        produtoId: item.produto.id,
+        quantidade: String(num(item.quantidade)),
+        peso: String(num(item.peso)),
+        statusItem: item.statusItem as ItemForm["statusItem"],
+        observacao: item.observacao ?? "",
+      }))
+    );
+    setMsg(null);
+    document.getElementById("form-carregamento")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setCaminhaoId("");
+    setData(todayISO());
+    setOrigem("");
+    setDestino("");
+    setStatus("EM_ANDAMENTO");
+    setObservacoes("");
+    setItens([
+      { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
+    ]);
+    setMsg(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
@@ -231,53 +276,94 @@ export default function CarregamentosPage() {
       setMsg({ type: "err", text: "Selecione o caminhão (placa)." });
       return;
     }
-    const validItens = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0);
+
+    const validItens = itens.filter(
+      (item) => item.produtoId && parseFloat(item.quantidade) > 0
+    );
+
     if (validItens.length === 0) {
       setMsg({ type: "err", text: "Adicione pelo menos um produto com quantidade." });
       return;
     }
 
-    setSaving(true);
-    try {
-      const res = await fetch("/api/carregamentos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caminhaoId,
-          data,
-          origem: origem || null,
-          destino: destino || null,
-          status,
-          observacoes: observacoes || null,
-          itens: validItens.map((i) => ({
-            produtoId: i.produtoId,
-            quantidade: parseFloat(i.quantidade),
-            peso: parseFloat(i.peso) || 0,
-            statusItem: i.statusItem,
-            observacao: i.observacao || null,
-          })),
-        }),
-      });
-      const dataRes = await res.json();
-      if (!res.ok) {
-        setMsg({ type: "err", text: dataRes.error || "Erro ao salvar" });
+    for (const item of validItens) {
+      if (!Number.isFinite(Number(item.peso)) || Number(item.peso) < 0) {
+        setMsg({ type: "err", text: "Confira o peso de todos os produtos." });
         return;
       }
-      setMsg({ type: "ok", text: "Carregamento salvo no banco com sucesso!" });
-      // reset parcial
+    }
+
+    setSaving(true);
+    try {
+      const editando = Boolean(editingId);
+      const payloadItens = validItens.map((item) => ({
+        ...(item.id ? { id: item.id } : {}),
+        produtoId: item.produtoId,
+        quantidade: parseFloat(item.quantidade),
+        peso: parseFloat(item.peso) || 0,
+        statusItem: item.statusItem,
+        observacao: item.observacao || null,
+      }));
+
+      const res = await fetch(
+        editando ? `/api/carregamentos/${editingId}` : "/api/carregamentos",
+        {
+          method: editando ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            editando
+              ? {
+                  origem: origem || null,
+                  destino: destino || null,
+                  status,
+                  observacoes: observacoes || null,
+                  itens: payloadItens,
+                }
+              : {
+                  caminhaoId,
+                  data,
+                  origem: origem || null,
+                  destino: destino || null,
+                  status,
+                  observacoes: observacoes || null,
+                  itens: payloadItens,
+                }
+          ),
+        }
+      );
+
+      const dataRes = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg({ type: "err", text: dataRes.error || "Erro ao salvar carregamento." });
+        return;
+      }
+
+      setMsg({
+        type: "ok",
+        text: editando
+          ? "Carregamento atualizado com sucesso!"
+          : "Carregamento salvo no banco com sucesso!",
+      });
+
+      setEditingId(null);
+      setCaminhaoId("");
+      setData(todayISO());
+      setOrigem("");
+      setDestino("");
+      setStatus("EM_ANDAMENTO");
+      setObservacoes("");
       setItens([
         { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
       ]);
-      setObservacoes("");
+
       await loadLista();
       await loadBase();
     } catch {
-      setMsg({ type: "err", text: "Erro de conexão" });
+      setMsg({ type: "err", text: "Erro de conexão ao salvar carregamento." });
     } finally {
       setSaving(false);
     }
   }
-
   async function toggleItemStatus(carregId: string, itemId: string, novo: "CARREGADO" | "NAO_CARREGADO" | "PENDENTE") {
     const carreg = lista.find((c) => c.id === carregId);
     if (!carreg) {
@@ -389,11 +475,11 @@ export default function CarregamentosPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* FORMULÁRIO */}
-        <Card className="lg:col-span-2">
+        <Card id="form-carregamento" className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Plus className="h-4 w-4" />
-              Novo carregamento do dia
+              {editingId ? "Editar carregamento" : "Novo carregamento do dia"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -403,6 +489,7 @@ export default function CarregamentosPage() {
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   value={caminhaoId}
+                  disabled={Boolean(editingId)}
                   onChange={(e) => setCaminhaoId(e.target.value)}
                   required
                 >
@@ -423,7 +510,7 @@ export default function CarregamentosPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Data *</Label>
-                  <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+                  <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required disabled={Boolean(editingId)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Status geral</Label>
@@ -571,8 +658,13 @@ export default function CarregamentosPage() {
               <Button type="submit" className="w-full" disabled={saving}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <PackageCheck className="mr-2 h-4 w-4" />
-                Salvar no banco
+                {editingId ? "Salvar alterações" : "Salvar no banco"}
               </Button>
+              {editingId && (
+                <Button type="button" variant="outline" className="w-full" onClick={cancelEdit} disabled={saving}>
+                  Cancelar edição
+                </Button>
+              )}
             </form>
           </CardContent>
         </Card>
@@ -600,7 +692,7 @@ export default function CarregamentosPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loading && lista.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando...
               </div>
@@ -688,6 +780,15 @@ export default function CarregamentosPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={() => startEdit(c)}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        Editar
+                      </Button>
                       <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
                         Finalizar
                       </Button>

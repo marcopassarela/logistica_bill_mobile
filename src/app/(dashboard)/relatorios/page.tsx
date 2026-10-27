@@ -423,7 +423,7 @@ export default function RelatoriosPage() {
   }
 
   return (
-    <div className="space-y-6 reports-page">
+    <div className="min-w-0 w-full space-y-4 sm:space-y-6 reports-page">
       <style jsx global>{`
         @media print {
           body * { visibility: hidden !important; }
@@ -451,14 +451,14 @@ export default function RelatoriosPage() {
       `}</style>
 
       <div className="no-print">
-        <h1 className="text-2xl font-bold tracking-tight">Relatórios</h1>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Relatórios</h1>
         <p className="text-muted-foreground">
           Gere, confira e exporte relatórios com dados reais do sistema.
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="no-print lg:col-span-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-5">
+        <Card className="no-print min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <FileBarChart className="h-5 w-5" />
@@ -491,7 +491,7 @@ export default function RelatoriosPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Data inicial</Label>
                 <Input
@@ -563,7 +563,7 @@ export default function RelatoriosPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className="min-w-0 lg:col-span-3">
           <CardHeader className="no-print">
             <CardTitle className="text-base">Pré-visualização {tipos.find((t) => t.id === tipo)?.label}</CardTitle>
           </CardHeader>
@@ -592,9 +592,9 @@ export default function RelatoriosPage() {
               <div id="report-print" className="space-y-5">
                 <div className="border-b pb-4 text-left">
   <div className="flex items-center gap-4">
-    <Logo className="h-16 w-16 shrink-0" />
+    <Logo className="h-12 w-12 shrink-0 sm:h-16 sm:w-16" />
     <div className="min-w-0">
-      <h2 className="text-2xl font-bold">Logísticas Bill</h2>
+      <h2 className="text-xl font-bold sm:text-2xl">Logísticas Bill</h2>
       <p className="mt-1 text-sm font-medium text-muted-foreground">
         Controle Operacional
       </p>
@@ -624,8 +624,8 @@ export default function RelatoriosPage() {
                   ))}
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-sm">
+                <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border">
+                  <table className="min-w-[520px] w-full text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         {relatorio.colunas.map((c) => (

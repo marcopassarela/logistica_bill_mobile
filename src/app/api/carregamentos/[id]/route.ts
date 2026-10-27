@@ -19,6 +19,7 @@ const updateSchema = z.object({
         observacao: z.string().optional().nullable(),
       })
     )
+    .min(1, "Informe pelo menos um produto")
     .optional(),
 });
 
@@ -93,23 +94,28 @@ export async function PATCH(
       }
 
       // Preserva itens nÃ£o enviados e aplica as alteraÃ§Ãµes apenas em memÃ³ria.
-      const previstos = new Map(
-        atual.itens.map((item) => [
-          item.id,
-          {
+      const previstos = new Map<
+        string,
+        { peso: number; statusItem: string }
+      >();
+
+      if (data.itens !== undefined) {
+        // Na edição, calcular somente com os itens que serão mantidos ou adicionados.
+        for (const [indice, item] of data.itens.entries()) {
+          previstos.set(item.id ?? `novo-${indice}`, {
+            peso: item.peso,
+            statusItem: item.statusItem,
+          });
+        }
+      } else {
+        // Em alterações sem lista de itens, preservar os itens existentes.
+        for (const item of atual.itens) {
+          previstos.set(item.id, {
             peso: Number(item.peso),
             statusItem: item.statusItem,
-          },
-        ])
-      );
-
-      for (const [indice, item] of (data.itens ?? []).entries()) {
-        previstos.set(item.id ?? `novo-${indice}`, {
-          peso: item.peso,
-          statusItem: item.statusItem,
-        });
+          });
+        }
       }
-
       const pesoPrevisto = Array.from(previstos.values()).reduce(
         (total, item) =>
           total + (item.statusItem === "CARREGADO" ? item.peso : 0),
@@ -141,6 +147,19 @@ export async function PATCH(
 
       // Nenhuma gravaÃ§Ã£o ocorre antes das validaÃ§Ãµes acima.
       if (data.itens !== undefined) {
+        const idsEnviados = data.itens
+          .map((item) => item.id)
+          .filter((itemId): itemId is string => Boolean(itemId));
+
+        await tx.carregamentoItem.deleteMany({
+          where: {
+            carregamentoId: id,
+            ...(idsEnviados.length > 0
+              ? { id: { notIn: idsEnviados } }
+              : {}),
+          },
+        });
+
         for (const item of data.itens) {
           const itemData = {
             produtoId: item.produtoId,

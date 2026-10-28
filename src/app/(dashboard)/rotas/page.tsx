@@ -1061,13 +1061,13 @@ export default function RotasPage() {
                 <Truck className="h-3.5 w-3.5" /> Caminhão (placa)
               </Label>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm text-gray-900 dark:bg-gray-950 dark:text-gray-100 dark:[color-scheme:dark]"
+                className="flex h-9 w-full rounded-md border border-input bg-secondary px-3 py-1 text-sm text-secondary-foreground"
                 value={caminhaoId}
                 onChange={(e) => setCaminhaoId(e.target.value)}
               >
-                <option value="" className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">Sem caminhão / definir depois</option>
+                <option value="" className="flex h-9 w-full rounded-md border border-input bg-secondary px-3 py-1 text-sm text-secondary-foreground">Sem caminhão / definir depois</option>
                 {caminhoes.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option className="bg-background text-foreground" key={c.id} value={c.id}>
                     {c.placa} {c.marca ? `— ${c.marca}` : ""} ({c.status})
                   </option>
                 ))}

@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("q", q);
   url.searchParams.set("format", "json");
-  url.searchParams.set("limit", "6");
+  url.searchParams.set("limit", "8");
+  url.searchParams.set("countrycodes", "br");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("accept-language", "pt-BR");
 
   const res = await fetch(url.toString(), {
     headers: {

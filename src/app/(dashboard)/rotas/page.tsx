@@ -279,7 +279,8 @@ export default function RotasPage() {
     } catch (error) {
       console.error("Erro ao atualizar cópia local dos favoritos:", error);
     }
-  }, [favoritos, favoritosCarregados]);  useEffect(() => {
+  }, [favoritos, favoritosCarregados]);
+  useEffect(() => {
     if (searchIdx === null) return;
 
     const wp = waypoints[searchIdx];
@@ -297,7 +298,7 @@ export default function RotasPage() {
         const results = await geocodeSearch(query);
         if (!cancelled) setSearchResults(results);
       } catch (error) {
-        console.error("Erro na pesquisa de endereço:", error);
+        console.error("Erro na pesquisa de endereÃ§o:", error);
         if (!cancelled) setSearchResults([]);
       } finally {
         if (!cancelled) setSearching(false);
@@ -309,7 +310,6 @@ export default function RotasPage() {
       window.clearTimeout(timer);
     };
   }, [waypoints, searchIdx]);
-
   // Recalcula o trajeto automaticamente após alterações nos pontos.
   // Aguarda 800 ms para evitar várias chamadas enquanto o usuário edita.
   useEffect(() => {

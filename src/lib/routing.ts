@@ -24,12 +24,40 @@ export async function fetchDrivingRoute(points: LatLng[]): Promise<RouteResult |
   return res.json();
 }
 
-/** Busca endereço / lugar via Nominatim (proxy interno) */
+/** Normaliza abreviações comuns de endereços brasileiros. */
+function normalizeAddressQuery(query: string): string {
+  return query
+    .trim()
+    .replace(/\bR\.\s*/gi, "Rua ")
+    .replace(/\bAv\.\s*/gi, "Avenida ")
+    .replace(/\bRod\.\s*/gi, "Rodovia ")
+    .replace(/\bEst\.\s*/gi, "Estrada ")
+    .replace(/\bTrav\.\s*/gi, "Travessa ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/\s{2,}/g, " ");
+}
+
+/** Busca endereço / lugar via API interna, com uma alternativa se necessário. */
 export async function geocodeSearch(query: string): Promise<GeocodeResult[]> {
-  if (!query.trim()) return [];
-  const res = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) return [];
-  return res.json();
+  const normalized = normalizeAddressQuery(query);
+  if (normalized.length < 3) return [];
+
+  const search = async (q: string): Promise<GeocodeResult[]> => {
+    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) return [];
+    return res.json();
+  };
+
+  const first = await search(normalized);
+  if (first.length > 0) return first;
+
+  const simplified = normalized
+    .replace(/,\s*\d+[A-Za-z]?(?=,|$)/, "")
+    .replace(/,\s*\d{5}-?\d{3}(?=,|$)/, "")
+    .trim();
+
+  if (!simplified || simplified === normalized) return [];
+  return search(simplified);
 }
 
 export function parseCoordinates(input: string): LatLng | null {

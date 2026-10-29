@@ -247,7 +247,7 @@ export default function DiariasPage() {
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle className="text-base">Diárias registradas</CardTitle>
-            <span className="text-sm font-semibold text-primary">Total: {formatCurrency(total)}</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">Total: {formatCurrency(total)}</span>
           </CardHeader>
           <CardContent>
             {loading ? (

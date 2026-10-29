@@ -268,7 +268,7 @@ export default function DiariasPage() {
                       </p>
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <span className="font-semibold">{formatCurrency(Number(d.valor))}</span>
+                      <span className="font-semibold text-foreground">{formatCurrency(Number(d.valor))}</span>
                       <Button type="button" size="icon" variant="outline" onClick={() => startEdit(d)} aria-label={`Editar diária de ${d.funcionario?.nome || "funcionário"}`} title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Button>

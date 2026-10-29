@@ -94,10 +94,10 @@ export default function DashboardPage() {
   }, [loadDashboard]);
 
   const stats = data ? [
-    { title: "Caminhões ativos", value: String(data.stats.caminhoesAtivos), icon: Truck, color: "text-blue-500" },
-    { title: "Peso carregado hoje", value: `${numberFormat.format(data.stats.pesoHojeToneladas)} t`, icon: Weight, color: "text-emerald-500" },
-    { title: "Carregamentos hoje", value: String(data.stats.carregamentosHoje), icon: Package, color: "text-violet-500" },
-    { title: "Alertas não lidos", value: String(data.stats.alertas), icon: AlertTriangle, color: "text-amber-500" },
+    { title: "Caminhões ativos", value: String(data.stats.caminhoesAtivos), icon: Truck, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10" },
+    { title: "Peso carregado hoje", value: `${numberFormat.format(data.stats.pesoHojeToneladas)} t`, icon: Weight, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10" },
+    { title: "Carregamentos hoje", value: String(data.stats.carregamentosHoje), icon: Package, color: "text-violet-600 dark:text-violet-400", iconBg: "bg-violet-500/10" },
+    { title: "Alertas não lidos", value: String(data.stats.alertas), icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400", iconBg: "bg-amber-500/10" },
   ] : [];
 
   return (
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Visão geral do sistema Logísticas Bill.</p>
+          <p className="text-foreground/80">Visão geral do sistema Logísticas Bill.</p>
         </div>
         <button
           type="button"
@@ -137,8 +137,8 @@ export default function DashboardPage() {
               return (
                 <Card key={stat.title}>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                    <CardTitle className="text-sm font-medium text-foreground/80">{stat.title}</CardTitle>
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.iconBg}`}><Icon className={`h-5 w-5 ${stat.color}`} /></span>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{stat.value}</div>
@@ -164,8 +164,8 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.pesoSemanal}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="dia" className="text-xs" />
-                      <YAxis className="text-xs" />
+                      <XAxis dataKey="dia" tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
+                      <YAxis tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
                       <Tooltip formatter={(value) => [`${numberFormat.format(Number(value))} t`, "Peso"]} />
                       <Bar dataKey="peso" name="Peso" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -210,10 +210,10 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-3">
                     {data.recentes.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3 text-sm transition-colors hover:bg-muted/40">
                         <div className="min-w-0">
                           <p className="font-medium">{item.placa}</p>
-                          <p className="text-muted-foreground">
+                          <p className="text-foreground/80">
                             {item.produtos.length ? item.produtos.join(", ") : "Sem produto informado"}
                             {"  "}{numberFormat.format(item.pesoToneladas)} t
                           </p>

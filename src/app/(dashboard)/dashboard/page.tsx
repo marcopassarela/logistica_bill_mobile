@@ -163,11 +163,33 @@ export default function DashboardPage() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.pesoSemanal}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <CartesianGrid
+  stroke="hsl(var(--border))"
+  strokeDasharray="3 3"
+  vertical={false}
+/>
                       <XAxis dataKey="dia" tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
                       <YAxis tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
-                      <Tooltip formatter={(value) => [`${numberFormat.format(Number(value))} t`, "Peso"]} />
-                      <Bar dataKey="peso" name="Peso" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Tooltip
+  formatter={(value) => [`${numberFormat.format(Number(value))} t`, "Peso carregado"]}
+  contentStyle={{
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    color: "hsl(var(--foreground))",
+  }}
+  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+  itemStyle={{ color: "#60A5FA" }}
+  cursor={{ fill: "rgba(59, 130, 246, 0.10)" }}
+/>
+                      <Bar
+  dataKey="peso"
+  name="Peso carregado"
+  fill="#3B82F6"
+  activeBar={{ fill: "#60A5FA", stroke: "#1D4ED8", strokeWidth: 2 }}
+  radius={[6, 6, 0, 0]}
+  maxBarSize={48}
+/>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

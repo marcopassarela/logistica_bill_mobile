@@ -268,16 +268,16 @@ export default function FuncionariosPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { openNewCargo(); setCargoOpen(true); }}>
-            <Briefcase className="mr-2 h-4 w-4" /> Gerenciar Cargos
+            <Briefcase className="mr-2 h-4 w-4 text-violet-500 dark:text-violet-400" /> Gerenciar Cargos
           </Button>
           <Button onClick={openNewEmployee}>
-            <Plus className="mr-2 h-4 w-4" /> Novo Funcionário
+            <Plus className="mr-2 h-4 w-4 text-emerald-500 dark:text-emerald-400" /> Novo Funcionário
           </Button>
         </div>
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500 dark:text-blue-400" />
         <Input
           placeholder="Buscar funcionário, cargo ou contato..."
           value={search}
@@ -298,8 +298,8 @@ export default function FuncionariosPage() {
             <Card key={f.id}>
               <CardHeader className="flex flex-row items-start justify-between pb-2">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <Users className="h-5 w-5 text-primary" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 dark:bg-blue-400/15">
+                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
                     <CardTitle className="text-base">{f.nome}</CardTitle>
@@ -316,7 +316,7 @@ export default function FuncionariosPage() {
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => openEditEmployee(f)}>
-                    <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                    <Pencil className="mr-1 h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /> Editar
                   </Button>
                   <Button
                     variant="outline"
@@ -326,7 +326,7 @@ export default function FuncionariosPage() {
                     aria-label={`Desativar funcionário ${f.nome}`}
                     onClick={() => { setSelectedId(f.id); setDeleteOpen(true); }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
                   </Button>
                 </div>
               </CardContent>
@@ -352,7 +352,7 @@ export default function FuncionariosPage() {
                 <p className="text-sm text-muted-foreground">Preencha os dados do funcionário.</p>
               </div>
               <Button type="button" variant="ghost" size="icon" disabled={saving} onClick={() => setFormOpen(false)}>
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-slate-500 dark:text-slate-300" />
               </Button>
             </div>
 
@@ -438,7 +438,7 @@ export default function FuncionariosPage() {
                 <p className="text-sm text-muted-foreground">Cadastre, edite ou exclua cargos sem funcionários vinculados.</p>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={() => setCargoOpen(false)}>
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-slate-500 dark:text-slate-300" />
               </Button>
             </div>
 
@@ -474,11 +474,11 @@ export default function FuncionariosPage() {
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button type="button" variant="ghost" size="icon" aria-label={`Editar cargo ${c.nome}`}
-                      onClick={() => openEditCargo(c)}><Pencil className="h-4 w-4" /></Button>
+                      onClick={() => openEditCargo(c)}><Pencil className="h-4 w-4 text-violet-600 dark:text-violet-400" /></Button>
                     <Button type="button" variant="ghost" size="icon" className="text-destructive"
                       aria-label={`Excluir cargo ${c.nome}`}
                       onClick={() => { setSelectedCargoId(c.id); setCargoDeleteOpen(true); }}>
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </Button>
                   </div>
                 </div>

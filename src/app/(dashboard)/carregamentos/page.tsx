@@ -631,7 +631,7 @@ export default function CarregamentosPage() {
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
                         className={`h-full transition-all ${
-                          percentual > 100 ? "bg-destructive" : percentual > 90 ? "bg-amber-500" : "bg-primary"
+                          percentual > 100 ? "bg-red-600" : percentual > 90 ? "bg-amber-500" : "bg-green-500"
                         }`}
                         style={{ width: `${Math.min(percentual, 100)}%` }}
                       />

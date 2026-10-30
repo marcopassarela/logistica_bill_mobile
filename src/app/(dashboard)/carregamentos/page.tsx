@@ -487,15 +487,15 @@ export default function CarregamentosPage() {
               <div className="space-y-2">
                 <Label>Caminhão (placa) *</Label>
                 <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100 px-3 py-1 text-sm"
                   value={caminhaoId}
                   disabled={Boolean(editingId)}
                   onChange={(e) => setCaminhaoId(e.target.value)}
                   required
                 >
-                  <option value="">Selecione a placa...</option>
+                  <option value="" className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">Selecione a placa...</option>
                   {caminhoes.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={c.id} value={c.id} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">
                       {c.placa} {c.marca ? `— ${c.marca} ${c.modelo || ""}` : ""} ({c.status})
                     </option>
                   ))}

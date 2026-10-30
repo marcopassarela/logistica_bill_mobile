@@ -168,6 +168,7 @@ model CarregamentoItem {
   peso           Decimal                @db.Decimal(14, 3)
   statusItem     StatusItemCarregamento @default(PENDENTE)
   observacao     String?
+  ordem          Int                    @default(0)
 
   @@index([carregamentoId])
 }

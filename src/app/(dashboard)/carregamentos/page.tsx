@@ -746,8 +746,8 @@ export default function CarregamentosPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={it.statusItem === "CARREGADO" ? "default" : "outline"}
-                              className="h-7 text-xs"
+                              variant="outline"
+                              className={it.statusItem === "CARREGADO" ? "h-7 text-xs border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white" : "h-7 text-xs border-green-600/50 text-green-700 hover:bg-green-50 dark:border-green-500/50 dark:text-green-400 dark:hover:bg-green-950"}
                               onClick={() => toggleItemStatus(c.id, it.id, "CARREGADO")}
                               title="Marcar como carregado"
                             >
@@ -757,8 +757,8 @@ export default function CarregamentosPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={it.statusItem === "NAO_CARREGADO" ? "destructive" : "outline"}
-                              className="h-7 text-xs"
+                              variant="outline"
+                              className={it.statusItem === "NAO_CARREGADO" ? "h-7 text-xs border-red-600 bg-red-600 text-white hover:bg-red-700 hover:text-white" : "h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"}
                               onClick={() => toggleItemStatus(c.id, it.id, "NAO_CARREGADO")}
                               title="Marcar como não carregou"
                             >
@@ -768,11 +768,12 @@ export default function CarregamentosPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={it.statusItem === "PENDENTE" ? "secondary" : "ghost"}
-                              className="h-7 text-xs"
+                              variant="outline"
+                              className={it.statusItem === "PENDENTE" ? "h-7 text-xs border-amber-600 bg-amber-500 text-white hover:bg-amber-600 hover:text-white" : "h-7 text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950"}
                               onClick={() => toggleItemStatus(c.id, it.id, "PENDENTE")}
                             >
-                              <Clock className="h-3 w-3" />
+                              <Clock className="mr-1 h-3 w-3" />
+                              Pendente
                             </Button>
                           </div>
                         </div>

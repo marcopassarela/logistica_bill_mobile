@@ -146,12 +146,12 @@ export default function CaminhoesPage() {
           <p className="text-muted-foreground">Cadastre caminhões e mantenha os dados organizados.</p>
         </div>
         <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Caminhao
+          <Plus className="mr-2 h-4 w-4 text-emerald-500 dark:text-emerald-400" /> Novo Caminhao
         </Button>
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500 dark:text-blue-400" />
         <Input placeholder="Buscar por placa, marca, modelo..." value={search}
           onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
@@ -170,7 +170,7 @@ export default function CaminhoesPage() {
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                        <Truck className="h-5 w-5 text-primary" />
+                        <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
                         <CardTitle className="font-mono text-base">{c.placa}</CardTitle>
@@ -189,12 +189,12 @@ export default function CaminhoesPage() {
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(c)}>
-                        <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                        <Pencil className="mr-1 h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /> Editar
                       </Button>
                       <Button variant="outline" size="sm" className="text-destructive hover:text-destructive"
                         aria-label={`Excluir caminhao ${c.placa}`}
                         onClick={() => { setSelectedId(c.id); setDeleteOpen(true); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
                       </Button>
                     </div>
                   </CardContent>

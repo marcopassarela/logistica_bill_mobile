@@ -35,10 +35,13 @@ export async function GET(
     where: { id },
     include: {
       caminhao: true,
-      itens: { include: { produto: true } },
+      itens: {
+        orderBy: [{ ordem: "asc" }, { id: "asc" }],
+        include: { produto: true },
+      },
     },
   });
-  if (!item) return NextResponse.json({ error: "NÃ£o encontrado" }, { status: 404 });
+  if (!item) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
   return NextResponse.json(item);
 }
 
@@ -160,11 +163,12 @@ export async function PATCH(
           },
         });
 
-        for (const item of data.itens) {
+        for (const [indice, item] of data.itens.entries()) {
           const itemData = {
             produtoId: item.produtoId,
             quantidade: item.quantidade,
             peso: item.peso,
+            ordem: indice,
             statusItem: item.statusItem,
             observacao: item.observacao ?? null,
           };
@@ -228,7 +232,10 @@ export async function PATCH(
         where: { id },
         include: {
           caminhao: { select: { placa: true } },
-          itens: { include: { produto: true } },
+          itens: {
+            orderBy: [{ ordem: "asc" }, { id: "asc" }],
+            include: { produto: true },
+          },
         },
       });
 

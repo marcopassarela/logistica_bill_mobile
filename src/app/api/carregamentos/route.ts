@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     include: {
       caminhao: { select: { id: true, placa: true, marca: true, modelo: true, capacidadeKg: true } },
       itens: {
+        orderBy: [{ ordem: "asc" }, { id: "asc" }],
         include: {
           produto: { select: { id: true, codigo: true, nome: true, unidade: true, pesoUnitario: true } },
         },
@@ -168,10 +169,11 @@ export async function POST(req: NextRequest) {
           status: data.status,
           pesoTotal,
           itens: {
-            create: data.itens.map((i) => ({
+            create: data.itens.map((i, indice) => ({
               produtoId: i.produtoId,
               quantidade: i.quantidade,
               peso: i.peso,
+              ordem: indice,
               statusItem: i.statusItem,
               observacao: i.observacao || null,
             })),

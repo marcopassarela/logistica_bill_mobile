@@ -84,6 +84,9 @@ export async function GET() {
         },
       }),
       prisma.carregamento.findMany({
+        where: {
+          data: { gte: todayStart, lt: tomorrowStart },
+        },
         orderBy: [{ data: "desc" }, { createdAt: "desc" }],
         take: 5,
         include: {

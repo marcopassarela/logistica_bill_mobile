@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Truck, Package, AlertTriangle, Weight, Activity, RefreshCw,
 } from "lucide-react";
@@ -93,6 +94,17 @@ export default function DashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  const totalCaminhoes = data
+    ? data.statusCaminhoes.reduce((total, item) => total + item.value, 0)
+    : 0;
+
   const stats = data ? [
     { title: "Caminhões ativos", value: String(data.stats.caminhoesAtivos), icon: Truck, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10" },
     { title: "Peso carregado hoje", value: `${numberFormat.format(data.stats.pesoHojeToneladas)} t`, icon: Weight, color: "text-emerald-600 dark:text-emerald-400", iconBg: "bg-emerald-500/10" },
@@ -134,8 +146,8 @@ export default function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => {
               const Icon = stat.icon;
-              return (
-                <Card key={stat.title}>
+              const card = (
+                <Card className="h-full transition-all duration-200 hover:border-primary/40 hover:shadow-md">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-foreground/80">{stat.title}</CardTitle>
                     <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.iconBg}`}><Icon className={`h-5 w-5 ${stat.color}`} /></span>
@@ -143,10 +155,23 @@ export default function DashboardPage() {
                   <CardContent>
                     <div className="text-2xl font-bold">{stat.value}</div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Calculado a partir dos registros do banco
+                      {stat.title === "Carregamentos hoje" ? "Clique para acessar os carregamentos" : "Calculado a partir dos registros do banco"}
                     </p>
                   </CardContent>
                 </Card>
+              );
+
+              return stat.title === "Carregamentos hoje" ? (
+                <Link
+                  key={stat.title}
+                  href="/carregamentos"
+                  aria-label="Abrir página de carregamentos"
+                  className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                  {card}
+                </Link>
+              ) : (
+                <div key={stat.title}>{card}</div>
               );
             })}
           </div>
@@ -183,13 +208,20 @@ export default function DashboardPage() {
   cursor={{ fill: "rgba(59, 130, 246, 0.10)" }}
 />
                       <Bar
-  dataKey="peso"
-  name="Peso carregado"
-  fill="#3B82F6"
-  activeBar={{ fill: "#60A5FA", stroke: "#1D4ED8", strokeWidth: 2 }}
-  radius={[6, 6, 0, 0]}
-  maxBarSize={48}
-/>
+                        dataKey="peso"
+                        name="Peso carregado"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={48}
+                        activeBar={{ fill: "#60A5FA", stroke: "#1D4ED8", strokeWidth: 2 }}
+                      >
+                        {data.pesoSemanal.map((item) => (
+                          <Cell
+                            key={item.date}
+                            fill={item.date === todayKey ? "#2563EB" : "#60A5FA"}
+                            fillOpacity={item.date === todayKey ? 1 : 0.72}
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -199,23 +231,49 @@ export default function DashboardPage() {
             <Card>
               <CardHeader><CardTitle>Status dos caminhões</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-48">
+                <div className="relative h-52">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={data.statusCaminhoes} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                      <Pie
+                        data={data.statusCaminhoes}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={82}
+                        paddingAngle={4}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={3}
+                      >
                         {data.statusCaminhoes.map((entry) => (
                           <Cell key={entry.name} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value) => [Number(value), "Caminhões"]}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "10px",
+                          color: "hsl(var(--foreground))",
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold tabular-nums">{totalCaminhoes}</span>
+                    <span className="text-xs text-muted-foreground">caminhões</span>
+                  </div>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
                   {data.statusCaminhoes.map((item) => (
-                    <div key={item.name} className="flex items-center gap-2 text-xs">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-                      {item.name}: {item.value}
+                    <div key={item.name} className="flex min-w-0 items-center justify-between gap-2 text-xs">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+                        <span className="truncate text-muted-foreground">{item.name}</span>
+                      </span>
+                      <span className="font-semibold tabular-nums">{item.value}</span>
                     </div>
                   ))}
                 </div>

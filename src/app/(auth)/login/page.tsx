@@ -19,6 +19,8 @@ export default function LoginPage() {
   const [slowConnection, setSlowConnection] = useState(false);
   const [showStartupModal, setShowStartupModal] = useState(false);
   const requestLock = useRef(false);
+  const startupStageDurations = useRef<number[]>([3, 3, 3, 3]);
+  const startupProgressMilestones = useRef<number[][]>([]);
   const loadingSteps = [
     { title: "Inicializando banco de dados", description: "Estabelecendo uma conexão segura com o banco." },
     { title: "Preparando as ferramentas", description: "Organizando os serviços necessários para o sistema." },
@@ -30,8 +32,8 @@ export default function LoginPage() {
     if (!loading || !showStartupModal) return;
 
     const timer = window.setInterval(() => {
-      setElapsedSeconds((seconds) => seconds + 1);
-    }, 1000);
+      setElapsedSeconds((seconds) => seconds + 0.25);
+    }, 250);
 
     return () => window.clearInterval(timer);
   }, [loading, showStartupModal]);
@@ -62,6 +64,23 @@ export default function LoginPage() {
     if (requestLock.current) return;
 
     requestLock.current = true;
+
+    const randomizedDurations = [3, 3, 3, 3];
+    for (let i = 0; i < 4; i++) {
+      randomizedDurations[Math.floor(Math.random() * 4)]++;
+    }
+    startupStageDurations.current = randomizedDurations;
+
+    startupProgressMilestones.current = Array.from({ length: 4 }, () => {
+      const values = new Set<number>();
+
+      while (values.size < 7) {
+        values.add(Math.floor(Math.random() * 93) + 5);
+      }
+
+      return [...values].sort((a, b) => a - b).concat(100);
+    });
+
     setError("");
     setLoading(true);
     setSlowConnection(false);
@@ -302,18 +321,26 @@ export default function LoginPage() {
 
                 <div className="space-y-5">
                   {loadingSteps.map((step, index) => {
-                    const stageDurations = [2, 5, 4, 5];
+                    const stageDurations = startupStageDurations.current;
                     const startAt = stageDurations
                       .slice(0, index)
                       .reduce((total, duration) => total + duration, 0);
                     const duration = stageDurations[index];
                     const stageElapsed = Math.max(0, elapsedSeconds - startAt);
-                    const progress = Math.max(
-                      0,
-                      Math.min(100, (stageElapsed / duration) * 100)
-                    );
                     const completed = elapsedSeconds >= startAt + duration;
                     const active = !completed && elapsedSeconds >= startAt;
+                    const stageProgress = Math.min(1, stageElapsed / duration);
+                    const milestones = startupProgressMilestones.current[index] ??
+                      [5, 25, 30, 60, 77, 80, 95, 100];
+                    const milestoneIndex = Math.min(
+                      7,
+                      Math.floor(stageProgress * 8)
+                    );
+                    const progress = completed
+                      ? 100
+                      : active
+                        ? milestones[milestoneIndex]
+                        : 0;
 
                     return (
                       <div key={step.title} className="space-y-2">

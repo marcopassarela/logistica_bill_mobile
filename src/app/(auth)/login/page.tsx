@@ -65,22 +65,6 @@ export default function LoginPage() {
 
     requestLock.current = true;
 
-    const randomizedDurations = [3, 3, 3, 3];
-    for (let i = 0; i < 4; i++) {
-      randomizedDurations[Math.floor(Math.random() * 4)]++;
-    }
-    startupStageDurations.current = randomizedDurations;
-
-    startupProgressMilestones.current = Array.from({ length: 4 }, () => {
-      const values = new Set<number>();
-
-      while (values.size < 7) {
-        values.add(Math.floor(Math.random() * 93) + 5);
-      }
-
-      return [...values].sort((a, b) => a - b).concat(100);
-    });
-
     setError("");
     setLoading(true);
     setSlowConnection(false);
@@ -124,7 +108,7 @@ export default function LoginPage() {
         while (Date.now() - startedAt < 46000) {
           const elapsed = Date.now() - startedAt;
 
-          if (elapsed >= 16000) {
+          if (elapsed >= 20000) {
             databaseReady = await checkDatabase();
 
             if (databaseReady) break;
@@ -135,7 +119,7 @@ export default function LoginPage() {
           });
         }
 
-        if (!databaseReady || Date.now() - startedAt < 16000) {
+        if (!databaseReady || Date.now() - startedAt < 20000) {
           keepModalOpen = true;
           setShowStartupModal(true);
           setSlowConnection(true);
@@ -313,90 +297,82 @@ export default function LoginPage() {
             </div>
 
             {loading ? (
-              <>
-                <div className="mb-5 flex items-center justify-center gap-2 text-blue-300">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Preparando seu ambiente de trabalho</span>
-                </div>
+  <>
+    <style>{`
+      @keyframes loading-arc {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes loading-bar {
+        0%   { width: 0%; }
+        8%   { width: 12%; }
+        14%  { width: 12%; }   /* pausa 1 */
+        22%  { width: 28%; }
+        28%  { width: 28%; }   /* pausa 2 */
+        38%  { width: 45%; }
+        44%  { width: 45%; }   /* pausa 3 */
+        55%  { width: 62%; }
+        62%  { width: 62%; }   /* pausa 4 */
+        74%  { width: 78%; }
+        80%  { width: 78%; }   /* pausa 5 */
+        92%  { width: 92%; }
+        100% { width: 100%; }
+      }
+      @keyframes loading-dots {
+        0%, 20% { content: ""; }
+        40% { content: "."; }
+        60% { content: ".."; }
+        80%, 100% { content: "..."; }
+      }
+      .loading-dots::after {
+        content: "";
+        display: inline-block;
+        width: 1.2em;
+        text-align: left;
+        animation: loading-dots 1.5s steps(1, end) infinite;
+      }
+      .loading-arc {
+        animation: loading-arc 4.0s linear infinite;
+        will-change: transform;
+      }
+      .loading-bar {
+        animation: loading-bar 20s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+    `}</style>
 
-                <div className="space-y-5">
-                  {loadingSteps.map((step, index) => {
-                    const stageDurations = startupStageDurations.current;
-                    const startAt = stageDurations
-                      .slice(0, index)
-                      .reduce((total, duration) => total + duration, 0);
-                    const duration = stageDurations[index];
-                    const stageElapsed = Math.max(0, elapsedSeconds - startAt);
-                    const completed = elapsedSeconds >= startAt + duration;
-                    const active = !completed && elapsedSeconds >= startAt;
-                    const stageProgress = Math.min(1, stageElapsed / duration);
-                    const milestones = startupProgressMilestones.current[index] ??
-                      [5, 25, 30, 60, 77, 80, 95, 100];
-                    const milestoneIndex = Math.min(
-                      7,
-                      Math.floor(stageProgress * 8)
-                    );
-                    const progress = completed
-                      ? 100
-                      : active
-                        ? milestones[milestoneIndex]
-                        : 0;
+    <div className="flex flex-col items-center justify-center text-center select-none">
+{/* Círculo estilo cometa */}
+<div className="relative mb-10 h-48 w-48">
+  {/* anel de fundo bem discreto (quase invisível) */}
+  <div className="absolute inset-0 rounded-full border-[20px] border-white/5" />
 
-                    return (
-                      <div key={step.title} className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                              completed
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : active
-                                  ? "bg-blue-500/20 text-blue-300"
-                                  : "bg-white/5 text-slate-500"
-                            }`}
-                          >
-                            {completed ? "✓" : index + 1}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className={`text-sm font-medium ${active || completed ? "text-white" : "text-slate-500"}`}>
-                                {step.title}
-                              </p>
-                              <span className="shrink-0 text-xs tabular-nums text-slate-400">
-                                {completed ? "100%" : `${Math.round(progress)}%`}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xs leading-5 text-slate-400">
-                              {step.description}
-                            </p>
-                          </div>
-                        </div>
-                        <div
-                          className="ml-11 h-2 overflow-hidden rounded-full bg-white/10"
-                          role="progressbar"
-                          aria-label={step.title}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-valuenow={completed ? 100 : Math.round(progress)}
-                        >
-                          <div
-                            className={`h-full rounded-full transition-[width] duration-700 ease-out ${
-                              completed ? "bg-emerald-400" : "bg-blue-500"
-                            }`}
-                            style={{ width: `${completed ? 100 : progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+  {/* arco estilo cometa */}
+  <div 
+    className="loading-arc absolute inset-0 rounded-full"
+    style={{
+      background: "conic-gradient(from 0deg, transparent 0deg 240deg, rgba(163,163,163,0.15) 270deg, rgba(229,229,229,0.4) 300deg, rgba(255,255,255,0.75) 330deg, #ffffff 360deg)",
+      maskImage: "radial-gradient(farthest-side, transparent calc(100% - 20px), black calc(100% - 20px))",
+      WebkitMaskImage: "radial-gradient(farthest-side, transparent calc(100% - 20px), black calc(100% - 20px))",
+    }}
+  />
+</div>
 
-                <p className="mt-6 text-center text-xs text-slate-400">
-                  {elapsedSeconds < 16
-                    ? "Aguarde enquanto preparamos cada etapa."
-                    : "Preparação concluída."}
-                </p>
-              </>
-            ) : (
+      {/* Texto LOADING... */}
+      <h2 className="text-lg font-medium tracking-[0.35em] text-white/90">
+        LOADING<span className="loading-dots"></span>
+      </h2>
+
+      {/* Barra linear */}
+      <div className="mt-10 w-full max-w-xs">
+        <div className="h-[15px] overflow-hidden rounded-full bg-white/10">
+          <div className="loading-bar h-full rounded-full bg-gradient-to-r from-neutral-400 via-white to-neutral-300" />
+        </div>
+      </div><p className="mt-8 text-[10px] tracking-[0.25em] text-white/25">
+        AGUARDE ENQUANTO O SISTEMA É INICIALIZADO.
+      </p>
+    </div>
+  </>
+) : (
               <div className="py-3 text-center">
                 <h2 id="connection-title" className="text-lg font-semibold">
                   A conexão está demorando mais que o esperado
@@ -419,3 +395,10 @@ export default function LoginPage() {
       )}    </div>
   );
 }
+
+
+
+
+
+
+

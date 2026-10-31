@@ -186,8 +186,8 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.pesoSemanal}>
+                  <ResponsiveContainer width="85%" height="100%" style={{ margin: "0 auto" }}>
+                    <BarChart data={data.pesoSemanal} barCategoryGap="0%">
                       <CartesianGrid
   stroke="hsl(var(--border))"
   strokeDasharray="3 3"
@@ -210,8 +210,8 @@ export default function DashboardPage() {
                       <Bar
                         dataKey="peso"
                         name="Peso carregado"
-                        radius={[6, 6, 0, 0]}
                         maxBarSize={48}
+                        radius={[6, 6, 0, 0]}
                         activeBar={{ fill: "#60A5FA", stroke: "#1D4ED8", strokeWidth: 2 }}
                       >
                         {data.pesoSemanal.map((item) => (
@@ -242,9 +242,9 @@ export default function DashboardPage() {
                         cy="50%"
                         innerRadius={58}
                         outerRadius={82}
-                        paddingAngle={4}
-                        stroke="hsl(var(--card))"
-                        strokeWidth={3}
+                        paddingAngle={0}
+                        stroke="none"
+                        strokeWidth={0}
                       >
                         {data.statusCaminhoes.map((entry) => (
                           <Cell key={entry.name} fill={entry.color} />

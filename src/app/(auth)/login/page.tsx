@@ -332,7 +332,7 @@ export default function LoginPage() {
         animation: loading-dots 1.5s steps(1, end) infinite;
       }
       .loading-arc {
-        animation: loading-arc 4.0s linear infinite;
+        animation: loading-arc 3.0s linear infinite;
         will-change: transform;
       }
       .loading-bar {

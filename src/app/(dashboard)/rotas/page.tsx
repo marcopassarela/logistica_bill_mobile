@@ -74,6 +74,8 @@ type RotaSalva = {
   destino: string;
   distanciaKm: number | null;
   status: string;
+  dataProgramada: string | null;
+  createdAt: string;
   caminhao: { id: string; placa: string } | null;
   pontos: {
     id: string;
@@ -85,6 +87,22 @@ type RotaSalva = {
     concluido: boolean;
   }[];
 };
+
+function dataHojeLocal() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+function dataCriacaoLocal(valor: string) {
+  const data = new Date(valor);
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
 
 const statusLabel: Record<string, string> = {
   PLANEJADA: "Planejada",
@@ -100,6 +118,8 @@ function emptyWp(): Waypoint {
 export default function RotasPage() {
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
   const [rotas, setRotas] = useState<RotaSalva[]>([]);
+  const [dataFiltro, setDataFiltro] = useState(dataHojeLocal);
+  const [dataProgramada, setDataProgramada] = useState(dataHojeLocal);
   const [nomeRota, setNomeRota] = useState("");
   const [caminhaoId, setCaminhaoId] = useState("");
   const [waypoints, setWaypoints] = useState<Waypoint[]>([emptyWp(), emptyWp()]);
@@ -127,12 +147,12 @@ export default function RotasPage() {
   const [favoritoSalvando, setFavoritoSalvando] = useState(false);
   const [pastasAbertas, setPastasAbertas] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (dataConsulta: string = dataFiltro) => {
     setRefreshing(true);
     try {
       const [cRes, rRes] = await Promise.all([
         fetch("/api/caminhoes", { cache: "no-store" }),
-        fetch("/api/rotas", { cache: "no-store" }),
+        fetch(`/api/rotas?data=${encodeURIComponent(dataConsulta)}`, { cache: "no-store" }),
       ]);
 
       if (!cRes.ok || !rRes.ok) {
@@ -155,11 +175,11 @@ export default function RotasPage() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [dataFiltro]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(dataFiltro);
+  }, [load, dataFiltro]);
 
   useEffect(() => {
     let cancelado = false;
@@ -298,7 +318,7 @@ export default function RotasPage() {
         const results = await geocodeSearch(query);
         if (!cancelled) setSearchResults(results);
       } catch (error) {
-        console.error("Erro na pesquisa de endereÃ§o:", error);
+        console.error("Erro na pesquisa de endereço:", error);
         if (!cancelled) setSearchResults([]);
       } finally {
         if (!cancelled) setSearching(false);
@@ -884,6 +904,7 @@ export default function RotasPage() {
           distanciaKm: dist,
           caminhaoId: caminhaoId || null,
           status: "PLANEJADA",
+          dataProgramada,
           pontos: valid.map((w, i) => ({
             ...(w.id ? { id: w.id } : {}),
             ordem: i,
@@ -904,7 +925,8 @@ export default function RotasPage() {
           type: "ok",
           text: "Rota atualizada no banco com sucesso.",
         });
-        await load();
+        setDataFiltro(dataProgramada);
+        await load(dataProgramada);
       } else {
         setMsg({
           type: "ok",
@@ -917,7 +939,8 @@ export default function RotasPage() {
         setRouteGeometry([]);
         setDistanceKm(null);
         setDurationMin(null);
-        await load();
+        setDataFiltro(dataProgramada);
+        await load(dataProgramada);
       }
     } catch {
       setMsg({ type: "err", text: "Erro de conexão" });
@@ -949,6 +972,9 @@ export default function RotasPage() {
     );
     setNomeRota(r.nome);
     setCaminhaoId(r.caminhao?.id || "");
+    const dataRota = r.dataProgramada || dataCriacaoLocal(r.createdAt);
+    setDataProgramada(dataRota);
+    setDataFiltro(dataRota);
     setDistanceKm(r.distanciaKm);
     setRouting(true);
     try {
@@ -1031,7 +1057,7 @@ export default function RotasPage() {
             Organize os pontos de entrega e defina a melhor sequência de paradas para cada caminhão.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={refreshing}>
+        <Button variant="outline" size="sm" onClick={() => load()} disabled={refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Atualizando..." : "Atualizar"}
         </Button>
@@ -1053,6 +1079,16 @@ export default function RotasPage() {
                 value={nomeRota}
                 onChange={(e) => setNomeRota(e.target.value)}
                 placeholder="Ex: Entregas Zona Sul — 24/10"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rota-data-programada">Data programada</Label>
+              <Input
+                id="rota-data-programada"
+                type="date"
+                value={dataProgramada}
+                onChange={(e) => setDataProgramada(e.target.value)}
               />
             </div>
 
@@ -1334,7 +1370,18 @@ export default function RotasPage() {
                 Rotas salvas ({rotas.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-[420px] overflow-y-auto overscroll-contain pr-2">
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="rotas-filtro-data">Pesquisar rotas por data</Label>
+                <Input
+                  id="rotas-filtro-data"
+                  type="date"
+                  value={dataFiltro}
+                  onChange={(e) => setDataFiltro(e.target.value)}
+                />
+              </div>
+
+              <div className="max-h-[420px] space-y-2 overflow-y-auto overscroll-contain pr-2">
               {rotas.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
                   Nenhuma rota ainda. Crie uma à esquerda — cada caminhão pode ter a sua.
@@ -1350,6 +1397,9 @@ export default function RotasPage() {
                   >
                     <div className="min-w-0">
                       <p className="font-medium truncate">{r.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Data: {(r.dataProgramada || dataCriacaoLocal(r.createdAt)).split("-").reverse().join("/")}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {r.caminhao ? `Placa ${r.caminhao.placa} • ` : ""}
                         {r.pontos.length} pontos
@@ -1423,6 +1473,7 @@ export default function RotasPage() {
                   </div>
                 ))
               )}
+              </div>
             </CardContent>
           </Card>
         </div>

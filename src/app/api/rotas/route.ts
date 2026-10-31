@@ -23,6 +23,7 @@ const createSchema = z.object({
   caminhaoId: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
   status: z.enum(["PLANEJADA", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]).default("PLANEJADA"),
+  dataProgramada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   pontos: z.array(pontoSchema).min(2),
 });
 
@@ -33,10 +34,31 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const caminhaoId = searchParams.get("caminhaoId");
   const status = searchParams.get("status");
+  const data = searchParams.get("data");
+
+  if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return NextResponse.json({ error: "Data inválida." }, { status: 400 });
+  }
 
   const where: Record<string, unknown> = {};
   if (caminhaoId) where.caminhaoId = caminhaoId;
   if (status) where.status = status;
+
+  if (data) {
+    const inicioDia = new Date(`${data}T03:00:00.000Z`);
+    const fimDia = new Date(inicioDia);
+    fimDia.setUTCDate(fimDia.getUTCDate() + 1);
+
+    where.AND = [{
+      OR: [
+        { dataProgramada: data },
+        {
+          dataProgramada: null,
+          createdAt: { gte: inicioDia, lt: fimDia },
+        },
+      ],
+    }];
+  }
 
   const list = await prisma.rota.findMany({
     where,
@@ -78,6 +100,7 @@ export async function POST(req: NextRequest) {
         caminhaoId: d.caminhaoId || null,
         observacoes: d.observacoes || null,
         status: d.status,
+        dataProgramada: d.dataProgramada ?? null,
         pontos: {
           create: d.pontos.map((p) => ({
             ordem: p.ordem,

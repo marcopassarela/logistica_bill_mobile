@@ -22,6 +22,7 @@ const updateSchema = z.object({
   destinoLng: z.number().min(-180).max(180).optional().nullable(),
   distanciaKm: z.number().min(0).optional().nullable(),
   status: z.enum(["PLANEJADA", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]).optional(),
+  dataProgramada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   observacoes: z.string().optional().nullable(),
   caminhaoId: z.string().optional().nullable(),
   pontos: z.array(updatePontoSchema).min(2).optional(),

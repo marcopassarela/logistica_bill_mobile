@@ -235,6 +235,7 @@ model Rota {
   caminhaoId  String?
   caminhao    Caminhao?  @relation(fields: [caminhaoId], references: [id])
   status      StatusRota @default(PLANEJADA)
+  dataProgramada String?
   observacoes String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -242,6 +243,7 @@ model Rota {
   pontos RotaPonto[]
 
   @@index([status])
+  @@index([dataProgramada])
 }
 
 enum StatusRota {

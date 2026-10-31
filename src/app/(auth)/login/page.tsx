@@ -232,7 +232,7 @@ export default function LoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Usuário"
-                    className="pl-9"
+                    className="pl-9 login-input-field focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoComplete="username"
                     required
                   />
@@ -248,7 +248,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Senha"
-                    className="pl-9"
+                    className="pl-9 login-input-field focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoComplete="current-password"
                     required
                   />

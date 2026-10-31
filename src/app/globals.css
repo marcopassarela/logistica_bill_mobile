@@ -21,7 +21,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 87%;
     --input: 0 0% 87%;
-    --ring: 0 0% 45%;
+    --ring: 217 91% 60%;
     --radius: 0.625rem;
     --sidebar: 0 0% 100%;
     --sidebar-foreground: 0 0% 14.9%;
@@ -69,4 +69,83 @@
   height: 100%;
   z-index: 0;
   border-radius: 0.75rem;
+}
+
+
+.login-input-field {
+  border: 1px solid #10264a !important;
+}
+/* Borda contínua animada dos campos de login */
+.input-animated-border {
+  position: relative;
+  padding: 2px;
+  border-radius: 10px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #e2e8f0;
+}
+
+.input-animated-border::before {
+  content: "";
+  position: absolute;
+  inset: -150%;
+  z-index: -1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 285deg,
+    #2563eb 320deg,
+    #60a5fa 345deg,
+    transparent 360deg
+  );
+  animation: border-continuous 2.8s linear infinite;
+}
+
+.input-animated-border::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 8px;
+  background: white;
+}
+
+.input-animated-border input {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: none;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.input-animated-border:focus-within {
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+}
+
+@keyframes border-continuous {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Borda fixa dos campos de login */
+input.login-input-field,
+input.login-input-field:hover {
+  border: 1px solid #10264a !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input.login-input-field:focus,
+input.login-input-field:focus-visible {
+  border: 2px solid #008CFF !important;
+  outline: none !important;
+  box-shadow: none !important;
 }

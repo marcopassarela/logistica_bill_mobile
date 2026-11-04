@@ -175,7 +175,7 @@ export async function DELETE(req: NextRequest) {
     const id = typeof body.id === "string" ? body.id.trim() : "";
     const adminPassword = typeof body.adminPassword === "string" ? body.adminPassword : "";
 
-    if (!id) {
+    if (!id && body.deleteAll !== true) {
       return NextResponse.json({ error: "ID da diária obrigatório" }, { status: 400 });
     }
     if (!adminPassword) {
@@ -183,6 +183,11 @@ export async function DELETE(req: NextRequest) {
     }
     if (!(await verifyAdminPassword(adminPassword))) {
       return NextResponse.json({ error: "Senha do administrador inválida" }, { status: 403 });
+    }
+
+    if (body.deleteAll === true) {
+      const result = await prisma.diaria.deleteMany();
+      return NextResponse.json({ ok: true, count: result.count });
     }
 
     await prisma.diaria.delete({ where: { id } });

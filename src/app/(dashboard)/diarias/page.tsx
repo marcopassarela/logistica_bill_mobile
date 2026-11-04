@@ -42,6 +42,7 @@ export default function DiariasPage() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -154,6 +155,25 @@ export default function DiariasPage() {
     return true;
   }
 
+  async function confirmDeleteAll(adminPassword: string) {
+    const response = await fetch("/api/diarias", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deleteAll: true, adminPassword }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await readError(response, "Não foi possível excluir todas as diárias."));
+    }
+
+    const result = await response.json();
+    setDeleteAllOpen(false);
+    setNotice(`${result.count} diária(s) excluída(s) com sucesso.`);
+    setError("");
+    await loadData();
+    return true;
+  }
+
   const filteredDiarias = filterFuncionarioId
     ? diarias.filter((d) => d.funcionarioId === filterFuncionarioId)
     : diarias;
@@ -251,7 +271,19 @@ export default function DiariasPage() {
         <Card className="lg:col-span-3 lg:flex lg:max-h-[calc(100vh-12rem)] lg:flex-col">
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle className="text-base">Diárias registradas</CardTitle>
-            <span className="text-sm font-semibold text-slate-900 dark:text-white">Total: {formatCurrency(total)}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">Total: {formatCurrency(total)}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => setDeleteAllOpen(true)}
+                disabled={loading || diarias.length === 0}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                Apagar todas
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <div className="mb-4 space-y-2">
@@ -312,6 +344,14 @@ export default function DiariasPage() {
         onConfirm={confirmDelete}
         title="Confirmar exclusão da diária"
         description="Esta ação excluirá permanentemente a diária selecionada. Digite a senha do administrador para continuar."
+      />
+
+      <AdminPasswordModal
+        open={deleteAllOpen}
+        onOpenChange={setDeleteAllOpen}
+        onConfirm={confirmDeleteAll}
+        title="Apagar todas as diárias?"
+        description="Esta ação excluirá permanentemente todas as diárias cadastradas, de todos os meses. Funcionários, caminhões e faltas serão preservados. Digite a senha do administrador para continuar."
       />
     </div>
   );

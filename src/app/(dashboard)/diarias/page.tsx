@@ -46,6 +46,7 @@ export default function DiariasPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [filterFuncionarioId, setFilterFuncionarioId] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -153,7 +154,10 @@ export default function DiariasPage() {
     return true;
   }
 
-  const total = diarias.reduce((sum, d) => sum + Number(d.valor), 0);
+  const filteredDiarias = filterFuncionarioId
+    ? diarias.filter((d) => d.funcionarioId === filterFuncionarioId)
+    : diarias;
+  const total = filteredDiarias.reduce((sum, d) => sum + Number(d.valor), 0);
 
   return (
     <div className="space-y-6">
@@ -165,7 +169,7 @@ export default function DiariasPage() {
       {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {notice && <div role="status" className="rounded-lg border p-3 text-sm">{notice}</div>}
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid items-start gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -244,21 +248,39 @@ export default function DiariasPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className="lg:col-span-3 lg:flex lg:max-h-[calc(100vh-8rem)] lg:flex-col">
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle className="text-base">Diárias registradas</CardTitle>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">Total: {formatCurrency(total)}</span>
           </CardHeader>
-          <CardContent>
+          <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <div className="mb-4 space-y-2">
+              <Label htmlFor="filtro-diarias">Filtrar por funcionário</Label>
+              <select
+                id="filtro-diarias"
+                value={filterFuncionarioId}
+                onChange={(e) => setFilterFuncionarioId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Todos os funcionários</option>
+                {funcionarios.map((f) => (
+                  <option key={f.id} value={f.id}>{f.nome}</option>
+                ))}
+              </select>
+            </div>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Carregando diárias...
               </div>
             ) : diarias.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma diária cadastrada no banco de dados.</p>
+            ) : filteredDiarias.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhuma diária encontrada para este funcionário.
+              </p>
             ) : (
               <div className="space-y-2">
-                {diarias.map((d) => (
+                {filteredDiarias.map((d) => (
                   <div key={d.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="font-medium">{d.funcionario?.nome || "Funcionário não encontrado"}</p>

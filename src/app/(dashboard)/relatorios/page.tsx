@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -457,7 +457,7 @@ export default function RelatoriosPage() {
         </p>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-5">
         <Card className="no-print min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

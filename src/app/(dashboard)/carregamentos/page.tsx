@@ -473,7 +473,7 @@ export default function CarregamentosPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid items-start gap-6 lg:grid-cols-5">
         {/* FORMULÁRIO */}
         <Card id="form-carregamento" className="lg:col-span-2">
           <CardHeader>

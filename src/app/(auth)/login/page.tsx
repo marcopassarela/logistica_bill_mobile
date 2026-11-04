@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -15,28 +15,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const [slowConnection, setSlowConnection] = useState(false);
   const [showStartupModal, setShowStartupModal] = useState(false);
   const requestLock = useRef(false);
-  const startupStageDurations = useRef<number[]>([3, 3, 3, 3]);
-  const startupProgressMilestones = useRef<number[][]>([]);
-  const loadingSteps = [
-    { title: "Inicializando banco de dados", description: "Estabelecendo uma conexão segura com o banco." },
-    { title: "Preparando as ferramentas", description: "Organizando os serviços necessários para o sistema." },
-    { title: "Validando acesso seguro", description: "Aguardando a validação das credenciais." },
-    { title: "Abrindo o Logísticas Bill", description: "Finalizando a preparação para acessar o painel." },
-  ];
 
-  useEffect(() => {
-    if (!loading || !showStartupModal) return;
-
-    const timer = window.setInterval(() => {
-      setElapsedSeconds((seconds) => seconds + 0.25);
-    }, 250);
-
-    return () => window.clearInterval(timer);
-  }, [loading, showStartupModal]);
 
   async function checkDatabase(): Promise<boolean> {
     const controller = new AbortController();
@@ -69,7 +52,6 @@ export default function LoginPage() {
     setLoading(true);
     setSlowConnection(false);
     setShowStartupModal(false);
-    setElapsedSeconds(0);
 
     let keepModalOpen = false;
     let loginController: AbortController | null = null;
@@ -276,7 +258,7 @@ export default function LoginPage() {
       </motion.div>
       {(showStartupModal || slowConnection) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="connection-title"
@@ -304,19 +286,19 @@ export default function LoginPage() {
         100% { transform: rotate(360deg); }
       }
       @keyframes loading-bar {
-        0%   { width: 0%; }
-        8%   { width: 12%; }
-        14%  { width: 12%; }   /* pausa 1 */
-        22%  { width: 28%; }
-        28%  { width: 28%; }   /* pausa 2 */
-        38%  { width: 45%; }
-        44%  { width: 45%; }   /* pausa 3 */
-        55%  { width: 62%; }
-        62%  { width: 62%; }   /* pausa 4 */
-        74%  { width: 78%; }
-        80%  { width: 78%; }   /* pausa 5 */
-        92%  { width: 92%; }
-        100% { width: 100%; }
+        0%   { transform: scaleX(0); }
+        8%   { transform: scaleX(0.12); }
+        14%  { transform: scaleX(0.12); }
+        22%  { transform: scaleX(0.28); }
+        28%  { transform: scaleX(0.28); }
+        38%  { transform: scaleX(0.45); }
+        44%  { transform: scaleX(0.45); }
+        55%  { transform: scaleX(0.62); }
+        62%  { transform: scaleX(0.62); }
+        74%  { transform: scaleX(0.78); }
+        80%  { transform: scaleX(0.78); }
+        92%  { transform: scaleX(0.92); }
+        100% { transform: scaleX(1); }
       }
       @keyframes loading-dots {
         0%, 20% { content: ""; }
@@ -336,7 +318,10 @@ export default function LoginPage() {
         will-change: transform;
       }
       .loading-bar {
+        transform: scaleX(0);
+        transform-origin: left center;
         animation: loading-bar 20s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        will-change: transform;
       }
     `}</style>
 

@@ -149,3 +149,12 @@ input.login-input-field:focus-visible {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* TOUCH_BUTTON_FOCUS_FIX */
+@media (hover: none) and (pointer: coarse) {
+  button:focus:not(:focus-visible),
+  [role="button"]:focus:not(:focus-visible) {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}

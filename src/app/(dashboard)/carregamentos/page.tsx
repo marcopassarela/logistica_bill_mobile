@@ -538,6 +538,33 @@ export default function CarregamentosPage() {
                 </div>
               </div>
 
+              {/* Totais */}
+              <div className="rounded-lg border bg-primary/5 p-3 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span>Peso total</span>
+                  <span className="font-bold">
+                    {pesoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg
+                    {pesoTotal >= 1000 ? ` (${(pesoTotal / 1000).toFixed(2)} t)` : ""}
+                  </span>
+                </div>
+                {capacidade > 0 && (
+                  <>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          percentual > 100 ? "bg-red-600" : percentual > 90 ? "bg-amber-500" : "bg-green-500"
+                        }`}
+                        style={{ width: `${Math.min(percentual, 100)}%` }}
+                      />
+                    </div>
+                    <p className={`text-xs ${percentual > 100 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                      {percentual.toFixed(1)}% da capacidade
+                      {percentual > 100 && " — ACIMA DO LIMITE!"}
+                    </p>
+                  </>
+                )}
+              </div>
+
               {/* ITENS */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -615,33 +642,6 @@ export default function CarregamentosPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Totais */}
-              <div className="rounded-lg border bg-primary/5 p-3 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Peso total</span>
-                  <span className="font-bold">
-                    {pesoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg
-                    {pesoTotal >= 1000 ? ` (${(pesoTotal / 1000).toFixed(2)} t)` : ""}
-                  </span>
-                </div>
-                {capacidade > 0 && (
-                  <>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full transition-all ${
-                          percentual > 100 ? "bg-red-600" : percentual > 90 ? "bg-amber-500" : "bg-green-500"
-                        }`}
-                        style={{ width: `${Math.min(percentual, 100)}%` }}
-                      />
-                    </div>
-                    <p className={`text-xs ${percentual > 100 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                      {percentual.toFixed(1)}% da capacidade
-                      {percentual > 100 && " — ACIMA DO LIMITE!"}
-                    </p>
-                  </>
-                )}
               </div>
 
               <div className="space-y-2">

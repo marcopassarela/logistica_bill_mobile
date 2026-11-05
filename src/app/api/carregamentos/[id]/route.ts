@@ -8,6 +8,10 @@ const updateSchema = z.object({
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
   status: z.enum(["EM_ANDAMENTO", "FINALIZADO", "CANCELADO", "NAO_CARREGADO"]).optional(),
+  itemStatus: z.object({
+    itemId: z.string(),
+    statusItem: z.enum(["PENDENTE", "CARREGADO", "NAO_CARREGADO"]),
+  }).optional(),
   itens: z
     .array(
       z.object({
@@ -92,6 +96,10 @@ export async function PATCH(
 
       const idsAtuais = new Set(atual.itens.map((item) => item.id));
 
+      if (data.itemStatus && !idsAtuais.has(data.itemStatus.itemId)) {
+        return { erro: "ITEM_INVALIDO" as const };
+      }
+
       if (data.itens?.some((item) => item.id && !idsAtuais.has(item.id))) {
         return { erro: "ITEM_INVALIDO" as const };
       }
@@ -102,8 +110,16 @@ export async function PATCH(
         { peso: number; statusItem: string }
       >();
 
-      if (data.itens !== undefined) {
-        // Na edição, calcular somente com os itens que serão mantidos ou adicionados.
+      if (data.itemStatus !== undefined) {
+        for (const item of atual.itens) {
+          previstos.set(item.id, {
+            peso: Number(item.peso),
+            statusItem: item.id === data.itemStatus.itemId
+              ? data.itemStatus.statusItem
+              : item.statusItem,
+          });
+        }
+      } else if (data.itens !== undefined) {
         for (const [indice, item] of data.itens.entries()) {
           previstos.set(item.id ?? `novo-${indice}`, {
             peso: item.peso,
@@ -111,7 +127,6 @@ export async function PATCH(
           });
         }
       } else {
-        // Em alterações sem lista de itens, preservar os itens existentes.
         for (const item of atual.itens) {
           previstos.set(item.id, {
             peso: Number(item.peso),
@@ -130,7 +145,7 @@ export async function PATCH(
       const validarPeso =
         data.status === "FINALIZADO" ||
         data.status === "EM_ANDAMENTO" ||
-        (data.itens !== undefined &&
+        ((data.itens !== undefined || data.itemStatus !== undefined) &&
           data.status !== "CANCELADO" &&
           data.status !== "NAO_CARREGADO");
 
@@ -149,7 +164,12 @@ export async function PATCH(
       }
 
       // Nenhuma gravaÃ§Ã£o ocorre antes das validaÃ§Ãµes acima.
-      if (data.itens !== undefined) {
+      if (data.itemStatus !== undefined) {
+        await tx.carregamentoItem.update({
+          where: { id: data.itemStatus.itemId },
+          data: { statusItem: data.itemStatus.statusItem },
+        });
+      } else if (data.itens !== undefined) {
         const idsEnviados = data.itens
           .map((item) => item.id)
           .filter((itemId): itemId is string => Boolean(itemId));

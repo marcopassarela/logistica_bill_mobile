@@ -371,30 +371,38 @@ export default function CarregamentosPage() {
       return;
     }
 
-    const novosItens = carreg.itens.map((it) => ({
-      id: it.id,
-      produtoId: it.produto.id,
-      quantidade: num(it.quantidade),
-      peso: num(it.peso),
-      statusItem: it.id === itemId
-        ? novo
-        : it.statusItem as "PENDENTE" | "CARREGADO" | "NAO_CARREGADO",
-      observacao: it.observacao,
-    }));
+    const pesoPrevisto = carreg.itens.reduce((total, item) => {
+      const statusItem = item.id === itemId ? novo : item.statusItem;
+      return total + (statusItem === "CARREGADO" ? num(item.peso) : 0);
+    }, 0);
+
+    setLista((prev) =>
+      prev.map((c) =>
+        c.id !== carregId
+          ? c
+          : {
+              ...c,
+              pesoTotal: pesoPrevisto,
+              itens: c.itens.map((item) =>
+                item.id === itemId ? { ...item, statusItem: novo } : item
+              ),
+            }
+      )
+    );
 
     try {
       const res = await fetch(`/api/carregamentos/${carregId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itens: novosItens }),
+        body: JSON.stringify({
+          itemStatus: { itemId, statusItem: novo },
+        }),
       });
 
       const resultado = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const mensagem = resultado.error ||
-          `Nao foi possivel atualizar o item (HTTP ${res.status}).`;
-        alert(mensagem);
+        alert(resultado.error || `Não foi possível atualizar o item (HTTP ${res.status}).`);
         await loadLista();
         return;
       }
@@ -402,14 +410,17 @@ export default function CarregamentosPage() {
       if (resultado.avisoExcessoPeso) {
         setAvisoPeso(resultado.detalhesExcessoPeso ?? null);
       }
-
-      await loadLista();
     } catch (erro) {
       console.error("Erro ao alterar status do item:", erro);
-      alert("Erro de conexao ao atualizar o item. Verifique a conexao e tente novamente.");
+      alert("Erro de conexão ao atualizar o item. Verifique a conexao e tente novamente.");
+      await loadLista();
     }
   }
   async function setCarregStatus(carregId: string, novoStatus: string) {
+    setLista((prev) =>
+      prev.map((c) => c.id === carregId ? { ...c, status: novoStatus } : c)
+    );
+
     try {
       const res = await fetch(`/api/carregamentos/${carregId}`, {
         method: "PATCH",
@@ -422,17 +433,15 @@ export default function CarregamentosPage() {
       if (!res.ok) {
         alert(resultado.error || `Não foi possível alterar o status (${res.status}).`);
         await loadLista();
-        await loadBase();
         return;
       }
 
-      await loadLista();
-      await loadBase();
+      void loadBase();
     } catch {
       alert("Erro de conexão ao atualizar o carregamento.");
+      await loadLista();
     }
   }
-
   async function confirmDelete(password: string) {
     if (!deleteId) return false;
     const res = await fetch(`/api/carregamentos/${deleteId}`, {

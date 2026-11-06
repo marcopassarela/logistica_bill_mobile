@@ -5,45 +5,7 @@ import {
   isValidElement,
   type ReactNode,
 } from "react";
-import {
-  motion,
-  useReducedMotion,
-  type Variants,
-} from "framer-motion";
-
-const containerVariants = (
-  delay: number,
-  reduceMotion: boolean
-): Variants => ({
-  hidden: {},
-  visible: {
-    transition: {
-      delayChildren: reduceMotion ? 0 : delay,
-      staggerChildren: reduceMotion ? 0 : 0.16,
-    },
-  },
-});
-
-const itemVariants = (reduceMotion: boolean): Variants => ({
-  hidden: {
-    opacity: 0,
-    y: 24,
-    scale: 0.97,
-    rotateX: -4,
-    z: -45,
-  },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    rotateX: 0,
-    z: 0,
-    transition: {
-      duration: reduceMotion ? 0 : 0.62,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-});
+import { useReducedMotion } from "framer-motion";
 
 export function ScreenAssembly({
   children,
@@ -57,32 +19,32 @@ export function ScreenAssembly({
   itemClassNames?: string[];
 }) {
   const reduceMotion = useReducedMotion() ?? false;
-  const items = itemVariants(reduceMotion);
 
   return (
-    <motion.div
-      className={className}
-      variants={containerVariants(delay, reduceMotion)}
-      initial="hidden"
-      animate="visible"
-      style={{
-        perspective: 1000,
-        transformStyle: "preserve-3d",
-      }}
-    >
+    <div className={className}>
       {Children.map(children, (child, index) =>
         isValidElement(child) ? (
-          <motion.div
-            className={itemClassNames?.[index]}
-            variants={items}
-            style={{ transformOrigin: "center bottom" }}
+          <div
+            className={[
+              itemClassNames?.[index],
+              reduceMotion ? "" : "screen-assembly-item",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={
+              reduceMotion
+                ? undefined
+                : {
+                    animationDelay: `${(delay + index * 0.32) * 1000}ms`,
+                  }
+            }
           >
             {child}
-          </motion.div>
+          </div>
         ) : (
           child
         )
       )}
-    </motion.div>
+    </div>
   );
 }

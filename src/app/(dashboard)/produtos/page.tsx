@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
@@ -175,6 +177,7 @@ export default function ProdutosPage() {
 
   return (
     <div className="space-y-6">
+      <ScreenAssembly className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
@@ -268,6 +271,7 @@ export default function ProdutosPage() {
           </table>
         </div>
       )}
+      </ScreenAssembly>
 
       {formOpen && (
         <div

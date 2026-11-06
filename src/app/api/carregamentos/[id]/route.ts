@@ -7,7 +7,7 @@ const updateSchema = z.object({
   origem: z.string().optional().nullable(),
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
-  status: z.enum(["EM_ANDAMENTO", "FINALIZADO", "CANCELADO", "NAO_CARREGADO"]).optional(),
+  status: z.enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"]).optional(),
   itemStatus: z.object({
     itemId: z.string(),
     statusItem: z.enum(["PENDENTE", "CARREGADO", "NAO_CARREGADO"]),
@@ -218,26 +218,36 @@ export async function PATCH(
       });
 
       // Preserva os estados operacionais especiais do caminhÃ£o.
-      if (
-        atual.caminhao.status !== "EM_ROTA" &&
-        atual.caminhao.status !== "MANUTENCAO"
-      ) {
-        const carregamentosRestantes = await tx.carregamento.findMany({
-          where: {
-            caminhaoId: atual.caminhao.id,
-            status: { in: ["EM_ANDAMENTO", "FINALIZADO"] },
-          },
-          select: { status: true },
-        });
+      // Manutenção tem prioridade e nunca deve ser sobrescrita.
+      if (atual.caminhao.status !== "MANUTENCAO") {
+        const [carregamentosRestantes, rotaAtiva] = await Promise.all([
+          tx.carregamento.findMany({
+            where: {
+              caminhaoId: atual.caminhao.id,
+              status: { in: ["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA"] },
+            },
+            select: { status: true },
+          }),
+          tx.rota.findFirst({
+            where: {
+              caminhaoId: atual.caminhao.id,
+              status: "EM_ANDAMENTO",
+            },
+            select: { id: true },
+          }),
+        ]);
 
-        let novoStatus: "LIBERADO" | "CARREGANDO" | "CARREGADO";
+        let novoStatus: "LIBERADO" | "CARREGANDO" | "EM_ROTA";
 
-        if (carregamentosRestantes.some((c) => c.status === "EM_ANDAMENTO")) {
-          novoStatus = "CARREGANDO";
-        } else if (
-          carregamentosRestantes.some((c) => c.status === "FINALIZADO")
+        if (
+          rotaAtiva ||
+          carregamentosRestantes.some((c) => c.status === "EM_ROTA")
         ) {
-          novoStatus = "CARREGADO";
+          novoStatus = "EM_ROTA";
+        } else if (
+          carregamentosRestantes.some((c) => c.status === "EM_ANDAMENTO")
+        ) {
+          novoStatus = "CARREGANDO";
         } else {
           novoStatus = "LIBERADO";
         }
@@ -411,27 +421,37 @@ export async function DELETE(
       }
 
       // NÃ£o interferir em caminhÃµes em rota ou em manutenÃ§Ã£o.
-      if (
-        caminhao.status === "EM_ROTA" ||
-        caminhao.status === "MANUTENCAO"
-      ) {
+      // Nunca alterar o status de um caminhão em manutenção.
+      if (caminhao.status === "MANUTENCAO") {
         return { ok: true };
       }
 
-      const restantes = await tx.carregamento.findMany({
-        where: {
-          caminhaoId: carregamento.caminhaoId,
-          status: { in: ["EM_ANDAMENTO", "FINALIZADO"] },
-        },
-        select: { status: true },
-      });
+      const [restantes, rotaAtiva] = await Promise.all([
+        tx.carregamento.findMany({
+          where: {
+            caminhaoId: carregamento.caminhaoId,
+            status: { in: ["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA"] },
+          },
+          select: { status: true },
+        }),
+        tx.rota.findFirst({
+          where: {
+            caminhaoId: carregamento.caminhaoId,
+            status: "EM_ANDAMENTO",
+          },
+          select: { id: true },
+        }),
+      ]);
 
-      let novoStatus: "LIBERADO" | "CARREGANDO" | "CARREGADO";
+      let novoStatus: "LIBERADO" | "CARREGANDO" | "EM_ROTA";
 
-      if (restantes.some((c) => c.status === "EM_ANDAMENTO")) {
+      if (
+        rotaAtiva ||
+        restantes.some((c) => c.status === "EM_ROTA")
+      ) {
+        novoStatus = "EM_ROTA";
+      } else if (restantes.some((c) => c.status === "EM_ANDAMENTO")) {
         novoStatus = "CARREGANDO";
-      } else if (restantes.some((c) => c.status === "FINALIZADO")) {
-        novoStatus = "CARREGADO";
       } else {
         novoStatus = "LIBERADO";
       }

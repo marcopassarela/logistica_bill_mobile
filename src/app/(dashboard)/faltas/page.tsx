@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Plus,
@@ -235,7 +237,7 @@ export default function FaltasPage() {
         </div>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      <ScreenAssembly className="grid items-start gap-6 lg:grid-cols-5" itemClassNames={["lg:col-span-2", "lg:col-span-3"]}>
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -422,7 +424,7 @@ export default function FaltasPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </ScreenAssembly>
 
       <AdminPasswordModal
         open={passwordOpen}

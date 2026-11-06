@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import {
   Plus,
   Pencil,
@@ -72,7 +73,8 @@ type Carregamento = {
 
 const statusLabel: Record<string, string> = {
   EM_ANDAMENTO: "Em andamento",
-  FINALIZADO: "Finalizado",
+  FINALIZADO: "Liberado",
+  EM_ROTA: "Em rota",
   CANCELADO: "Cancelado",
   NAO_CARREGADO: "Não carregado",
 };
@@ -80,6 +82,7 @@ const statusLabel: Record<string, string> = {
 const statusVariant: Record<string, "default" | "success" | "warning" | "destructive" | "secondary"> = {
   EM_ANDAMENTO: "default",
   FINALIZADO: "success",
+  EM_ROTA: "warning",
   CANCELADO: "destructive",
   NAO_CARREGADO: "warning",
 };
@@ -137,7 +140,7 @@ export default function CarregamentosPage() {
   const [data, setData] = useState(todayISO());
   const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
-  const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
+  const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
     { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
@@ -233,7 +236,7 @@ export default function CarregamentosPage() {
     setOrigem(carreg.origem ?? "");
     setDestino(carreg.destino ?? "");
     setStatus(
-      carreg.status as "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO" | "NAO_CARREGADO"
+      carreg.status as "EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO"
     );
     setObservacoes(carreg.observacoes ?? "");
     setItens(
@@ -477,12 +480,12 @@ export default function CarregamentosPage() {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
-          <RefreshCw className="mr-2 h-4 w-4" />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      <ScreenAssembly className="grid items-start gap-6 lg:grid-cols-5" itemClassNames={["lg:col-span-2", "lg:col-span-3"]}>
         {/* FORMULÁRIO */}
         <Card id="form-carregamento" className="lg:col-span-2">
           <CardHeader>
@@ -529,7 +532,8 @@ export default function CarregamentosPage() {
                     onChange={(e) => setStatus(e.target.value as typeof status)}
                   >
                     <option value="EM_ANDAMENTO">Em andamento</option>
-                    <option value="FINALIZADO">Finalizado / Carregou</option>
+                    <option value="FINALIZADO">Liberado</option>
+                    <option value="EM_ROTA">Em rota</option>
                     <option value="NAO_CARREGADO">Não carregou</option>
                     <option value="CANCELADO">Cancelado</option>
                   </select>
@@ -649,6 +653,14 @@ export default function CarregamentosPage() {
                         </select>
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Observação do item</Label>
+                      <Input
+                        value={item.observacao}
+                        onChange={(e) => updateItem(item.key, { observacao: e.target.value })}
+                        placeholder="Opcional"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -750,6 +762,11 @@ export default function CarregamentosPage() {
                             <span className="text-muted-foreground text-xs ml-2">
                               {num(it.quantidade)} {it.produto.unidade} • {num(it.peso).toLocaleString("pt-BR")} kg
                             </span>
+                            {it.observacao?.trim() && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Observação: {it.observacao}
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button
@@ -799,14 +816,14 @@ export default function CarregamentosPage() {
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
-                        Finalizar
-                      </Button>
                       <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
                         Em andamento
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "NAO_CARREGADO")}>
-                        Não carregou (geral)
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
+                        Liberado
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
+                        Em rota
                       </Button>
                       <Button
                         size="sm"
@@ -826,7 +843,7 @@ export default function CarregamentosPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </ScreenAssembly>
 
       {avisoPeso && (
         <div

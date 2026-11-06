@@ -2,8 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "./ThemeToggle";
+import { PageTransition } from "./PageTransition";
+import { useStartupTransition } from "./StartupTransitionProvider";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -16,6 +19,7 @@ export function DashboardShell({
   userName,
 }: DashboardShellProps) {
   const router = useRouter();
+  const { finishStartupTransition } = useStartupTransition();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -25,6 +29,14 @@ export function DashboardShell({
       // O menu continua funcional mesmo se o armazenamento estiver indisponível.
     }
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      finishStartupTransition();
+    }, 120);
+
+    return () => window.clearTimeout(timeout);
+  }, [finishStartupTransition]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -48,7 +60,12 @@ export function DashboardShell({
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+      className="min-h-screen bg-background text-foreground"
+    >
       <Sidebar
         userName={userName}
         onLogout={handleLogout}
@@ -64,8 +81,8 @@ export function DashboardShell({
         <header className="sticky top-0 z-20 flex h-14 items-center justify-end gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:px-6">
           <ThemeToggle />
         </header>
-        <main className="animate-fade-in p-4 lg:p-6">{children}</main>
+        <main className="p-4 lg:p-6"><PageTransition>{children}</PageTransition></main>
       </div>
-    </div>
+    </motion.div>
   );
 }

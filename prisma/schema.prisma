@@ -154,6 +154,7 @@ model Carregamento {
 enum StatusCarregamento {
   EM_ANDAMENTO
   FINALIZADO
+  EM_ROTA
   CANCELADO
   NAO_CARREGADO
 }

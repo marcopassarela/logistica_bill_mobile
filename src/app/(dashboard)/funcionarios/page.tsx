@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Search, Users, Briefcase, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -293,7 +295,7 @@ export default function FuncionariosPage() {
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum funcionário encontrado.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ScreenAssembly className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((f) => (
             <Card key={f.id}>
               <CardHeader className="flex flex-row items-start justify-between pb-2">
@@ -332,7 +334,7 @@ export default function FuncionariosPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
+        </ScreenAssembly>
       )}
 
       {formOpen && (

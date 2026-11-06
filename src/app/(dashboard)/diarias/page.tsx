@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Plus, Pencil, Trash2, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -189,7 +191,7 @@ export default function DiariasPage() {
       {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {notice && <div role="status" className="rounded-lg border p-3 text-sm">{notice}</div>}
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      <ScreenAssembly className="grid items-start gap-6 lg:grid-cols-5" itemClassNames={["lg:col-span-2", "lg:col-span-3"]}>
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -336,7 +338,7 @@ export default function DiariasPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </ScreenAssembly>
 
       <AdminPasswordModal
         open={Boolean(deleteId)}

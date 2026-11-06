@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -1063,7 +1065,7 @@ export default function RotasPage() {
         </Button>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-5">
+      <ScreenAssembly className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-5" itemClassNames={["min-w-0 w-full lg:col-span-2 h-fit", "min-w-0 w-full lg:col-span-3"]}>
         {/* FORM */}
         <Card className="min-w-0 w-full lg:col-span-2 h-fit">
           <CardHeader>
@@ -1349,7 +1351,7 @@ export default function RotasPage() {
         </Card>
 
         {/* MAPA + LISTA */}
-        <div className="min-w-0 w-full lg:col-span-3 space-y-4">
+        <ScreenAssembly className="space-y-4">
           <Card className="overflow-hidden">
             <CardContent className="relative h-[300px] w-full min-w-0 p-0 sm:h-[380px] lg:h-[420px]">
               <MapView
@@ -1476,8 +1478,8 @@ export default function RotasPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </ScreenAssembly>
+      </ScreenAssembly>
 
       <Dialog open={favoritoModalOpen} onOpenChange={setFavoritoModalOpen}>
         <DialogContent className="sm:max-w-md">

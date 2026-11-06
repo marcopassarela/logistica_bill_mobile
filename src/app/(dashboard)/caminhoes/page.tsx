@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { Plus, Pencil, Trash2, Truck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,13 +160,11 @@ export default function CaminhoesPage() {
 
       {loading ? <p className="text-sm text-muted-foreground">Carregando caminhoes...</p> :
         filtered.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum caminhao encontrado.</p> :
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c, i) => {
+        <ScreenAssembly className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((c) => {
             const st = statusMap[c.status] || statusMap.LIBERADO;
             return (
-              <motion.div key={c.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}>
-                <Card className="transition-shadow hover:shadow-md">
+              <Card key={c.id} className="transition-shadow hover:shadow-md">
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -199,10 +197,9 @@ export default function CaminhoesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
             );
           })}
-        </div>
+        </ScreenAssembly>
       }
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>

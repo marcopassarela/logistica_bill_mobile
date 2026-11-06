@@ -18,7 +18,7 @@ const createSchema = z.object({
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
   status: z
-    .enum(["EM_ANDAMENTO", "FINALIZADO", "CANCELADO", "NAO_CARREGADO"])
+    .enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"])
     .default("EM_ANDAMENTO"),
   itens: z.array(itemSchema).min(1, "Adicione pelo menos um produto"),
 });
@@ -185,22 +185,33 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Recalcular o status considerando os carregamentos existentes.
-      // Nunca substituir EM_ROTA ou MANUTENCAO.
-      const carregamentos = await tx.carregamento.findMany({
-        where: {
-          caminhaoId: caminhao.id,
-          status: { in: ["EM_ANDAMENTO", "FINALIZADO"] },
-        },
-        select: { status: true },
-      });
+      // Recalcular o status operacional do caminhão.
+      const [carregamentos, rotaAtiva] = await Promise.all([
+        tx.carregamento.findMany({
+          where: {
+            caminhaoId: caminhao.id,
+            status: { in: ["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA"] },
+          },
+          select: { status: true },
+        }),
+        tx.rota.findFirst({
+          where: {
+            caminhaoId: caminhao.id,
+            status: "EM_ANDAMENTO",
+          },
+          select: { id: true },
+        }),
+      ]);
 
-      let novoStatus: "LIBERADO" | "CARREGANDO" | "CARREGADO";
+      let novoStatus: "LIBERADO" | "CARREGANDO" | "EM_ROTA";
 
-      if (carregamentos.some((c) => c.status === "EM_ANDAMENTO")) {
+      if (
+        rotaAtiva ||
+        carregamentos.some((c) => c.status === "EM_ROTA")
+      ) {
+        novoStatus = "EM_ROTA";
+      } else if (carregamentos.some((c) => c.status === "EM_ANDAMENTO")) {
         novoStatus = "CARREGANDO";
-      } else if (carregamentos.some((c) => c.status === "FINALIZADO")) {
-        novoStatus = "CARREGADO";
       } else {
         novoStatus = "LIBERADO";
       }

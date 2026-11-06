@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +12,12 @@ import { Loader2, Lock, User } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const [slowConnection, setSlowConnection] = useState(false);
   const [showStartupModal, setShowStartupModal] = useState(false);
@@ -139,8 +142,9 @@ export default function LoginPage() {
         // reaparecer no próximo acesso. O login continua normalmente.
       }
 
+      setIsNavigating(true);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1350));
       router.push("/dashboard");
-      router.refresh();
     } catch {
       if (loginController?.signal.aborted) {
         keepModalOpen = true;
@@ -168,7 +172,7 @@ export default function LoginPage() {
     await performLogin();
   }
   return (
-    <div className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
+    <motion.div initial={false} animate={{ opacity: isNavigating ? 0 : 1 }} transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }} className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -377,7 +381,7 @@ export default function LoginPage() {
             )}
           </div>
         </div>
-      )}    </div>
+      )}    </motion.div>
   );
 }
 

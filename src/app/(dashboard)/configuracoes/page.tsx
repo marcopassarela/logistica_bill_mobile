@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { User, Lock, Palette, Shield } from "lucide-react";
@@ -119,6 +121,7 @@ export default function ConfiguracoesPage() {
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
       {message && <p role="status" className="text-sm text-green-600">{message}</p>}
 
+      <ScreenAssembly className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base"><User className="h-4 w-4" /> Perfil</CardTitle>
@@ -186,6 +189,7 @@ export default function ConfiguracoesPage() {
           <p> Alterações sensíveis validadas no servidor.</p>
         </CardContent>
       </Card>
+      </ScreenAssembly>
 
       <AdminPasswordModal open={adminModalOpen} onOpenChange={setAdminModalOpen}
         onConfirm={handleAdminConfirm} title="Confirmar alteração"

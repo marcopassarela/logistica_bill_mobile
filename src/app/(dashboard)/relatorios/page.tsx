@@ -1,5 +1,7 @@
 "use client";
 
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import {
@@ -172,6 +174,10 @@ export default function RelatoriosPage() {
         );
       }
 
+      if (tipo === "diario") {
+        funcionarios = await consultar("/api/funcionarios");
+      }
+
       if (tipo === "geral") {
         [funcionarios, caminhoes] = await Promise.all([
           consultar("/api/funcionarios"),
@@ -182,26 +188,74 @@ export default function RelatoriosPage() {
       let novo: Relatorio;
 
       if (tipo === "diario") {
-        const grupos = agrupar(diarias, (r) =>
-          texto((r.funcionario as Registro | null)?.nome),
+        const normalizarCargo = (valor: unknown) =>
+          texto(valor)
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+
+        const motoristas = funcionarios.filter((f) =>
+          normalizarCargo((f.cargo as Registro | null)?.nome).includes("motorista"),
+        ).length;
+
+        const ajudantes = funcionarios.filter((f) =>
+          normalizarCargo((f.cargo as Registro | null)?.nome).includes("ajudante"),
+        ).length;
+
+        const mapaFuncionarios = new Map(
+          funcionarios.map((f) => [texto(f.id), f]),
         );
+
+        const grupos = new Map<
+          string,
+          { nome: string; cargo: string; quantidade: number; total: number }
+        >();
+
+        for (const diaria of diarias) {
+          const funcionario = diaria.funcionario as Registro | null;
+          const id = texto(funcionario?.id);
+          const nome = texto(funcionario?.nome) || "Não informado";
+          const cadastrado = mapaFuncionarios.get(id);
+          const cargo = texto((cadastrado?.cargo as Registro | null)?.nome) || "Sem cargo";
+          const chave = id || nome;
+
+          const atual = grupos.get(chave) || {
+            nome,
+            cargo,
+            quantidade: 0,
+            total: 0,
+          };
+
+          atual.quantidade += 1;
+          atual.total += Number(diaria.valor ?? 0);
+          grupos.set(chave, atual);
+        }
+
+        const linhas = Array.from(grupos.values()).sort(
+          (a, b) => b.total - a.total,
+        );
+
         const total = diarias.reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
         novo = {
-          titulo: "Resumo de Diarias por Motorista",
+          titulo: "Resumo de Diárias por Funcionário",
           colunas: [
-            { key: "nome", label: "Motorista" },
-            { key: "quantidade", label: "Quantidade de diarias" },
+            { key: "nome", label: "Funcionário" },
+            { key: "cargo", label: "Cargo" },
+            { key: "quantidade", label: "Quantidade de diárias" },
             { key: "total", label: "Total a receber" },
           ],
-          linhas: grupos.map((g) => ({
+          linhas: linhas.map((g) => ({
             nome: g.nome,
+            cargo: g.cargo,
             quantidade: g.quantidade,
             total: g.total,
           })),
           resumo: [
-            { rotulo: "Motoristas", valor: String(grupos.length) },
-            { rotulo: "Diarias registradas", valor: String(diarias.length) },
+            { rotulo: "Motoristas cadastrados", valor: String(motoristas) },
+            { rotulo: "Ajudantes cadastrados", valor: String(ajudantes) },
+            { rotulo: "Total de funcionários", valor: String(funcionarios.length) },
+            { rotulo: "Diárias registradas", valor: String(diarias.length) },
             { rotulo: "Total geral a pagar", valor: dinheiro(total) },
           ],
         };
@@ -457,7 +511,7 @@ export default function RelatoriosPage() {
         </p>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-5">
+      <ScreenAssembly className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-5" itemClassNames={["no-print min-w-0 lg:col-span-2", "min-w-0 lg:col-span-3"]}>
         <Card className="no-print min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -675,7 +729,7 @@ export default function RelatoriosPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </ScreenAssembly>
     </div>
   );
 }

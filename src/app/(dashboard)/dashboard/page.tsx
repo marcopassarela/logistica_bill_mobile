@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import {
   Truck, Package, AlertTriangle, Weight, Activity, RefreshCw,
 } from "lucide-react";
@@ -114,7 +115,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <ScreenAssembly delay={0}><div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-foreground/80">Visão geral do sistema Logísticas Bill.</p>
@@ -128,7 +129,7 @@ export default function DashboardPage() {
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </button>
-      </div>
+      </div></ScreenAssembly>
 
       {error && (
         <div role="alert" className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm">
@@ -143,7 +144,7 @@ export default function DashboardPage() {
         <Card><CardContent className="py-10 text-center text-muted-foreground">Carregando dados reais...</CardContent></Card>
       ) : data ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ScreenAssembly className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" delay={0.18}>
             {stats.map((stat) => {
               const Icon = stat.icon;
               const card = (
@@ -174,10 +175,10 @@ export default function DashboardPage() {
                 <div key={stat.title}>{card}</div>
               );
             })}
-          </div>
+          </ScreenAssembly>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <ScreenAssembly className="grid items-stretch gap-6 lg:grid-cols-3" delay={0.65} itemClassNames={["h-full lg:col-span-2", "h-full"]}>
+            <Card className="flex h-full flex-col lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
@@ -186,7 +187,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  <ResponsiveContainer width="85%" height="100%" style={{ margin: "0 auto" }}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.pesoSemanal} barCategoryGap="0%">
                       <CartesianGrid
   stroke="hsl(var(--border))"
@@ -228,10 +229,10 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="flex h-full flex-col">
               <CardHeader><CardTitle>Status dos caminhões</CardTitle></CardHeader>
               <CardContent>
-                <div className="relative h-52">
+                <div className="relative h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -240,8 +241,8 @@ export default function DashboardPage() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={58}
-                        outerRadius={82}
+                        innerRadius={64}
+                        outerRadius={92}
                         paddingAngle={0}
                         stroke="none"
                         strokeWidth={0}
@@ -266,7 +267,7 @@ export default function DashboardPage() {
                     <span className="text-xs text-muted-foreground">caminhões</span>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
                   {data.statusCaminhoes.map((item) => (
                     <div key={item.name} className="flex min-w-0 items-center justify-between gap-2 text-xs">
                       <span className="flex min-w-0 items-center gap-2">
@@ -279,9 +280,9 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </ScreenAssembly>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <ScreenAssembly className="grid gap-6 lg:grid-cols-2" delay={1.05}>
             <Card>
               <CardHeader><CardTitle>Carregamentos recentes</CardTitle></CardHeader>
               <CardContent>
@@ -343,7 +344,7 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </ScreenAssembly>
         </>
       ) : !error ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Nenhum dado disponível.</CardContent></Card>

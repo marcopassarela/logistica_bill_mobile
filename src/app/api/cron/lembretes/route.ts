@@ -374,6 +374,17 @@ export async function GET(request: Request) {
         const results = await Promise.all(
           subscriptions.map(async (subscription) => {
             try {
+              const userAgent = subscription.userAgent ?? "";
+              const isDesktop =
+                /Windows NT|Macintosh|X11|Linux x86_64/i.test(userAgent) &&
+                !/Android|iPhone|iPad|Mobile/i.test(userAgent);
+
+              const notificationPayload = JSON.parse(payload);
+              notificationPayload.body = notificationPayload.body.replace(
+                /^\n/,
+                isDesktop ? "\n\n" : "\n"
+              );
+              const devicePayload = JSON.stringify(notificationPayload);
               await webpush.sendNotification(
                 {
                   endpoint: subscription.endpoint,
@@ -382,7 +393,7 @@ export async function GET(request: Request) {
                     auth: subscription.auth,
                   },
                 },
-                payload,
+                devicePayload,
                 { TTL: 60 * 60 }
               );
 

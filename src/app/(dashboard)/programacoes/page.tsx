@@ -505,7 +505,7 @@ export default function ProgramacoesPage() {
 
                       <p className="font-semibold">
                         {agendamento
-                          ? `${agendamento.origem} ? ${agendamento.destino}`
+                          ? `${agendamento.origem} → ${agendamento.destino}`
                           : lembrete?.descricao}
                       </p>
 

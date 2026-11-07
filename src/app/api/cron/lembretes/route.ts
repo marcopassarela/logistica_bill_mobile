@@ -275,18 +275,6 @@ export async function GET(request: Request) {
       try {
         const pesoTotal = Number(agendamento.peso);
 
-        if (!Number.isFinite(pesoTotal) || pesoTotal <= 0) {
-          await prisma.agendamentoCarregamento.updateMany({
-            where: {
-              id: agendamento.id,
-              alertaGeradoEm: claimedAt,
-            },
-            data: { alertaGeradoEm: null },
-          });
-
-          agendamentosRetry++;
-          continue;
-        }
         const subscriptions = await prisma.pushSubscription.findMany({
           where: { userId: agendamento.userId },
         });
@@ -308,9 +296,12 @@ export async function GET(request: Request) {
           timeZone: "America/Sao_Paulo",
         });
 
-        const pesoFormatado = pesoTotal.toLocaleString("pt-BR", {
-          maximumFractionDigits: 3,
-        });
+        const pesoFormatado =
+          Number.isFinite(pesoTotal) && pesoTotal > 0
+            ? pesoTotal.toLocaleString("pt-BR", {
+                maximumFractionDigits: 3,
+              }) + " kg"
+            : "n\u00E3o informado";
 
         const payload = JSON.stringify({
           id: agendamento.id,
@@ -318,7 +309,7 @@ export async function GET(request: Request) {
           body:
             `Caminh\u00E3o ${agendamento.caminhao.placa} \u2014 Carga programada para hoje.\n` +
             `Data: ${date}\n` +
-            `Peso previsto: ${pesoFormatado} kg\n` +
+            `Peso previsto: ${pesoFormatado}\n` +
             `Origem: ${agendamento.origem}\n` +
             `Destino: ${agendamento.destino}`,
           icon: "/icon-192.png",

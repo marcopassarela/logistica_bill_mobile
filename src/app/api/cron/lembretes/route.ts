@@ -273,34 +273,9 @@ export async function GET(request: Request) {
       if (claim.count !== 1) continue;
 
       try {
-        const dateParts = new Intl.DateTimeFormat("en-CA", {
-          timeZone: "America/Sao_Paulo",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(agendamento.dataHora);
+        const pesoTotal = Number(agendamento.peso);
 
-        const dateValues = Object.fromEntries(
-          dateParts.map((part) => [part.type, part.value])
-        );
-        const day = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
-
-        const inicioDia = new Date(`${day}T00:00:00.000-03:00`);
-        const fimDia = new Date(`${day}T23:59:59.999-03:00`);
-
-        const carregamento = await prisma.carregamento.findFirst({
-          where: {
-            caminhaoId: agendamento.caminhaoId,
-            data: { gte: inicioDia, lte: fimDia },
-            status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
-          },
-          orderBy: { createdAt: "desc" },
-          select: { pesoTotal: true },
-        });
-
-        const pesoTotal = carregamento ? Number(carregamento.pesoTotal) : 0;
-
-        if (!carregamento || !Number.isFinite(pesoTotal) || pesoTotal <= 0) {
+        if (!Number.isFinite(pesoTotal) || pesoTotal <= 0) {
           await prisma.agendamentoCarregamento.updateMany({
             where: {
               id: agendamento.id,
@@ -309,10 +284,9 @@ export async function GET(request: Request) {
             data: { alertaGeradoEm: null },
           });
 
-          agendamentosAguardandoCarregamento++;
+          agendamentosRetry++;
           continue;
         }
-
         const subscriptions = await prisma.pushSubscription.findMany({
           where: { userId: agendamento.userId },
         });
@@ -340,11 +314,11 @@ export async function GET(request: Request) {
 
         const payload = JSON.stringify({
           id: agendamento.id,
-          title: "Log?sticas Bill ? Agendamento",
+          title: "Log\u00EDsticas Bill \u2014 Agendamento",
           body:
-            `Caminh?o ${agendamento.caminhao.placa} ? Carga programada para hoje.\n` +
+            `Caminh\u00E3o ${agendamento.caminhao.placa} \u2014 Carga programada para hoje.\n` +
             `Data: ${date}\n` +
-            `Peso total: ${pesoFormatado} kg\n` +
+            `Peso previsto: ${pesoFormatado} kg\n` +
             `Origem: ${agendamento.origem}\n` +
             `Destino: ${agendamento.destino}`,
           icon: "/icon-192.png",

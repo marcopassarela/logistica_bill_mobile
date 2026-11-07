@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
     const pesoTotal = data.itens.reduce(
-      (acc, i) => acc + (i.statusItem === "CARREGADO" ? Number(i.peso) : 0),
+      (acc, i) => acc + Number(i.peso),
       0
     );
 

@@ -433,10 +433,6 @@ export default function CarregamentosPage() {
     carregamentosEmAtualizacao.current.add(carregId);
     setCarregamentosPendentes((prev) => new Set(prev).add(carregId));
 
-    const pesoPrevisto = carreg.itens.reduce((total, item) => {
-      const statusItem = item.id === itemId ? novo : item.statusItem;
-      return total + (statusItem === "CARREGADO" ? num(item.peso) : 0);
-    }, 0);
 
     setLista((prev) =>
       prev.map((c) =>
@@ -444,7 +440,7 @@ export default function CarregamentosPage() {
           ? c
           : {
               ...c,
-              pesoTotal: pesoPrevisto,
+
               itens: c.itens.map((item) =>
                 item.id === itemId ? { ...item, statusItem: novo } : item
               ),

@@ -53,10 +53,25 @@ async function getPesoCarregamentoAgendamento(
       status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
     },
     orderBy: { createdAt: "desc" },
-    select: { pesoTotal: true },
+    select: {
+      pesoTotal: true,
+      itens: { select: { peso: true } },
+    },
   });
 
-  return carregamento ? Number(carregamento.pesoTotal) : 0;
+  if (!carregamento) return 0;
+
+  const pesoItens = carregamento.itens.reduce(
+    (total, item) => total + Number(item.peso),
+    0
+  );
+
+  if (Number.isFinite(pesoItens) && pesoItens > 0) {
+    return pesoItens;
+  }
+
+  const pesoSalvo = Number(carregamento.pesoTotal);
+  return Number.isFinite(pesoSalvo) && pesoSalvo > 0 ? pesoSalvo : 0;
 }
 function getStatusCode(error: unknown): number | undefined {
   if (typeof error === "object" && error !== null && "statusCode" in error) {

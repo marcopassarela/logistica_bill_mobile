@@ -125,12 +125,11 @@ export async function GET() {
       weeklyWeight.set(shiftDay(monday, i), 0);
     }
 
-    const loadedWeightKg = (load: {
+    const plannedWeightKg = (load: {
       itens: { peso: unknown; statusItem: string }[];
     }) =>
       load.itens.reduce(
-        (sum, item) =>
-          sum + (item.statusItem === "CARREGADO" ? numberOf(item.peso) : 0),
+        (sum, item) => sum + numberOf(item.peso),
         0
       );
 
@@ -139,7 +138,7 @@ export async function GET() {
       if (weeklyWeight.has(key)) {
         weeklyWeight.set(
           key,
-          (weeklyWeight.get(key) ?? 0) + loadedWeightKg(load)
+          (weeklyWeight.get(key) ?? 0) + plannedWeightKg(load)
         );
       }
     }
@@ -159,11 +158,11 @@ export async function GET() {
 
     const activeTrucks = truckTotal - (statusMap.MANUTENCAO ?? 0);
     const todayWeightKg = todayLoads.reduce(
-      (sum, load) => sum + loadedWeightKg(load),
+      (sum, load) => sum + plannedWeightKg(load),
       0
     );
     const yesterdayWeightKg = yesterdayLoads.reduce(
-      (sum, load) => sum + loadedWeightKg(load),
+      (sum, load) => sum + plannedWeightKg(load),
       0
     );
 
@@ -189,7 +188,7 @@ export async function GET() {
         id: load.id,
         placa: load.caminhao.placa,
         produtos: load.itens.map((item) => item.produto.nome).filter(Boolean),
-        pesoToneladas: Number((load.itens.reduce((sum, item) => sum + (item.statusItem === "CARREGADO" ? numberOf(item.peso) : 0), 0) / 1000).toFixed(3)),
+        pesoToneladas: Number((load.itens.reduce((sum, item) => sum + numberOf(item.peso), 0) / 1000).toFixed(3)),
         status: load.status,
         data: load.data,
       })),

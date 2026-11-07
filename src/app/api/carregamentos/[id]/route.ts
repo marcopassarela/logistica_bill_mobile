@@ -135,8 +135,7 @@ export async function PATCH(
         }
       }
       const pesoPrevisto = Array.from(previstos.values()).reduce(
-        (total, item) =>
-          total + (item.statusItem === "CARREGADO" ? item.peso : 0),
+        (total, item) => total + Number(item.peso),
         0
       );
 

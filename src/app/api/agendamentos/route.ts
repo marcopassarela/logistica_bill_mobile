@@ -5,15 +5,47 @@ import { z } from "zod";
 
 const schema = z.object({
   caminhaoId: z.string().min(1),
-  peso: z.coerce.number().positive(),
   dataHora: z.string().datetime({ offset: true }),
   origem: z.string().trim().min(2),
   destino: z.string().trim().min(2),
 });
 
+function getBrazilDayRange(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const day = `${values.year}-${values.month}-${values.day}`;
+
+  return {
+    start: new Date(`${day}T00:00:00.000-03:00`),
+    end: new Date(`${day}T23:59:59.999-03:00`),
+  };
+}
+
+async function getPesoCarregamento(caminhaoId: string, dataHora: Date) {
+  const range = getBrazilDayRange(dataHora);
+
+  const carregamento = await prisma.carregamento.findFirst({
+    where: {
+      caminhaoId,
+      data: { gte: range.start, lte: range.end },
+      status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { pesoTotal: true },
+  });
+
+  return carregamento ? Number(carregamento.pesoTotal) : 0;
+}
+
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
 
   try {
     const list = await prisma.agendamentoCarregamento.findMany({
@@ -29,20 +61,20 @@ export async function GET() {
     return NextResponse.json(list);
   } catch (error) {
     console.error("Erro ao listar agendamentos:", error);
-    return NextResponse.json({ error: "Não foi possível listar os agendamentos." }, { status: 500 });
+    return NextResponse.json({ error: "N?o foi poss?vel listar os agendamentos." }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
 
   try {
     const parsed = schema.safeParse(await req.json());
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { error: "Dados inv?lidos", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -60,14 +92,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (!caminhao) {
-      return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "Caminh?o n?o encontrado." }, { status: 404 });
     }
+
+    const peso = await getPesoCarregamento(data.caminhaoId, dataHora);
 
     const created = await prisma.agendamentoCarregamento.create({
       data: {
         userId: user.id,
         caminhaoId: data.caminhaoId,
-        peso: data.peso,
+        peso,
         dataHora,
         origem: data.origem,
         destino: data.destino,
@@ -80,6 +114,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar agendamento:", error);
-    return NextResponse.json({ error: "Não foi possível criar o agendamento." }, { status: 500 });
+    return NextResponse.json({ error: "N?o foi poss?vel criar o agendamento." }, { status: 500 });
   }
 }

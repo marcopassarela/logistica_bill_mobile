@@ -6,117 +6,53 @@ export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
   }
 
   try {
     const agora = new Date();
 
-    const [agendamentos, manutencoes] = await Promise.all([
-      prisma.agendamentoCarregamento.findMany({
-        where: {
-          status: "AGENDADO",
-          dataHora: { lte: agora },
-          alertaGeradoEm: null,
-        },
-        select: {
-          id: true,
-          origem: true,
-          destino: true,
-          caminhao: { select: { placa: true } },
-        },
-      }),
-
-      prisma.manutencaoProgramada.findMany({
-        where: {
-          status: "ATIVA",
-          dataHora: { lte: agora },
-          alertaGeradoEm: null,
-        },
-        select: {
-          id: true,
-          descricao: true,
-          caminhao: { select: { placa: true } },
-        },
-      }),
-    ]);
+    // Mant?m os alertas internos de Agendamento sem alterar
+    // alertaGeradoEm, que fica reservado ao processamento do Push pelo Cron.
+    const agendamentos = await prisma.agendamentoCarregamento.findMany({
+      where: {
+        status: "AGENDADO",
+        dataHora: { lte: agora },
+      },
+      select: {
+        id: true,
+        origem: true,
+        destino: true,
+        caminhao: { select: { placa: true } },
+      },
+    });
 
     for (const item of agendamentos) {
       await prisma.$transaction(async (tx) => {
-        const atualizado = await tx.agendamentoCarregamento.updateMany({
+        const existente = await tx.alerta.findFirst({
           where: {
-            id: item.id,
-            status: "AGENDADO",
-            dataHora: { lte: agora },
-            alertaGeradoEm: null,
+            tipo: "AGENDAMENTO",
+            referencia: item.id,
           },
-          data: {
-            alertaGeradoEm: agora,
-          },
+          select: { id: true },
         });
 
-        if (atualizado.count === 1) {
-          const existente = await tx.alerta.findFirst({
-            where: {
+        if (!existente) {
+          await tx.alerta.create({
+            data: {
               tipo: "AGENDAMENTO",
+              titulo: "Agendamento chegou ao hor?rio",
+              mensagem: `O agendamento do caminh?o ${item.caminhao.placa} chegou ao hor?rio programado: ${item.origem} - ${item.destino}.`,
+              severidade: "WARNING",
               referencia: item.id,
             },
-            select: { id: true },
           });
-
-          if (!existente) {
-            await tx.alerta.create({
-              data: {
-                tipo: "AGENDAMENTO",
-                titulo: "Agendamento chegou ao horário",
-                mensagem: `O agendamento do caminhão ${item.caminhao.placa} chegou ao horário programado: ${item.origem} - ${item.destino}.`,
-                severidade: "WARNING",
-                referencia: item.id,
-              },
-            });
-          }
         }
       });
     }
 
-    for (const item of manutencoes) {
-      await prisma.$transaction(async (tx) => {
-        const atualizado = await tx.manutencaoProgramada.updateMany({
-          where: {
-            id: item.id,
-            status: "ATIVA",
-            dataHora: { lte: agora },
-            alertaGeradoEm: null,
-          },
-          data: {
-            alertaGeradoEm: agora,
-          },
-        });
-
-        if (atualizado.count === 1) {
-          const existente = await tx.alerta.findFirst({
-            where: {
-              tipo: "MANUTENCAO",
-              referencia: item.id,
-            },
-            select: { id: true },
-          });
-
-          if (!existente) {
-            await tx.alerta.create({
-              data: {
-                tipo: "MANUTENCAO",
-                titulo: "Manutenção programada chegou ao horário",
-                mensagem: `A manutenção "${item.descricao}" do caminhão ${item.caminhao.placa} chegou à data e hora programadas.`,
-                severidade: "WARNING",
-                referencia: item.id,
-              },
-            });
-          }
-        }
-      });
-    }
-
+    // Manuten??es n?o s?o mais processadas nesta central.
+    // Os registros e as APIs de manuten??o permanecem intactos.
     const [alertas, naoLidos] = await Promise.all([
       prisma.alerta.findMany({
         orderBy: { createdAt: "desc" },
@@ -129,10 +65,10 @@ export async function GET() {
 
     return NextResponse.json({ alertas, naoLidos });
   } catch (error) {
-    console.error("Erro ao carregar notificações:", error);
+    console.error("Erro ao carregar notifica??es:", error);
 
     return NextResponse.json(
-      { error: "Não foi possível carregar as notificações." },
+      { error: "N?o foi poss?vel carregar as notifica??es." },
       { status: 500 }
     );
   }

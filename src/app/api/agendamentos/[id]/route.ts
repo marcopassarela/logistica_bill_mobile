@@ -5,7 +5,6 @@ import { z } from "zod";
 
 const schema = z.object({
   caminhaoId: z.string().min(1),
-  peso: z.coerce.number().positive(),
   dataHora: z.string().datetime({ offset: true }),
   origem: z.string().trim().min(2),
   destino: z.string().trim().min(2),
@@ -13,16 +12,49 @@ const schema = z.object({
 
 type Context = { params: Promise<{ id: string }> };
 
+function getBrazilDayRange(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const day = `${values.year}-${values.month}-${values.day}`;
+
+  return {
+    start: new Date(`${day}T00:00:00.000-03:00`),
+    end: new Date(`${day}T23:59:59.999-03:00`),
+  };
+}
+
+async function getPesoCarregamento(caminhaoId: string, dataHora: Date) {
+  const range = getBrazilDayRange(dataHora);
+
+  const carregamento = await prisma.carregamento.findFirst({
+    where: {
+      caminhaoId,
+      data: { gte: range.start, lte: range.end },
+      status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { pesoTotal: true },
+  });
+
+  return carregamento ? Number(carregamento.pesoTotal) : 0;
+}
+
 export async function PATCH(req: NextRequest, { params }: Context) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
 
   try {
     const { id } = await params;
     const parsed = schema.safeParse(await req.json());
 
     if (!parsed.success) {
-      return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: "Dados inv?lidos", details: parsed.error.flatten() }, { status: 400 });
     }
 
     const existing = await prisma.agendamentoCarregamento.findFirst({
@@ -30,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       select: { id: true },
     });
 
-    if (!existing) return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+    if (!existing) return NextResponse.json({ error: "Agendamento n?o encontrado." }, { status: 404 });
 
     const data = parsed.data;
     const dataHora = new Date(data.dataHora);
@@ -44,21 +76,23 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       select: { id: true },
     });
 
-    if (!caminhao) return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
+    if (!caminhao) return NextResponse.json({ error: "Caminh?o n?o encontrado." }, { status: 404 });
+
+    const peso = await getPesoCarregamento(data.caminhaoId, dataHora);
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.alerta.deleteMany({
-        where: {
-          tipo: "AGENDAMENTO",
-          referencia: id,
-        },
+        where: { tipo: "AGENDAMENTO", referencia: id },
       });
 
       return tx.agendamentoCarregamento.update({
         where: { id },
         data: {
-          ...data,
+          caminhaoId: data.caminhaoId,
+          peso,
           dataHora,
+          origem: data.origem,
+          destino: data.destino,
           alertaGeradoEm: null,
         },
         include: {
@@ -72,13 +106,13 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Erro ao editar agendamento:", error);
-    return NextResponse.json({ error: "Não foi possível editar o agendamento." }, { status: 500 });
+    return NextResponse.json({ error: "N?o foi poss?vel editar o agendamento." }, { status: 500 });
   }
 }
 
 export async function DELETE(_req: NextRequest, { params }: Context) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
 
   try {
     const { id } = await params;
@@ -87,24 +121,19 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
       select: { id: true },
     });
 
-    if (!existing) return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+    if (!existing) return NextResponse.json({ error: "Agendamento n?o encontrado." }, { status: 404 });
 
     await prisma.$transaction(async (tx) => {
       await tx.alerta.deleteMany({
-        where: {
-          tipo: "AGENDAMENTO",
-          referencia: id,
-        },
+        where: { tipo: "AGENDAMENTO", referencia: id },
       });
 
-      await tx.agendamentoCarregamento.delete({
-        where: { id },
-      });
+      await tx.agendamentoCarregamento.delete({ where: { id } });
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Erro ao excluir agendamento:", error);
-    return NextResponse.json({ error: "Não foi possível excluir o agendamento." }, { status: 500 });
+    return NextResponse.json({ error: "N?o foi poss?vel excluir o agendamento." }, { status: 500 });
   }
 }

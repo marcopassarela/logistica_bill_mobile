@@ -239,6 +239,188 @@ export async function GET(request: Request) {
       }
     }
 
+    const agendamentos = await prisma.agendamentoCarregamento.findMany({
+      where: {
+        status: "AGENDADO",
+        dataHora: { lte: now },
+        alertaGeradoEm: null,
+      },
+      include: {
+        caminhao: { select: { placa: true } },
+      },
+      orderBy: { dataHora: "asc" },
+      take: 20,
+    });
+
+    let agendamentosEnviados = 0;
+    let agendamentosAguardandoCarregamento = 0;
+    let agendamentosSemDispositivos = 0;
+    let agendamentosRetry = 0;
+
+    for (const agendamento of agendamentos) {
+      const claimedAt = new Date();
+
+      const claim = await prisma.agendamentoCarregamento.updateMany({
+        where: {
+          id: agendamento.id,
+          status: "AGENDADO",
+          dataHora: { lte: now },
+          alertaGeradoEm: null,
+        },
+        data: { alertaGeradoEm: claimedAt },
+      });
+
+      if (claim.count !== 1) continue;
+
+      try {
+        const dateParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Sao_Paulo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(agendamento.dataHora);
+
+        const dateValues = Object.fromEntries(
+          dateParts.map((part) => [part.type, part.value])
+        );
+        const day = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
+
+        const inicioDia = new Date(`${day}T00:00:00.000-03:00`);
+        const fimDia = new Date(`${day}T23:59:59.999-03:00`);
+
+        const carregamento = await prisma.carregamento.findFirst({
+          where: {
+            caminhaoId: agendamento.caminhaoId,
+            data: { gte: inicioDia, lte: fimDia },
+            status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
+          },
+          orderBy: { createdAt: "desc" },
+          select: { pesoTotal: true },
+        });
+
+        const pesoTotal = carregamento ? Number(carregamento.pesoTotal) : 0;
+
+        if (!carregamento || !Number.isFinite(pesoTotal) || pesoTotal <= 0) {
+          await prisma.agendamentoCarregamento.updateMany({
+            where: {
+              id: agendamento.id,
+              alertaGeradoEm: claimedAt,
+            },
+            data: { alertaGeradoEm: null },
+          });
+
+          agendamentosAguardandoCarregamento++;
+          continue;
+        }
+
+        const subscriptions = await prisma.pushSubscription.findMany({
+          where: { userId: agendamento.userId },
+        });
+
+        if (subscriptions.length === 0) {
+          await prisma.agendamentoCarregamento.updateMany({
+            where: {
+              id: agendamento.id,
+              alertaGeradoEm: claimedAt,
+            },
+            data: { alertaGeradoEm: null },
+          });
+
+          agendamentosSemDispositivos++;
+          continue;
+        }
+
+        const date = agendamento.dataHora.toLocaleDateString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+        });
+
+        const pesoFormatado = pesoTotal.toLocaleString("pt-BR", {
+          maximumFractionDigits: 3,
+        });
+
+        const payload = JSON.stringify({
+          id: agendamento.id,
+          title: "Log?sticas Bill ? Agendamento",
+          body:
+            `Caminh?o ${agendamento.caminhao.placa} ? Carga programada para hoje.\n` +
+            `Data: ${date}\n` +
+            `Peso total: ${pesoFormatado} kg\n` +
+            `Origem: ${agendamento.origem}\n` +
+            `Destino: ${agendamento.destino}`,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `agendamento-${agendamento.id}`,
+          url: "/programacoes",
+        });
+
+        const results = await Promise.all(
+          subscriptions.map(async (subscription) => {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: subscription.endpoint,
+                  keys: {
+                    p256dh: subscription.p256dh,
+                    auth: subscription.auth,
+                  },
+                },
+                payload,
+                { TTL: 60 * 60 }
+              );
+
+              return { accepted: true };
+            } catch (error) {
+              const statusCode = getStatusCode(error);
+
+              if (statusCode === 404 || statusCode === 410) {
+                await prisma.pushSubscription.deleteMany({
+                  where: {
+                    id: subscription.id,
+                    userId: agendamento.userId,
+                  },
+                });
+              } else {
+                console.error(
+                  "Falha no Push do agendamento:",
+                  statusCode ?? "erro de envio"
+                );
+              }
+
+              return { accepted: false };
+            }
+          })
+        );
+
+        const accepted = results.some((result) => result.accepted);
+
+        if (accepted) {
+          agendamentosEnviados++;
+        } else {
+          await prisma.agendamentoCarregamento.updateMany({
+            where: {
+              id: agendamento.id,
+              alertaGeradoEm: claimedAt,
+            },
+            data: { alertaGeradoEm: null },
+          });
+
+          agendamentosRetry++;
+        }
+      } catch (error) {
+        console.error("Erro ao processar agendamento:", agendamento.id, error);
+
+        await prisma.agendamentoCarregamento.updateMany({
+          where: {
+            id: agendamento.id,
+            alertaGeradoEm: claimedAt,
+          },
+          data: { alertaGeradoEm: null },
+        });
+
+        agendamentosRetry++;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       encontrados: candidates.length,
@@ -246,6 +428,11 @@ export async function GET(request: Request) {
       parciais: partial,
       aguardandoNovaTentativa: retry,
       semDispositivos: withoutDevices,
+      agendamentosEncontrados: agendamentos.length,
+      agendamentosEnviados,
+      agendamentosAguardandoCarregamento,
+      agendamentosSemDispositivos,
+      agendamentosRetry,
     });
   } catch (error) {
     console.error("Erro no processamento automático de lembretes:", error);

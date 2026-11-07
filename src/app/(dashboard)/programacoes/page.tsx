@@ -5,7 +5,7 @@ import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import {
   CalendarClock, Plus, RefreshCw, Truck, Pencil, Trash2,
-  Wrench, ClipboardList, X, Gauge, Bell
+  ClipboardList, X, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,16 +28,6 @@ type Agendamento = {
   caminhaoId?: string;
 };
 
-type Manutencao = {
-  id: string;
-  descricao: string;
-  dataHora: string | null;
-  quilometragemAlvo: number | null;
-  status: string;
-  caminhao: Caminhao;
-  caminhaoId?: string;
-};
-
 type Lembrete = {
   id: string;
   descricao: string;
@@ -46,11 +36,10 @@ type Lembrete = {
   enviadoEm: string | null;
 };
 
-type Tipo = "AGENDAMENTO" | "MANUTENCAO" | "LEMBRETE";
+type Tipo = "AGENDAMENTO" | "LEMBRETE";
 
 type Edicao =
   | { tipo: "AGENDAMENTO"; item: Agendamento }
-  | { tipo: "MANUTENCAO"; item: Manutencao }
   | { tipo: "LEMBRETE"; item: Lembrete }
   | null;
 
@@ -77,7 +66,6 @@ function dataLocalInput(valor: string | null) {
 export default function ProgramacoesPage() {
   const [tipo, setTipo] = useState<Tipo>("AGENDAMENTO");
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
   const [lembretes, setLembretes] = useState<Lembrete[]>([]);
   const [lembretesDisponiveis, setLembretesDisponiveis] = useState(false);
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
@@ -93,31 +81,27 @@ export default function ProgramacoesPage() {
     setError("");
 
     try {
-      const [agRes, manRes, camRes, lemRes] = await Promise.all([
+      const [agRes, camRes, lemRes] = await Promise.all([
         fetch("/api/agendamentos", { cache: "no-store" }),
-        fetch("/api/manutencoes", { cache: "no-store" }),
         fetch("/api/caminhoes", { cache: "no-store" }),
         fetch("/api/lembretes", { cache: "no-store" }),
       ]);
 
-      const [agData, manData, camData, lemData] = await Promise.all([
+      const [agData, camData, lemData] = await Promise.all([
         agRes.json(),
-        manRes.json(),
         camRes.json(),
         lemRes.json().catch(() => []),
       ]);
 
       if (!agRes.ok) throw new Error(agData.error || "Erro ao carregar agendamentos.");
-      if (!manRes.ok) throw new Error(manData.error || "Erro ao carregar manutenções.");
-      if (!camRes.ok) throw new Error(camData.error || "Erro ao carregar caminhões.");
+      if (!camRes.ok) throw new Error(camData.error || "Erro ao carregar caminh?es.");
 
       setAgendamentos(agData);
-      setManutencoes(manData);
       setCaminhoes(camData);
       setLembretesDisponiveis(lemRes.ok);
       setLembretes(lemRes.ok && Array.isArray(lemData) ? lemData : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar programações.");
+      setError(e instanceof Error ? e.message : "Erro ao carregar programa??es.");
     } finally {
       setLoading(false);
     }
@@ -127,14 +111,9 @@ export default function ProgramacoesPage() {
     void load();
   }, [load]);
 
-  function iniciarEdicao(
-    item: Agendamento | Manutencao | Lembrete,
-    novoTipo: Tipo
-  ) {
+  function iniciarEdicao(item: Agendamento | Lembrete, novoTipo: Tipo) {
     if (novoTipo === "AGENDAMENTO") {
       setEdicao({ tipo: "AGENDAMENTO", item: item as Agendamento });
-    } else if (novoTipo === "MANUTENCAO") {
-      setEdicao({ tipo: "MANUTENCAO", item: item as Manutencao });
     } else {
       setEdicao({ tipo: "LEMBRETE", item: item as Lembrete });
     }
@@ -144,6 +123,7 @@ export default function ProgramacoesPage() {
     setSuccess("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
   function cancelarEdicao() {
     setEdicao(null);
     setError("");
@@ -159,15 +139,20 @@ export default function ProgramacoesPage() {
 
     try {
       const dataHora = String(form.get("dataHora") || "");
+      if (!dataHora) {
+        throw new Error(
+          tipo === "AGENDAMENTO"
+            ? "Informe a data e o hor?rio do agendamento."
+            : "Informe a data e o hor?rio do lembrete."
+        );
+      }
+
       let endpoint = "";
       let payload: Record<string, unknown>;
 
       if (tipo === "AGENDAMENTO") {
-        if (!dataHora) throw new Error("Informe a data e o horário do agendamento.");
-
         payload = {
           caminhaoId: String(form.get("caminhaoId") || ""),
-          peso: Number(form.get("peso")),
           dataHora: new Date(dataHora).toISOString(),
           origem: String(form.get("origem") || "").trim(),
           destino: String(form.get("destino") || "").trim(),
@@ -176,29 +161,10 @@ export default function ProgramacoesPage() {
         endpoint = edicao?.tipo === "AGENDAMENTO"
           ? `/api/agendamentos/${edicao.item.id}`
           : "/api/agendamentos";
-      } else if (tipo === "MANUTENCAO") {
-        const km = String(form.get("quilometragemAlvo") || "");
-
-        if (!dataHora && !km) {
-          throw new Error("Informe uma data ou uma quilometragem-alvo.");
-        }
-
-        payload = {
-          caminhaoId: String(form.get("caminhaoId") || ""),
-          descricao: String(form.get("descricao") || "").trim(),
-          dataHora: dataHora ? new Date(dataHora).toISOString() : null,
-          quilometragemAlvo: km ? Number(km) : null,
-        };
-
-        endpoint = edicao?.tipo === "MANUTENCAO"
-          ? `/api/manutencoes/${edicao.item.id}`
-          : "/api/manutencoes";
       } else {
         if (!lembretesDisponiveis) {
-          throw new Error("Não foi possível acessar os lembretes. Atualize a página e tente novamente.");
+          throw new Error("N?o foi poss?vel acessar os lembretes. Atualize a p?gina e tente novamente.");
         }
-
-        if (!dataHora) throw new Error("Informe a data e o horário do lembrete.");
 
         payload = {
           descricao: String(form.get("descricao") || "").trim(),
@@ -219,15 +185,13 @@ export default function ProgramacoesPage() {
       });
 
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Não foi possível salvar.");
+      if (!response.ok) throw new Error(result.error || "N?o foi poss?vel salvar.");
 
       const estavaEditando = Boolean(edicao);
       setEdicao(null);
       formElement.reset();
 
-      const categoria = tipo === "AGENDAMENTO"
-        ? "Agendamento"
-        : tipo === "MANUTENCAO" ? "Manutenção" : "Lembrete";
+      const categoria = tipo === "AGENDAMENTO" ? "Agendamento" : "Lembrete";
 
       setSuccess(
         estavaEditando
@@ -237,22 +201,18 @@ export default function ProgramacoesPage() {
 
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao salvar programação.");
+      setError(e instanceof Error ? e.message : "Erro ao salvar programa??o.");
     } finally {
       setSaving(false);
     }
   }
-  async function excluir(
-    item: Agendamento | Manutencao | Lembrete,
-    novoTipo: Tipo
-  ) {
+
+  async function excluir(item: Agendamento | Lembrete, novoTipo: Tipo) {
     const descricao = novoTipo === "AGENDAMENTO"
       ? `${(item as Agendamento).origem} para ${(item as Agendamento).destino}`
-      : novoTipo === "MANUTENCAO"
-        ? (item as Manutencao).descricao
-        : (item as Lembrete).descricao;
+      : (item as Lembrete).descricao;
 
-    if (!window.confirm(`Deseja excluir esta programação?\n\n${descricao}`)) return;
+    if (!window.confirm(`Deseja excluir esta programa??o?\n\n${descricao}`)) return;
 
     setError("");
     setSuccess("");
@@ -260,35 +220,29 @@ export default function ProgramacoesPage() {
     try {
       const endpoint = novoTipo === "AGENDAMENTO"
         ? `/api/agendamentos/${item.id}`
-        : novoTipo === "MANUTENCAO"
-          ? `/api/manutencoes/${item.id}`
-          : `/api/lembretes/${item.id}`;
+        : `/api/lembretes/${item.id}`;
 
       const response = await fetch(endpoint, { method: "DELETE" });
       const result = await response.json().catch(() => ({}));
 
-      if (!response.ok) throw new Error(result.error || "Não foi possível excluir.");
+      if (!response.ok) throw new Error(result.error || "N?o foi poss?vel excluir.");
 
       if (edicao && edicao.item.id === item.id && edicao.tipo === novoTipo) {
         setEdicao(null);
       }
 
-      setSuccess("Programação excluída com sucesso.");
+      setSuccess("Programa??o exclu?da com sucesso.");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao excluir programação.");
+      setError(e instanceof Error ? e.message : "Erro ao excluir programa??o.");
     }
   }
+
   const lista = [
     ...agendamentos.map((item) => ({
       tipo: "AGENDAMENTO" as const,
       item,
       data: new Date(item.dataHora).getTime(),
-    })),
-    ...manutencoes.map((item) => ({
-      tipo: "MANUTENCAO" as const,
-      item,
-      data: item.dataHora ? new Date(item.dataHora).getTime() : Number.MAX_SAFE_INTEGER,
     })),
     ...lembretes.map((item) => ({
       tipo: "LEMBRETE" as const,
@@ -298,17 +252,17 @@ export default function ProgramacoesPage() {
   ]
     .filter((registro) => filtro === "TODOS" || registro.tipo === filtro)
     .sort((a, b) => a.data - b.data);
+
   const editandoAgendamento = edicao?.tipo === "AGENDAMENTO" ? edicao.item : null;
-  const editandoManutencao = edicao?.tipo === "MANUTENCAO" ? edicao.item : null;
   const editandoLembrete = edicao?.tipo === "LEMBRETE" ? edicao.item : null;
 
   return (
     <ScreenAssembly className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Programações</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Programa??es</h1>
           <p className="text-sm text-muted-foreground">
-            Centralize agendamentos e manutenções da frota em um só lugar.
+            Centralize agendamentos de cargas e lembretes em um s? lugar.
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}>
@@ -317,7 +271,7 @@ export default function ProgramacoesPage() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-primary/10 p-3">
@@ -326,17 +280,6 @@ export default function ProgramacoesPage() {
             <div>
               <p className="text-sm text-muted-foreground">Agendamentos</p>
               <p className="text-2xl font-bold">{agendamentos.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <Wrench className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Manutenções</p>
-              <p className="text-2xl font-bold">{manutencoes.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -357,7 +300,7 @@ export default function ProgramacoesPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {edicao ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {edicao ? "Editar programação" : "Nova programação"}
+            {edicao ? "Editar programa??o" : "Nova programa??o"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -370,15 +313,6 @@ export default function ProgramacoesPage() {
             >
               <CalendarClock className="mr-2 h-4 w-4" />
               Agendamento
-            </Button>
-            <Button
-              type="button"
-              variant={tipo === "MANUTENCAO" ? "default" : "outline"}
-              onClick={() => { setTipo("MANUTENCAO"); setEdicao(null); setError(""); }}
-              disabled={saving}
-            >
-              <Wrench className="mr-2 h-4 w-4" />
-              Manutenção
             </Button>
             <Button
               type="button"
@@ -396,48 +330,30 @@ export default function ProgramacoesPage() {
             onSubmit={salvar}
             className="grid gap-4 md:grid-cols-2"
           >
-            {tipo !== "LEMBRETE" && (
-              <div>
-                <label className={labelClass}>Caminhão</label>
-                <select
-                  name="caminhaoId"
-                  className={fieldClass}
-                  required
-                  defaultValue={
-                    editandoAgendamento?.caminhaoId ||
-                    editandoAgendamento?.caminhao?.id ||
-                    editandoManutencao?.caminhaoId ||
-                    editandoManutencao?.caminhao?.id ||
-                    ""
-                  }
-                >
-                  <option value="" disabled>Selecione um caminhão</option>
-                  {caminhoes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.placa} {c.marca ? `- ${c.marca}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {tipo === "AGENDAMENTO" ? (
               <>
                 <div>
-                  <label className={labelClass}>Peso previsto (kg)</label>
-                  <input
-                    name="peso"
-                    type="number"
-                    min="0.001"
-                    step="0.001"
+                  <label className={labelClass}>Caminh?o</label>
+                  <select
+                    name="caminhaoId"
                     className={fieldClass}
                     required
-                    placeholder="Ex.: 12000"
-                    defaultValue={editandoAgendamento ? String(Number(editandoAgendamento.peso)) : ""}
-                  />
+                    defaultValue={
+                      editandoAgendamento?.caminhaoId ||
+                      editandoAgendamento?.caminhao?.id ||
+                      ""
+                    }
+                  >
+                    <option value="" disabled>Selecione um caminh?o</option>
+                    {caminhoes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.placa} {c.marca ? `- ${c.marca}` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Data e horário</label>
+                  <label className={labelClass}>Data e hor?rio</label>
                   <input
                     name="dataHora"
                     type="datetime-local"
@@ -468,49 +384,14 @@ export default function ProgramacoesPage() {
                     defaultValue={editandoAgendamento?.destino || ""}
                   />
                 </div>
-              </>
-            ) : tipo === "MANUTENCAO" ? (
-              <>
-                <div>
-                  <label className={labelClass}>Descrição do serviço</label>
-                  <input
-                    name="descricao"
-                    minLength={2}
-                    className={fieldClass}
-                    required
-                    placeholder="Ex.: Troca de óleo"
-                    defaultValue={editandoManutencao?.descricao || ""}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Data e horário (opcional)</label>
-                  <input
-                    name="dataHora"
-                    type="datetime-local"
-                    className={fieldClass}
-                    defaultValue={dataLocalInput(editandoManutencao?.dataHora || null)}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Quilometragem-alvo (opcional)</label>
-                  <input
-                    name="quilometragemAlvo"
-                    type="number"
-                    min="1"
-                    step="1"
-                    className={fieldClass}
-                    placeholder="Ex.: 150000"
-                    defaultValue={editandoManutencao?.quilometragemAlvo ?? ""}
-                  />
-                </div>
-                <p className="self-end text-xs text-muted-foreground">
-                  Informe pelo menos uma referência: data ou quilometragem.
+                <p className="text-xs text-muted-foreground md:col-span-2">
+                  O peso total ser? obtido automaticamente do carregamento registrado para este caminh?o e esta data.
                 </p>
               </>
             ) : (
               <>
                 <div className="md:col-span-2">
-                  <label className={labelClass}>Descrição do lembrete</label>
+                  <label className={labelClass}>Descri??o do lembrete</label>
                   <textarea
                     name="descricao"
                     minLength={2}
@@ -518,12 +399,12 @@ export default function ProgramacoesPage() {
                     rows={3}
                     className={fieldClass}
                     required
-                    placeholder="Ex.: Levar o caminhão ABC-1234 para a oficina."
+                    placeholder="Ex.: Levar o caminh?o ABC-1234 para a oficina."
                     defaultValue={editandoLembrete?.descricao || ""}
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Data e horário</label>
+                  <label className={labelClass}>Data e hor?rio</label>
                   <input
                     name="dataHora"
                     type="datetime-local"
@@ -533,7 +414,7 @@ export default function ProgramacoesPage() {
                   />
                 </div>
                 <p className="self-end text-xs text-muted-foreground">
-                  O lembrete será enviado aos dispositivos cadastrados quando o serviço de notificações estiver ativo.
+                  O lembrete ser? enviado aos dispositivos cadastrados quando o servi?o de notifica??es estiver ativo.
                 </p>
               </>
             )}
@@ -548,12 +429,12 @@ export default function ProgramacoesPage() {
                     : caminhoes.length === 0)
                 }
               >
-                {saving ? "Salvando..." : edicao ? "Salvar alterações" : "Cadastrar programação"}
+                {saving ? "Salvando..." : edicao ? "Salvar altera??es" : "Cadastrar programa??o"}
               </Button>
               {edicao && (
                 <Button type="button" variant="outline" onClick={cancelarEdicao} disabled={saving}>
                   <X className="mr-2 h-4 w-4" />
-                  Cancelar edição
+                  Cancelar edi??o
                 </Button>
               )}
             </div>
@@ -561,12 +442,12 @@ export default function ProgramacoesPage() {
 
           {tipo === "LEMBRETE" && !lembretesDisponiveis && (
             <p className="mt-3 text-sm text-amber-600">
-              Não foi possível carregar os lembretes. Verifique sua conexão e tente novamente.
+              N?o foi poss?vel carregar os lembretes. Verifique sua conex?o e tente novamente.
             </p>
           )}
-          {tipo !== "LEMBRETE" && caminhoes.length === 0 && !loading && (
+          {tipo === "AGENDAMENTO" && caminhoes.length === 0 && !loading && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Cadastre um caminhão antes de criar uma programação.
+              Cadastre um caminh?o antes de criar um agendamento.
             </p>
           )}
           {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
@@ -579,17 +460,16 @@ export default function ProgramacoesPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5" />
-              Todas as programações
+              Todas as programa??es
             </CardTitle>
             <select
               className={`${fieldClass} w-full sm:w-48`}
               value={filtro}
               onChange={(event) => setFiltro(event.target.value)}
-              aria-label="Filtrar programações"
+              aria-label="Filtrar programa??es"
             >
               <option value="TODOS">Todas as categorias</option>
               <option value="AGENDAMENTO">Agendamentos</option>
-              <option value="MANUTENCAO">Manutenções</option>
               <option value="LEMBRETE">Lembretes</option>
             </select>
           </div>
@@ -599,16 +479,13 @@ export default function ProgramacoesPage() {
             <RecordListSkeleton rows={4} />
           ) : lista.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Nenhuma programação encontrada.
+              Nenhuma programa??o encontrada.
             </p>
           ) : (
             <div className="space-y-3">
               {lista.map((registro) => {
                 const agendamento = registro.tipo === "AGENDAMENTO"
                   ? registro.item as Agendamento
-                  : null;
-                const manutencao = registro.tipo === "MANUTENCAO"
-                  ? registro.item as Manutencao
                   : null;
                 const lembrete = registro.tipo === "LEMBRETE"
                   ? registro.item as Lembrete
@@ -623,49 +500,36 @@ export default function ProgramacoesPage() {
                       <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
                         {agendamento
                           ? <><CalendarClock className="h-3 w-3" /> Agendamento</>
-                          : manutencao
-                            ? <><Wrench className="h-3 w-3" /> Manutenção</>
-                            : <><Bell className="h-3 w-3" /> Lembrete</>}
+                          : <><Bell className="h-3 w-3" /> Lembrete</>}
                       </span>
 
                       <p className="font-semibold">
                         {agendamento
-                          ? `${agendamento.origem} → ${agendamento.destino}`
-                          : manutencao?.descricao || lembrete?.descricao}
+                          ? `${agendamento.origem} ? ${agendamento.destino}`
+                          : lembrete?.descricao}
                       </p>
 
-                      {(agendamento || manutencao) && (
+                      {agendamento && (
                         <p className="text-sm text-muted-foreground">
                           <Truck className="mr-1 inline h-4 w-4" />
-                          {agendamento?.caminhao?.placa || manutencao?.caminhao?.placa || "Caminhão não informado"}
+                          {agendamento.caminhao?.placa || "Caminh?o n?o informado"}
                         </p>
                       )}
 
                       <p className="text-sm text-muted-foreground">
                         <CalendarClock className="mr-1 inline h-4 w-4" />
-                        {formatarData(agendamento?.dataHora || manutencao?.dataHora || lembrete?.dataHora || null)}
+                        {formatarData(agendamento?.dataHora || lembrete?.dataHora || null)}
                       </p>
 
                       {agendamento && (
                         <p className="text-sm text-muted-foreground">
-                          {Number(agendamento.peso).toLocaleString("pt-BR")} kg · {agendamento.status}
+                          Situa??o: {agendamento.status}
                         </p>
-                      )}
-
-                      {manutencao?.quilometragemAlvo != null && (
-                        <p className="text-sm text-muted-foreground">
-                          <Gauge className="mr-1 inline h-4 w-4" />
-                          Meta: {Number(manutencao.quilometragemAlvo).toLocaleString("pt-BR")} km
-                        </p>
-                      )}
-
-                      {manutencao && (
-                        <p className="text-sm text-muted-foreground">{manutencao.status}</p>
                       )}
 
                       {lembrete && (
                         <p className="text-sm text-muted-foreground">
-                          Situação: {lembrete.status === "PENDENTE"
+                          Situa??o: {lembrete.status === "PENDENTE"
                             ? "Pendente"
                             : lembrete.status === "PROCESSANDO"
                               ? "Enviando"

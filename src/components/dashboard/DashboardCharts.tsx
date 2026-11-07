@@ -146,6 +146,7 @@ export default function DashboardCharts({
                       key={entry.name}
                       fill={entry.color}
                       cursor="pointer"
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => onStatusClick(entry.status)}
                     />
                   ))}

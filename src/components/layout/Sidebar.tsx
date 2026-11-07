@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,6 +30,7 @@ import { useState } from "react";
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/carregamentos", label: "Carregamentos", icon: PackageCheck },
+  { href: "/programacoes", label: "Programações", icon: CalendarClock },
   { href: "/agendamentos", label: "Agendamentos", icon: CalendarClock },
   { href: "/rotas", label: "Rotas", icon: Map },
   { href: "/manutencoes", label: "Manutenções", icon: Wrench },

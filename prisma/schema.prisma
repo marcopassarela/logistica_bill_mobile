@@ -24,6 +24,8 @@ model User {
   faltas              Falta[]                   @relation("FaltaCreatedBy")
   agendamentosCriados AgendamentoCarregamento[] @relation("AgendamentoCreatedBy")
   manutencoesCriadas  ManutencaoProgramada[]    @relation("ManutencaoCreatedBy")
+  lembretes           Lembrete[]
+  pushSubscriptions   PushSubscription[]
 }
 
 enum Role {
@@ -376,3 +378,44 @@ model ManutencaoProgramada {
 // ==========================================
 // NOTIFICAÇÕES PUSH
 // ==========================================
+
+// ==========================================
+// LEMBRETES E DISPOSITIVOS PUSH
+// ==========================================
+
+enum StatusLembrete {
+  PENDENTE
+  PROCESSANDO
+  ENVIADO
+  CANCELADO
+}
+
+model Lembrete {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  descricao String         @db.VarChar(500)
+  dataHora  DateTime
+  status    StatusLembrete @default(PENDENTE)
+  enviadoEm DateTime?
+  processandoEm DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([userId, status, dataHora])
+  @@index([status, dataHora])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}

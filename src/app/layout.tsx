@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Logísticas Bill",
   description: "Sistema profissional de gestão logística",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],
     apple: [{ url: "/logo.png", type: "image/png" }],

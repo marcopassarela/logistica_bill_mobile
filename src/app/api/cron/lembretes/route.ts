@@ -22,6 +22,42 @@ function isAuthorized(request: Request): boolean {
   return timingSafeEqual(receivedBuffer, expectedBuffer);
 }
 
+
+function getBrazilDayRangeAgendamento(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const day = `${values.year}-${values.month}-${values.day}`;
+
+  return {
+    start: new Date(`${day}T00:00:00.000-03:00`),
+    end: new Date(`${day}T23:59:59.999-03:00`),
+  };
+}
+
+async function getPesoCarregamentoAgendamento(
+  caminhaoId: string,
+  dataHora: Date
+) {
+  const range = getBrazilDayRangeAgendamento(dataHora);
+
+  const carregamento = await prisma.carregamento.findFirst({
+    where: {
+      caminhaoId,
+      data: { gte: range.start, lte: range.end },
+      status: { notIn: ["CANCELADO", "NAO_CARREGADO"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { pesoTotal: true },
+  });
+
+  return carregamento ? Number(carregamento.pesoTotal) : 0;
+}
 function getStatusCode(error: unknown): number | undefined {
   if (typeof error === "object" && error !== null && "statusCode" in error) {
     const code = (error as { statusCode?: unknown }).statusCode;
@@ -273,7 +309,7 @@ export async function GET(request: Request) {
       if (claim.count !== 1) continue;
 
       try {
-        const pesoTotal = Number(agendamento.peso);
+        const pesoTotal = await getPesoCarregamentoAgendamento(agendamento.caminhaoId, agendamento.dataHora);
 
         const subscriptions = await prisma.pushSubscription.findMany({
           where: { userId: agendamento.userId },
@@ -292,8 +328,10 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const date = agendamento.dataHora.toLocaleDateString("pt-BR", {
+        const horario = agendamento.dataHora.toLocaleTimeString("pt-BR", {
           timeZone: "America/Sao_Paulo",
+          hour: "2-digit",
+          minute: "2-digit",
         });
 
         const pesoFormatado =
@@ -307,11 +345,11 @@ export async function GET(request: Request) {
           id: agendamento.id,
           title: "Log\u00EDsticas Bill \u2014 Agendamento",
           body:
-            `Caminh\u00E3o ${agendamento.caminhao.placa} \u2014 Carga programada para hoje.\n` +
-            `Data: ${date}\n` +
-            `Peso previsto: ${pesoFormatado}\n` +
+            `Placa: ${agendamento.caminhao.placa}\n` +
+            `Peso: ${pesoFormatado}\n` +
             `Origem: ${agendamento.origem}\n` +
-            `Destino: ${agendamento.destino}`,
+            `Destino: ${agendamento.destino}\n` +
+            `Horário: ${horario}`,
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: `agendamento-${agendamento.id}`,

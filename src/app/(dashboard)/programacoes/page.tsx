@@ -94,14 +94,14 @@ export default function ProgramacoesPage() {
       ]);
 
       if (!agRes.ok) throw new Error(agData.error || "Erro ao carregar agendamentos.");
-      if (!camRes.ok) throw new Error(camData.error || "Erro ao carregar caminh?es.");
+      if (!camRes.ok) throw new Error(camData.error || "Erro ao carregar caminhões.");
 
       setAgendamentos(agData);
       setCaminhoes(camData);
       setLembretesDisponiveis(lemRes.ok);
       setLembretes(lemRes.ok && Array.isArray(lemData) ? lemData : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar programa??es.");
+      setError(e instanceof Error ? e.message : "Erro ao carregar programações.");
     } finally {
       setLoading(false);
     }
@@ -142,8 +142,8 @@ export default function ProgramacoesPage() {
       if (!dataHora) {
         throw new Error(
           tipo === "AGENDAMENTO"
-            ? "Informe a data e o hor?rio do agendamento."
-            : "Informe a data e o hor?rio do lembrete."
+            ? "Informe a data e o horário do agendamento."
+            : "Informe a data e o horário do lembrete."
         );
       }
 
@@ -201,7 +201,7 @@ export default function ProgramacoesPage() {
 
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao salvar programa??o.");
+      setError(e instanceof Error ? e.message : "Erro ao salvar programação.");
     } finally {
       setSaving(false);
     }
@@ -212,7 +212,7 @@ export default function ProgramacoesPage() {
       ? `${(item as Agendamento).origem} para ${(item as Agendamento).destino}`
       : (item as Lembrete).descricao;
 
-    if (!window.confirm(`Deseja excluir esta programa??o?\n\n${descricao}`)) return;
+    if (!window.confirm(`Deseja excluir esta programação?\n\n${descricao}`)) return;
 
     setError("");
     setSuccess("");
@@ -231,10 +231,10 @@ export default function ProgramacoesPage() {
         setEdicao(null);
       }
 
-      setSuccess("Programa??o exclu?da com sucesso.");
+      setSuccess("Programação excluída com sucesso.");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao excluir programa??o.");
+      setError(e instanceof Error ? e.message : "Erro ao excluir programação.");
     }
   }
 
@@ -260,9 +260,9 @@ export default function ProgramacoesPage() {
     <ScreenAssembly className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Programa??es</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Programações</h1>
           <p className="text-sm text-muted-foreground">
-            Centralize agendamentos de cargas e lembretes em um s? lugar.
+            Centralize agendamentos de cargas e lembretes em um só lugar.
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}>
@@ -300,7 +300,7 @@ export default function ProgramacoesPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {edicao ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {edicao ? "Editar programa??o" : "Nova programa??o"}
+            {edicao ? "Editar programação" : "Nova programação"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -333,7 +333,7 @@ export default function ProgramacoesPage() {
             {tipo === "AGENDAMENTO" ? (
               <>
                 <div>
-                  <label className={labelClass}>Caminh?o</label>
+                  <label className={labelClass}>Caminhão</label>
                   <select
                     name="caminhaoId"
                     className={fieldClass}
@@ -344,7 +344,7 @@ export default function ProgramacoesPage() {
                       ""
                     }
                   >
-                    <option value="" disabled>Selecione um caminh?o</option>
+                    <option value="" disabled>Selecione um caminhão</option>
                     {caminhoes.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.placa} {c.marca ? `- ${c.marca}` : ""}
@@ -353,7 +353,7 @@ export default function ProgramacoesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Data e hor?rio</label>
+                  <label className={labelClass}>Data e horário</label>
                   <input
                     name="dataHora"
                     type="datetime-local"
@@ -385,13 +385,13 @@ export default function ProgramacoesPage() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground md:col-span-2">
-                  O peso total ser? obtido automaticamente do carregamento registrado para este caminh?o e esta data.
+                  O peso total será obtido automaticamente do carregamento registrado para este caminhão e esta data.
                 </p>
               </>
             ) : (
               <>
                 <div className="md:col-span-2">
-                  <label className={labelClass}>Descri??o do lembrete</label>
+                  <label className={labelClass}>Descrição do lembrete</label>
                   <textarea
                     name="descricao"
                     minLength={2}
@@ -399,12 +399,12 @@ export default function ProgramacoesPage() {
                     rows={3}
                     className={fieldClass}
                     required
-                    placeholder="Ex.: Levar o caminh?o ABC-1234 para a oficina."
+                    placeholder="Ex.: Levar o caminhão ABC-1234 para a oficina."
                     defaultValue={editandoLembrete?.descricao || ""}
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Data e hor?rio</label>
+                  <label className={labelClass}>Data e horário</label>
                   <input
                     name="dataHora"
                     type="datetime-local"
@@ -414,7 +414,7 @@ export default function ProgramacoesPage() {
                   />
                 </div>
                 <p className="self-end text-xs text-muted-foreground">
-                  O lembrete ser? enviado aos dispositivos cadastrados quando o servi?o de notifica??es estiver ativo.
+                  O lembrete será enviado aos dispositivos cadastrados quando o serviço de notificações estiver ativo.
                 </p>
               </>
             )}
@@ -429,12 +429,12 @@ export default function ProgramacoesPage() {
                     : caminhoes.length === 0)
                 }
               >
-                {saving ? "Salvando..." : edicao ? "Salvar altera??es" : "Cadastrar programa??o"}
+                {saving ? "Salvando..." : edicao ? "Salvar alterações" : "Cadastrar programação"}
               </Button>
               {edicao && (
                 <Button type="button" variant="outline" onClick={cancelarEdicao} disabled={saving}>
                   <X className="mr-2 h-4 w-4" />
-                  Cancelar edi??o
+                  Cancelar edição
                 </Button>
               )}
             </div>
@@ -447,7 +447,7 @@ export default function ProgramacoesPage() {
           )}
           {tipo === "AGENDAMENTO" && caminhoes.length === 0 && !loading && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Cadastre um caminh?o antes de criar um agendamento.
+              Cadastre um caminhão antes de criar um agendamento.
             </p>
           )}
           {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
@@ -460,13 +460,13 @@ export default function ProgramacoesPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5" />
-              Todas as programa??es
+              Todas as programações
             </CardTitle>
             <select
               className={`${fieldClass} w-full sm:w-48`}
               value={filtro}
               onChange={(event) => setFiltro(event.target.value)}
-              aria-label="Filtrar programa??es"
+              aria-label="Filtrar programações"
             >
               <option value="TODOS">Todas as categorias</option>
               <option value="AGENDAMENTO">Agendamentos</option>
@@ -479,7 +479,7 @@ export default function ProgramacoesPage() {
             <RecordListSkeleton rows={4} />
           ) : lista.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Nenhuma programa??o encontrada.
+              Nenhuma programação encontrada.
             </p>
           ) : (
             <div className="space-y-3">
@@ -512,7 +512,7 @@ export default function ProgramacoesPage() {
                       {agendamento && (
                         <p className="text-sm text-muted-foreground">
                           <Truck className="mr-1 inline h-4 w-4" />
-                          {agendamento.caminhao?.placa || "Caminh?o n?o informado"}
+                          {agendamento.caminhao?.placa || "Caminhão não informado"}
                         </p>
                       )}
 
@@ -523,13 +523,13 @@ export default function ProgramacoesPage() {
 
                       {agendamento && (
                         <p className="text-sm text-muted-foreground">
-                          Situa??o: {agendamento.status}
+                          Situação: {agendamento.status}
                         </p>
                       )}
 
                       {lembrete && (
                         <p className="text-sm text-muted-foreground">
-                          Situa??o: {lembrete.status === "PENDENTE"
+                          Situação: {lembrete.status === "PENDENTE"
                             ? "Pendente"
                             : lembrete.status === "PROCESSANDO"
                               ? "Enviando"

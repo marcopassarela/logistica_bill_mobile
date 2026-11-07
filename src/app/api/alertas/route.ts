@@ -63,7 +63,15 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({ alertas, naoLidos });
+    const alertasExibicao = alertas.map((alerta) => ({
+      ...alerta,
+      titulo: alerta.titulo.replaceAll("hor?rio", "hor\u00E1rio"),
+      mensagem: alerta.mensagem
+        .replaceAll("caminh?o", "caminh\u00E3o")
+        .replaceAll("hor?rio", "hor\u00E1rio"),
+    }));
+
+    return NextResponse.json({ alertas: alertasExibicao, naoLidos });
   } catch (error) {
     console.error("Erro ao carregar notifica\u00E7\u00F5es:", error);
 

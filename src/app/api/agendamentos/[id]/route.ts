@@ -47,7 +47,7 @@ async function getPesoCarregamento(caminhaoId: string, dataHora: Date) {
 
 export async function PATCH(req: NextRequest, { params }: Context) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N\u00E3o autorizado" }, { status: 401 });
 
   try {
     const { id } = await params;
@@ -112,7 +112,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
 
 export async function DELETE(_req: NextRequest, { params }: Context) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N\u00E3o autorizado" }, { status: 401 });
 
   try {
     const { id } = await params;

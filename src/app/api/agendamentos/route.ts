@@ -45,7 +45,7 @@ async function getPesoCarregamento(caminhaoId: string, dataHora: Date) {
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N\u00E3o autorizado" }, { status: 401 });
 
   try {
     const list = await prisma.agendamentoCarregamento.findMany({
@@ -67,7 +67,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "N\u00E3o autorizado" }, { status: 401 });
 
   try {
     const parsed = schema.safeParse(await req.json());

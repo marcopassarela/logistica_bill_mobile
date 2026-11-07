@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import {
   Plus,
   Pencil,
@@ -110,6 +111,8 @@ export default function CarregamentosPage() {
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
+  const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
+  const carregamentosEmAtualizacao = useRef(new Set<string>());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [filtroData, setFiltroData] = useState(todayISO());
@@ -266,10 +269,9 @@ export default function CarregamentosPage() {
 
     async function abrirCarregamento() {
       try {
-        const [res] = await Promise.all([
-          fetch(`/api/carregamentos/${encodeURIComponent(carregamentoId)}`),
-          loadBase(),
-        ]);
+        const res = await fetch(
+          `/api/carregamentos/${encodeURIComponent(carregamentoId)}`
+        );
 
         if (!res.ok) {
           if (!cancelado) {
@@ -413,7 +415,6 @@ export default function CarregamentosPage() {
       ]);
 
       await loadLista();
-      await loadBase();
     } catch {
       setMsg({ type: "err", text: "Erro de conexão ao salvar carregamento." });
     } finally {
@@ -426,6 +427,11 @@ export default function CarregamentosPage() {
       alert("Carregamento nao encontrado na lista. Atualize a pagina.");
       return;
     }
+
+    if (carregamentosEmAtualizacao.current.has(carregId)) return;
+
+    carregamentosEmAtualizacao.current.add(carregId);
+    setCarregamentosPendentes((prev) => new Set(prev).add(carregId));
 
     const pesoPrevisto = carreg.itens.reduce((total, item) => {
       const statusItem = item.id === itemId ? novo : item.statusItem;
@@ -458,8 +464,10 @@ export default function CarregamentosPage() {
       const resultado = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(resultado.error || `Não foi possível atualizar o item (HTTP ${res.status}).`);
-        await loadLista();
+        setLista((prev) =>
+          prev.map((c) => c.id === carregId ? carreg : c)
+        );
+        alert(resultado.error || `Nao foi possivel atualizar o item (HTTP ${res.status}).`);
         return;
       }
 
@@ -468,11 +476,29 @@ export default function CarregamentosPage() {
       }
     } catch (erro) {
       console.error("Erro ao alterar status do item:", erro);
-      alert("Erro de conexão ao atualizar o item. Verifique a conexao e tente novamente.");
-      await loadLista();
+
+      setLista((prev) =>
+        prev.map((c) => c.id === carregId ? carreg : c)
+      );
+
+      alert("Erro de conexao ao atualizar o item. A alteracao visual foi revertida.");
+    } finally {
+      carregamentosEmAtualizacao.current.delete(carregId);
+      setCarregamentosPendentes((prev) => {
+        const next = new Set(prev);
+        next.delete(carregId);
+        return next;
+      });
     }
   }
+
   async function setCarregStatus(carregId: string, novoStatus: string) {
+    const carreg = lista.find((c) => c.id === carregId);
+    if (!carreg || carregamentosEmAtualizacao.current.has(carregId)) return;
+
+    carregamentosEmAtualizacao.current.add(carregId);
+    setCarregamentosPendentes((prev) => new Set(prev).add(carregId));
+
     setLista((prev) =>
       prev.map((c) => c.id === carregId ? { ...c, status: novoStatus } : c)
     );
@@ -487,15 +513,27 @@ export default function CarregamentosPage() {
       const resultado = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(resultado.error || `Não foi possível alterar o status (${res.status}).`);
-        await loadLista();
+        setLista((prev) =>
+          prev.map((c) => c.id === carregId ? carreg : c)
+        );
+        alert(resultado.error || `Nao foi possivel alterar o status (${res.status}).`);
         return;
       }
+    } catch (erro) {
+      console.error("Erro ao atualizar status do carregamento:", erro);
 
-      void loadBase();
-    } catch {
-      alert("Erro de conexão ao atualizar o carregamento.");
-      await loadLista();
+      setLista((prev) =>
+        prev.map((c) => c.id === carregId ? carreg : c)
+      );
+
+      alert("Erro de conexao ao atualizar o carregamento. A alteracao visual foi revertida.");
+    } finally {
+      carregamentosEmAtualizacao.current.delete(carregId);
+      setCarregamentosPendentes((prev) => {
+        const next = new Set(prev);
+        next.delete(carregId);
+        return next;
+      });
     }
   }
   async function confirmDelete(password: string) {
@@ -512,7 +550,7 @@ export default function CarregamentosPage() {
     return false;
   }
 
-  const listaFiltrada = lista.filter((c) => {
+  const listaFiltrada = useMemo(() => lista.filter((c) => {
     if (!busca) return true;
     const q = busca.toLowerCase();
     return (
@@ -521,7 +559,7 @@ export default function CarregamentosPage() {
       (c.destino || "").toLowerCase().includes(q) ||
       c.itens.some((i) => i.produto.nome.toLowerCase().includes(q))
     );
-  });
+  }), [lista, busca]);
 
   return (
     <div className="space-y-6">
@@ -767,9 +805,7 @@ export default function CarregamentosPage() {
           </CardHeader>
           <CardContent>
             {loading && lista.length === 0 ? (
-              <div className="flex h-40 items-center justify-center text-muted-foreground">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando...
-              </div>
+              <RecordListSkeleton rows={3} />
             ) : listaFiltrada.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 Nenhum carregamento nesta data. Monte uma a esquerda e salve.
@@ -827,6 +863,7 @@ export default function CarregamentosPage() {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "CARREGADO" ? "h-7 text-xs border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white" : "h-7 text-xs border-green-600/50 text-green-700 hover:bg-green-50 dark:border-green-500/50 dark:text-green-400 dark:hover:bg-green-950"}
+                              disabled={carregamentosPendentes.has(c.id)}
                               onClick={() => toggleItemStatus(c.id, it.id, "CARREGADO")}
                               title="Marcar como carregado"
                             >
@@ -838,6 +875,7 @@ export default function CarregamentosPage() {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "NAO_CARREGADO" ? "h-7 text-xs border-red-600 bg-red-600 text-white hover:bg-red-700 hover:text-white" : "h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"}
+                              disabled={carregamentosPendentes.has(c.id)}
                               onClick={() => toggleItemStatus(c.id, it.id, "NAO_CARREGADO")}
                               title="Marcar como não carregou"
                             >
@@ -849,6 +887,7 @@ export default function CarregamentosPage() {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "PENDENTE" ? "h-7 text-xs border-amber-600 bg-amber-500 text-white hover:bg-amber-600 hover:text-white" : "h-7 text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950"}
+                              disabled={carregamentosPendentes.has(c.id)}
                               onClick={() => toggleItemStatus(c.id, it.id, "PENDENTE")}
                             >
                               <Clock className="mr-1 h-3 w-3" />
@@ -864,18 +903,19 @@ export default function CarregamentosPage() {
                         size="sm"
                         variant="outline"
                         className="h-8 text-xs"
-                        onClick={() => startEdit(c)}
+                                                 disabled={carregamentosPendentes.has(c.id)}
+                         onClick={() => startEdit(c)}
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
                         Em andamento
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
                         Liberado
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
                         Em rota
                       </Button>
                       <Button

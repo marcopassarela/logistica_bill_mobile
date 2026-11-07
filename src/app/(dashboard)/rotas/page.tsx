@@ -1,9 +1,10 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -40,9 +41,7 @@ import {
 const MapView = dynamic(() => import("@/components/map/MapView"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center rounded-xl bg-muted text-muted-foreground text-sm">
-      Carregando mapa...
-    </div>
+    <div role="status" aria-label="Carregando mapa" aria-busy="true" className="flex h-full min-h-[260px] items-center justify-center rounded-xl bg-muted"><Skeleton className="h-full min-h-[260px] w-full rounded-xl" /></div>
   ),
 });
 
@@ -410,7 +409,7 @@ export default function RotasPage() {
       if (timer) clearTimeout(timer);
     };
   }, [waypoints]);
-  const mapPoints = waypoints
+  const mapPoints = useMemo(() => waypoints
     .filter((w) => w.lat != null && w.lng != null)
     .map((w, i) => ({
       key: w.key,
@@ -419,7 +418,7 @@ export default function RotasPage() {
       label: w.nome || w.endereco || w.query,
       ordem: i + 1,
       concluido: w.concluido ?? false,
-    }));
+    })), [waypoints]);
 
   function handlePointDrag(key: string, lat: number, lng: number) {
     setWaypoints((prev) =>
@@ -781,6 +780,7 @@ export default function RotasPage() {
             lng: w.lng,
           })),
         }),
+        signal: AbortSignal.timeout(90000),
       });
 
       const data = await response.json();
@@ -856,9 +856,12 @@ export default function RotasPage() {
       setMsg({
         type: "err",
         text:
-          error instanceof Error
-            ? error.message
-            : "Erro ao otimizar a rota.",
+          error instanceof Error &&
+          (error.name === "TimeoutError" || error.name === "AbortError")
+            ? "A otimização demorou demais. Verifique sua conexão e tente novamente."
+            : error instanceof Error
+              ? error.message
+              : "Erro ao otimizar a rota.",
       });
     } finally {
       setRouting(false);
@@ -927,8 +930,11 @@ export default function RotasPage() {
           type: "ok",
           text: "Rota atualizada no banco com sucesso.",
         });
-        setDataFiltro(dataProgramada);
-        await load(dataProgramada);
+        if (dataFiltro === dataProgramada) {
+          await load(dataProgramada);
+        } else {
+          setDataFiltro(dataProgramada);
+        }
       } else {
         setMsg({
           type: "ok",
@@ -941,8 +947,11 @@ export default function RotasPage() {
         setRouteGeometry([]);
         setDistanceKm(null);
         setDurationMin(null);
-        setDataFiltro(dataProgramada);
-        await load(dataProgramada);
+        if (dataFiltro === dataProgramada) {
+          await load(dataProgramada);
+        } else {
+          setDataFiltro(dataProgramada);
+        }
       }
     } catch {
       setMsg({ type: "err", text: "Erro de conexão" });

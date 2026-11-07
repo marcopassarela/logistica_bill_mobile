@@ -47,15 +47,35 @@ export async function PATCH(req: NextRequest, { params }: Context) {
 
     if (!caminhao) return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
 
-    const updated = await prisma.manutencaoProgramada.update({
-      where: { id },
-      data: {
-        caminhaoId: data.caminhaoId,
-        descricao: data.descricao,
-        dataHora: data.dataHora ? new Date(data.dataHora) : null,
-        quilometragemAlvo: data.quilometragemAlvo ?? null,
-      },
-      include: { caminhao: { select: { id: true, placa: true, marca: true, modelo: true, quilometragem: true } } },
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.alerta.deleteMany({
+        where: {
+          tipo: "MANUTENCAO",
+          referencia: id,
+        },
+      });
+
+      return tx.manutencaoProgramada.update({
+        where: { id },
+        data: {
+          caminhaoId: data.caminhaoId,
+          descricao: data.descricao,
+          dataHora: data.dataHora ? new Date(data.dataHora) : null,
+          quilometragemAlvo: data.quilometragemAlvo ?? null,
+          alertaGeradoEm: null,
+        },
+        include: {
+          caminhao: {
+            select: {
+              id: true,
+              placa: true,
+              marca: true,
+              modelo: true,
+              quilometragem: true,
+            },
+          },
+        },
+      });
     });
 
     return NextResponse.json(updated);
@@ -78,7 +98,19 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
 
     if (!existing) return NextResponse.json({ error: "Manutenção não encontrada." }, { status: 404 });
 
-    await prisma.manutencaoProgramada.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.alerta.deleteMany({
+        where: {
+          tipo: "MANUTENCAO",
+          referencia: id,
+        },
+      });
+
+      await tx.manutencaoProgramada.delete({
+        where: { id },
+      });
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Erro ao excluir manutenção:", error);

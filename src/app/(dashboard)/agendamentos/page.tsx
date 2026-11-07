@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import { CalendarClock, Plus, RefreshCw, Truck, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -267,7 +268,7 @@ export default function AgendamentosPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Carregando agendamentos...</p>
+            <RecordListSkeleton rows={3} />
           ) : items.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhum agendamento cadastrado.</p>
           ) : (

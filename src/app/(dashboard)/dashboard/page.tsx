@@ -1,19 +1,34 @@
 "use client";
+import dynamic from "next/dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { DashboardSkeleton } from "@/components/layout/PageSkeletons";
 import {
-  Truck, Package, AlertTriangle, Weight, Activity, RefreshCw,
+  Truck, Package, AlertTriangle, Weight, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-} from "recharts";
 
+
+const DashboardCharts = dynamic(
+  () => import("@/components/dashboard/DashboardCharts"),
+  {
+    loading: () => (
+      <div
+        role="status"
+        aria-label="Carregando gráficos"
+        aria-busy="true"
+        className="grid items-stretch gap-6 lg:grid-cols-3"
+      >
+        <div className="min-h-[340px] animate-pulse rounded-xl bg-muted lg:col-span-2" />
+        <div className="min-h-[340px] animate-pulse rounded-xl bg-muted" />
+      </div>
+    ),
+  }
+);
 type DashboardData = {
   stats: {
     caminhoesAtivos: number;
@@ -141,9 +156,7 @@ export default function DashboardPage() {
     day: "2-digit",
   }).format(new Date());
 
-  const totalCaminhoes = data
-    ? data.statusCaminhoes.reduce((total, item) => total + item.value, 0)
-    : 0;
+  const totalCaminhoes = useMemo(() => data ? data.statusCaminhoes.reduce((total, item) => total + item.value, 0) : 0, [data?.statusCaminhoes]);
 
   const stats = data ? [
     { title: "Caminhões ativos", value: String(data.stats.caminhoesAtivos), icon: Truck, color: "text-blue-600 dark:text-blue-400", iconBg: "bg-blue-500/10" },
@@ -180,7 +193,7 @@ export default function DashboardPage() {
       )}
 
       {loading && !data ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">Carregando dados reais...</CardContent></Card>
+        <DashboardSkeleton />
       ) : data ? (
         <>
           <ScreenAssembly className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" delay={0.18}>
@@ -216,110 +229,15 @@ export default function DashboardPage() {
             })}
           </ScreenAssembly>
 
-          <ScreenAssembly className="grid items-stretch gap-6 lg:grid-cols-3" delay={0.65} itemClassNames={["h-full lg:col-span-2", "h-full"]}>
-            <Card className="flex h-full flex-col lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Peso carregado (t)  esta semana
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.pesoSemanal} barCategoryGap="0%">
-                      <CartesianGrid
-  stroke="hsl(var(--border))"
-  strokeDasharray="3 3"
-  vertical={false}
-/>
-                      <XAxis dataKey="dia" tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
-                      <YAxis tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} tickLine={{ stroke: "hsl(var(--border))" }} axisLine={{ stroke: "hsl(var(--border))" }} />
-                      <Tooltip
-  formatter={(value) => [`${numberFormat.format(Number(value))} t`, "Peso carregado"]}
-  contentStyle={{
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: "8px",
-    color: "hsl(var(--foreground))",
-  }}
-  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-  itemStyle={{ color: "#60A5FA" }}
-  cursor={{ fill: "rgba(59, 130, 246, 0.10)" }}
-/>
-                      <Bar
-                        dataKey="peso"
-                        name="Peso carregado"
-                        maxBarSize={48}
-                        radius={[6, 6, 0, 0]}
-                        activeBar={{ fill: "#60A5FA", stroke: "#1D4ED8", strokeWidth: 2 }}
-                      >
-                        {data.pesoSemanal.map((item) => (
-                          <Cell
-                            key={item.date}
-                            fill={item.date === todayKey ? "#2563EB" : "#60A5FA"}
-                            fillOpacity={item.date === todayKey ? 1 : 0.72}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="flex h-full flex-col">
-              <CardHeader><CardTitle>Status dos caminhões</CardTitle></CardHeader>
-              <CardContent>
-                <div className="relative h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={data.statusCaminhoes}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={64}
-                        outerRadius={92}
-                        paddingAngle={0}
-                        stroke="none"
-                        strokeWidth={0}
-                      >
-                        {data.statusCaminhoes.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} cursor="pointer" onClick={() => router.push(`/caminhoes?status=${encodeURIComponent(entry.status)}`)} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => [Number(value), "Caminhões"]}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "10px",
-                          color: "hsl(var(--foreground))",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold tabular-nums">{totalCaminhoes}</span>
-                    <span className="text-xs text-muted-foreground">caminhões</span>
-                  </div>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
-                  {data.statusCaminhoes.map((item) => (
-                    <button type="button" key={item.name} onClick={() => router.push(`/caminhoes?status=${encodeURIComponent(item.status)}`)} aria-label={`Filtrar caminhões: ${item.name}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md text-left text-xs transition-colors hover:bg-muted/60">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
-                        <span className="truncate text-muted-foreground">{item.name}</span>
-                      </span>
-                      <span className="font-semibold tabular-nums">{item.value}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </ScreenAssembly>
+          <DashboardCharts
+            pesoSemanal={data.pesoSemanal}
+            statusCaminhoes={data.statusCaminhoes}
+            totalCaminhoes={totalCaminhoes}
+            todayKey={todayKey}
+            onStatusClick={(status) =>
+              router.push(`/caminhoes?status=${encodeURIComponent(status)}`)
+            }
+          />
 
           <ScreenAssembly className="grid gap-6 lg:grid-cols-2" delay={1.05}>
             <Card>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import { Wrench, Plus, RefreshCw, Truck, CalendarClock, Gauge, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -272,7 +273,7 @@ export default function ManutencoesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Carregando manutenções...</p>
+            <RecordListSkeleton rows={3} />
           ) : items.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma manutenção cadastrada.</p>
           ) : (

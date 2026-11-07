@@ -46,10 +46,27 @@ export async function PATCH(req: NextRequest, { params }: Context) {
 
     if (!caminhao) return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
 
-    const updated = await prisma.agendamentoCarregamento.update({
-      where: { id },
-      data: { ...data, dataHora },
-      include: { caminhao: { select: { id: true, placa: true, marca: true, modelo: true } } },
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.alerta.deleteMany({
+        where: {
+          tipo: "AGENDAMENTO",
+          referencia: id,
+        },
+      });
+
+      return tx.agendamentoCarregamento.update({
+        where: { id },
+        data: {
+          ...data,
+          dataHora,
+          alertaGeradoEm: null,
+        },
+        include: {
+          caminhao: {
+            select: { id: true, placa: true, marca: true, modelo: true },
+          },
+        },
+      });
     });
 
     return NextResponse.json(updated);
@@ -72,7 +89,19 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
 
     if (!existing) return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
 
-    await prisma.agendamentoCarregamento.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.alerta.deleteMany({
+        where: {
+          tipo: "AGENDAMENTO",
+          referencia: id,
+        },
+      });
+
+      await tx.agendamentoCarregamento.delete({
+        where: { id },
+      });
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Erro ao excluir agendamento:", error);

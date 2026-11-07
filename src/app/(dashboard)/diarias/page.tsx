@@ -1,6 +1,7 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Plus, Pencil, Trash2, X, Loader2 } from "lucide-react";
@@ -303,9 +304,7 @@ export default function DiariasPage() {
               </select>
             </div>
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Carregando diárias...
-              </div>
+              <RecordListSkeleton rows={3} />
             ) : diarias.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma diária cadastrada no banco de dados.</p>
             ) : filteredDiarias.length === 0 ? (

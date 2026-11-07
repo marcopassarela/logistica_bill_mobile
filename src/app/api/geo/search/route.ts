@@ -16,16 +16,33 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "pt-BR");
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "LogisticasBill/1.0 (gestao-logistica)",
-    },
-    next: { revalidate: 3600 },
-  });
+  let data: { display_name: string; lat: string; lon: string }[];
 
-  if (!res.ok) return NextResponse.json([], { status: 502 });
-  const data = await res.json();
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "LogisticasBill/1.0 (gestao-logistica)",
+      },
+      signal: AbortSignal.timeout(10000),
+      next: { revalidate: 3600 },
+    });
+
+    if (!res.ok) {
+      return NextResponse.json([], { status: 502 });
+    }
+
+    data = await res.json();
+  } catch (error) {
+    const timedOut =
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+
+    return NextResponse.json(
+      { error: timedOut ? "A pesquisa de endereços demorou demais. Tente novamente." : "Serviço de endereços indisponível." },
+      { status: timedOut ? 504 : 502 }
+    );
+  }
   return NextResponse.json(
     (data as { display_name: string; lat: string; lon: string }[]).map((r) => ({
       displayName: r.display_name,

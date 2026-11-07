@@ -1,9 +1,9 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { useEffect, useMemo, useState } from "react";
-import * as XLSX from "xlsx";
 import {
   FileBarChart,
   FileSpreadsheet,
@@ -437,8 +437,9 @@ export default function RelatoriosPage() {
     void gerarRelatorio();
   }, [tipo, dataInicio, dataFim]);
 
-  function exportarExcel() {
+  async function exportarExcel() {
     if (!relatorio) return;
+    const XLSX = await import("xlsx");
 
     const dados = relatorio.linhas.map((linha) => {
       const item: Record<string, unknown> = {};
@@ -586,8 +587,8 @@ export default function RelatoriosPage() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Button
-                    onClick={() => {
-                      exportarExcel();
+                    onClick={async () => {
+                      await exportarExcel();
                       setBaixarAberto(false);
                     }}
                     disabled={!relatorio}
@@ -631,8 +632,23 @@ export default function RelatoriosPage() {
                 </p>
               </div>
             ) : loading ? (
-              <div className="py-16 text-center text-muted-foreground">
-                Consultando os dados do sistema...
+              <div
+                role="status"
+                aria-label="Gerando relatório"
+                aria-busy="true"
+                className="space-y-5 py-6"
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+                <div className="space-y-3">
+                  <Skeleton className="h-6 w-48" />
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Skeleton key={index} className="h-12 w-full" />
+                  ))}
+                </div>
               </div>
             ) : !gerado || !relatorio ? (
               <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center text-muted-foreground">

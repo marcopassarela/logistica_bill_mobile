@@ -1,6 +1,7 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { TableSkeleton } from "@/components/layout/PageSkeletons";
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
@@ -203,7 +204,7 @@ export default function ProdutosPage() {
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando produtos...</p>
+        <TableSkeleton rows={5} />
       ) : (
         <div className="overflow-x-auto rounded-xl border">
           <table className="w-full text-sm">

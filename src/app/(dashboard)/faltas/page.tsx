@@ -1,6 +1,7 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -351,10 +352,7 @@ export default function FaltasPage() {
 
           <CardContent className="space-y-2">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando registros...
-              </div>
+              <RecordListSkeleton rows={3} />
             ) : faltas.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Nenhuma falta registrada.

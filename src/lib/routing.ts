@@ -15,13 +15,19 @@ export type GeocodeResult = {
 /** Calcula rota pelas estradas via API interna → OSRM */
 export async function fetchDrivingRoute(points: LatLng[]): Promise<RouteResult | null> {
   if (points.length < 2) return null;
-  const res = await fetch("/api/geo/route", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ points }),
-  });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await fetch("/api/geo/route", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 /** Normaliza abreviações comuns de endereços brasileiros. */
@@ -43,9 +49,16 @@ export async function geocodeSearch(query: string): Promise<GeocodeResult[]> {
   if (normalized.length < 3) return [];
 
   const search = async (q: string): Promise<GeocodeResult[]> => {
-    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
-    if (!res.ok) return [];
-    return res.json();
+    try {
+      const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`, {
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (!res.ok) return [];
+      return await res.json();
+    } catch {
+      return [];
+    }
   };
 
   const first = await search(normalized);

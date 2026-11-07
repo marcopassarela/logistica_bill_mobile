@@ -329,18 +329,19 @@ enum StatusAgendamentoCarregamento {
 }
 
 model AgendamentoCarregamento {
-  id         String                        @id @default(cuid())
-  userId     String
-  user       User                          @relation("AgendamentoCreatedBy", fields: [userId], references: [id], onDelete: Cascade)
-  caminhaoId String
-  caminhao   Caminhao                      @relation(fields: [caminhaoId], references: [id])
-  peso       Decimal                       @db.Decimal(14, 3)
-  dataHora   DateTime
-  origem     String
-  destino    String
-  status     StatusAgendamentoCarregamento @default(AGENDADO)
-  createdAt  DateTime                      @default(now())
-  updatedAt  DateTime                      @updatedAt
+  id             String                        @id @default(cuid())
+  userId         String
+  user           User                          @relation("AgendamentoCreatedBy", fields: [userId], references: [id], onDelete: Cascade)
+  caminhaoId     String
+  caminhao       Caminhao                      @relation(fields: [caminhaoId], references: [id])
+  peso           Decimal                       @db.Decimal(14, 3)
+  dataHora       DateTime
+  origem         String
+  destino        String
+  status         StatusAgendamentoCarregamento @default(AGENDADO)
+  alertaGeradoEm DateTime?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
 
   @@index([status, dataHora])
   @@index([caminhaoId])
@@ -363,6 +364,7 @@ model ManutencaoProgramada {
   dataHora          DateTime?
   quilometragemAlvo Int?
   status            StatusManutencaoProgramada @default(ATIVA)
+  alertaGeradoEm    DateTime?
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
 

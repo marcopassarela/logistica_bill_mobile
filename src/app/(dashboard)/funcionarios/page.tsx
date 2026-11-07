@@ -1,6 +1,7 @@
 "use client";
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { CardGridSkeleton } from "@/components/layout/PageSkeletons";
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Search, Users, Briefcase, X } from "lucide-react";
@@ -291,7 +292,7 @@ export default function FuncionariosPage() {
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando funcionários...</p>
+        <CardGridSkeleton count={6} />
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum funcionário encontrado.</p>
       ) : (

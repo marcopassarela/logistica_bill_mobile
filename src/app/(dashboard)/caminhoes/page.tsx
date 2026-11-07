@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
+import { CardGridSkeleton } from "@/components/layout/PageSkeletons";
 import { Plus, Pencil, Trash2, Truck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -216,7 +217,7 @@ export default function CaminhoesPage() {
 
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
 
-      {loading ? <p className="text-sm text-muted-foreground">Carregando caminhoes...</p> :
+      {loading ? <CardGridSkeleton count={6} /> :
         filtered.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum caminhao encontrado.</p> :
         <ScreenAssembly className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => {

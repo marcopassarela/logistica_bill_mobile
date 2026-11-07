@@ -36,6 +36,7 @@ const labelClass = "mb-1 block text-sm font-medium";
 export default function CaminhoesPage() {
   const [items, setItems] = useState<Caminhao[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Caminhao | null>(null);
@@ -61,9 +62,46 @@ export default function CaminhoesPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const filtered = items.filter((c) =>
-    `${c.placa} ${c.marca ?? ""} ${c.modelo ?? ""}`.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get("status") ?? "";
+    if (Object.prototype.hasOwnProperty.call(statusMap, status)) {
+      setStatusFilter(status);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loading || pageError) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("editar");
+    if (!editId) return;
+
+    const caminhao = items.find((item) => item.id === editId);
+    params.delete("editar");
+    const query = params.toString();
+
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+    );
+
+    if (caminhao) {
+      setEditing(caminhao);
+      setPageError("");
+      setFormOpen(true);
+    } else {
+      setPageError("O caminhão solicitado não foi encontrado.");
+    }
+  }, [items, loading, pageError]);
+  const filtered = items.filter((c) => {
+    const correspondeBusca = `${c.placa} ${c.marca ?? ""} ${c.modelo ?? ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+    const correspondeStatus = !statusFilter || c.status === statusFilter;
+    return correspondeBusca && correspondeStatus;
+  });
 
   function openNew() {
     setEditing(null);
@@ -155,6 +193,26 @@ export default function CaminhoesPage() {
         <Input placeholder="Buscar por placa, marca, modelo..." value={search}
           onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
+
+      {statusFilter && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            Status: <strong>{statusMap[statusFilter]?.label ?? statusFilter}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter("");
+              const url = new URL(window.location.href);
+              url.searchParams.delete("status");
+              window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            }}
+            className="text-primary underline underline-offset-2"
+          >
+            Limpar filtro
+          </button>
+        </div>
+      )}
 
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
 

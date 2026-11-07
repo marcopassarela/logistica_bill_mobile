@@ -257,6 +257,59 @@ export default function CarregamentosPage() {
     });
   }
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("editar");
+    if (!id) return;
+    const carregamentoId = id;
+
+    let cancelado = false;
+
+    async function abrirCarregamento() {
+      try {
+        const [res] = await Promise.all([
+          fetch(`/api/carregamentos/${encodeURIComponent(carregamentoId)}`),
+          loadBase(),
+        ]);
+
+        if (!res.ok) {
+          if (!cancelado) {
+            setMsg({
+              type: "err",
+              text: "Nao foi possivel localizar o carregamento deste alerta.",
+            });
+          }
+          return;
+        }
+
+        const carregamento = await res.json() as Carregamento;
+
+        if (cancelado) return;
+
+        startEdit(carregamento);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("editar");
+        window.history.replaceState(
+          {},
+          "",
+          `${url.pathname}${url.search}${url.hash}`
+        );
+      } catch {
+        if (!cancelado) {
+          setMsg({
+            type: "err",
+            text: "Erro ao abrir o carregamento. Tente novamente.",
+          });
+        }
+      }
+    }
+
+    abrirCarregamento();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [loadBase]);
   function cancelEdit() {
     setEditingId(null);
     setCaminhaoId("");

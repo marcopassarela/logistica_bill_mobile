@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageTransition } from "./PageTransition";
 import { useStartupTransition } from "./StartupTransitionProvider";
+import { NotificationBell } from "./NotificationBell";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -79,6 +80,7 @@ export function DashboardShell({
         }`}
       >
         <header className="sticky top-0 z-20 flex h-14 items-center justify-end gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:px-6">
+          <NotificationBell />
           <ThemeToggle />
         </header>
         <main className="p-4 lg:p-6"><PageTransition>{children}</PageTransition></main>

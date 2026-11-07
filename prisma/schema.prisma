@@ -19,9 +19,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
-  diarias  Diaria[]  @relation("DiariaCreatedBy")
-  faltas   Falta[]   @relation("FaltaCreatedBy")
+  sessions            Session[]
+  diarias             Diaria[]                  @relation("DiariaCreatedBy")
+  faltas              Falta[]                   @relation("FaltaCreatedBy")
+  agendamentosCriados AgendamentoCarregamento[] @relation("AgendamentoCreatedBy")
+  manutencoesCriadas  ManutencaoProgramada[]    @relation("ManutencaoCreatedBy")
 }
 
 enum Role {
@@ -99,6 +101,8 @@ model Caminhao {
   diarias       Diaria[]
   rotas         Rota[]
   carregamentos Carregamento[]
+  agendamentos  AgendamentoCarregamento[]
+  manutencoes   ManutencaoProgramada[]
 
   @@index([placa])
   @@index([status])
@@ -224,22 +228,22 @@ enum TipoFalta {
 }
 
 model Rota {
-  id          String     @id @default(cuid())
-  nome        String
-  origem      String
-  destino     String
-  origemLat   Float?
-  origemLng   Float?
-  destinoLat  Float?
-  destinoLng  Float?
-  distanciaKm Float?
-  caminhaoId  String?
-  caminhao    Caminhao?  @relation(fields: [caminhaoId], references: [id])
-  status      StatusRota @default(PLANEJADA)
+  id             String     @id @default(cuid())
+  nome           String
+  origem         String
+  destino        String
+  origemLat      Float?
+  origemLng      Float?
+  destinoLat     Float?
+  destinoLng     Float?
+  distanciaKm    Float?
+  caminhaoId     String?
+  caminhao       Caminhao?  @relation(fields: [caminhaoId], references: [id])
+  status         StatusRota @default(PLANEJADA)
   dataProgramada String?
-  observacoes String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  observacoes    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   pontos RotaPonto[]
 
@@ -313,3 +317,60 @@ model EnderecoFavorito {
 
   @@index([createdAt])
 }
+
+// ==========================================
+// AGENDAMENTOS E MANUTENÇÕES PROGRAMADAS
+// ==========================================
+
+enum StatusAgendamentoCarregamento {
+  AGENDADO
+  CONCLUIDO
+  CANCELADO
+}
+
+model AgendamentoCarregamento {
+  id         String                        @id @default(cuid())
+  userId     String
+  user       User                          @relation("AgendamentoCreatedBy", fields: [userId], references: [id], onDelete: Cascade)
+  caminhaoId String
+  caminhao   Caminhao                      @relation(fields: [caminhaoId], references: [id])
+  peso       Decimal                       @db.Decimal(14, 3)
+  dataHora   DateTime
+  origem     String
+  destino    String
+  status     StatusAgendamentoCarregamento @default(AGENDADO)
+  createdAt  DateTime                      @default(now())
+  updatedAt  DateTime                      @updatedAt
+
+  @@index([status, dataHora])
+  @@index([caminhaoId])
+  @@index([userId])
+}
+
+enum StatusManutencaoProgramada {
+  ATIVA
+  CONCLUIDA
+  CANCELADA
+}
+
+model ManutencaoProgramada {
+  id                String                     @id @default(cuid())
+  userId            String
+  user              User                       @relation("ManutencaoCreatedBy", fields: [userId], references: [id], onDelete: Cascade)
+  caminhaoId        String
+  caminhao          Caminhao                   @relation(fields: [caminhaoId], references: [id])
+  descricao         String
+  dataHora          DateTime?
+  quilometragemAlvo Int?
+  status            StatusManutencaoProgramada @default(ATIVA)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@index([status, dataHora])
+  @@index([caminhaoId, quilometragemAlvo])
+  @@index([userId])
+}
+
+// ==========================================
+// NOTIFICAÇÕES PUSH
+// ==========================================

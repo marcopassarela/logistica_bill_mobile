@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import {
   Truck, Package, AlertTriangle, Weight, Activity, RefreshCw,
@@ -22,7 +23,7 @@ type DashboardData = {
     carregamentosOntem: number;
     pesoOntemToneladas: number;
   };
-  statusCaminhoes: { name: string; value: number; color: string }[];
+  statusCaminhoes: { name: string; status: string; value: number; color: string }[];
   pesoSemanal: { date: string; dia: string; peso: number }[];
   recentes: {
     id: string;
@@ -37,6 +38,8 @@ type DashboardData = {
     titulo: string;
     mensagem: string;
     severidade: string;
+    tipo: string;
+    referencia: string | null;
     createdAt: string;
   }[];
 };
@@ -68,6 +71,7 @@ function statusVariant(status: string): "default" | "success" | "warning" | "des
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,6 +98,41 @@ export default function DashboardPage() {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  async function handleOpenAlert(alert: DashboardData["alertas"][number]) {
+    try {
+      const response = await fetch(`/api/alertas/${encodeURIComponent(alert.id)}`, {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível marcar o alerta como lido.");
+      }
+
+      setData((current) => current ? {
+        ...current,
+        stats: {
+          ...current.stats,
+          alertas: Math.max(0, current.stats.alertas - 1),
+        },
+        alertas: current.alertas.filter((item) => item.id !== alert.id),
+      } : current);
+
+      if (alert.tipo === "PESO" && alert.referencia) {
+        router.push(`/carregamentos?editar=${encodeURIComponent(alert.referencia)}`);
+      } else if (alert.tipo === "CAMINHAO") {
+        if (alert.referencia) {
+          router.push(`/caminhoes?editar=${encodeURIComponent(alert.referencia)}`);
+        } else {
+          router.push("/caminhoes");
+        }
+      } else if (alert.tipo === "SISTEMA") {
+        router.push("/configuracoes");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao abrir alerta.");
+    }
+  }
 
   const todayKey = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
@@ -248,7 +287,7 @@ export default function DashboardPage() {
                         strokeWidth={0}
                       >
                         {data.statusCaminhoes.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
+                          <Cell key={entry.name} fill={entry.color} cursor="pointer" onClick={() => router.push(`/caminhoes?status=${encodeURIComponent(entry.status)}`)} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -269,13 +308,13 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
                   {data.statusCaminhoes.map((item) => (
-                    <div key={item.name} className="flex min-w-0 items-center justify-between gap-2 text-xs">
+                    <button type="button" key={item.name} onClick={() => router.push(`/caminhoes?status=${encodeURIComponent(item.status)}`)} aria-label={`Filtrar caminhões: ${item.name}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md text-left text-xs transition-colors hover:bg-muted/60">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
                         <span className="truncate text-muted-foreground">{item.name}</span>
                       </span>
                       <span className="font-semibold tabular-nums">{item.value}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -325,6 +364,16 @@ export default function DashboardPage() {
                     {data.alertas.map((alert) => (
                       <div
                         key={alert.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void handleOpenAlert(alert)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            void handleOpenAlert(alert);
+                          }
+                        }}
+                        title="Abrir alerta e marcar como lido"
                         className={`rounded-lg border p-3 text-sm ${
                           alert.severidade === "CRITICAL"
                             ? "border-destructive/50 bg-destructive/5"

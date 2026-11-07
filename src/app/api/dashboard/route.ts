@@ -178,11 +178,11 @@ export async function GET() {
         pesoOntemToneladas: Number((yesterdayWeightKg / 1000).toFixed(3)),
       },
       statusCaminhoes: [
-        { name: "Liberado", value: statusMap.LIBERADO ?? 0, color: "#22c55e" },
-        { name: "Carregando", value: statusMap.CARREGANDO ?? 0, color: "#3b82f6" },
-        { name: "Carregado", value: statusMap.CARREGADO ?? 0, color: "#8b5cf6" },
-        { name: "Em rota", value: statusMap.EM_ROTA ?? 0, color: "#f59e0b" },
-        { name: "Manutenção", value: statusMap.MANUTENCAO ?? 0, color: "#ef4444" },
+        { name: "Liberado", status: "LIBERADO", value: statusMap.LIBERADO ?? 0, color: "#22c55e" },
+        { name: "Carregando", status: "CARREGANDO", value: statusMap.CARREGANDO ?? 0, color: "#3b82f6" },
+        { name: "Carregado", status: "CARREGADO", value: statusMap.CARREGADO ?? 0, color: "#8b5cf6" },
+        { name: "Em rota", status: "EM_ROTA", value: statusMap.EM_ROTA ?? 0, color: "#f59e0b" },
+        { name: "Manutenção", status: "MANUTENCAO", value: statusMap.MANUTENCAO ?? 0, color: "#ef4444" },
       ],
       pesoSemanal: chart,
       recentes: recentLoads.map((load) => ({
@@ -198,6 +198,8 @@ export async function GET() {
         titulo: alert.titulo,
         mensagem: alert.mensagem,
         severidade: alert.severidade,
+        tipo: alert.tipo,
+        referencia: alert.referencia,
         createdAt: alert.createdAt,
       })),
     }, {

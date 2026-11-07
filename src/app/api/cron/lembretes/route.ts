@@ -360,7 +360,7 @@ export async function GET(request: Request) {
           id: agendamento.id,
           title: "Log\u00EDsticas Bill \u2014 Agendamento",
           body:
-            `Placa: ${agendamento.caminhao.placa}\n` +
+            `\n\nPlaca: ${agendamento.caminhao.placa}\n` +
             `Peso: ${pesoFormatado}\n` +
             `Origem: ${agendamento.origem}\n` +
             `Destino: ${agendamento.destino}\n` +

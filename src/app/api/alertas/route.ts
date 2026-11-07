@@ -6,13 +6,13 @@ export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.json({ error: "N?o autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "N\u00E3o autorizado" }, { status: 401 });
   }
 
   try {
     const agora = new Date();
 
-    // Mant?m os alertas internos de Agendamento sem alterar
+    // Mant\u00E9m os alertas internos de Agendamento sem alterar
     // alertaGeradoEm, que fica reservado ao processamento do Push pelo Cron.
     const agendamentos = await prisma.agendamentoCarregamento.findMany({
       where: {
@@ -41,8 +41,8 @@ export async function GET() {
           await tx.alerta.create({
             data: {
               tipo: "AGENDAMENTO",
-              titulo: "Agendamento chegou ao hor?rio",
-              mensagem: `O agendamento do caminh?o ${item.caminhao.placa} chegou ao hor?rio programado: ${item.origem} - ${item.destino}.`,
+              titulo: "Agendamento chegou ao hor\u00E1rio",
+              mensagem: `O agendamento do caminh\u00E3o ${item.caminhao.placa} chegou ao hor\u00E1rio programado: ${item.origem} - ${item.destino}.`,
               severidade: "WARNING",
               referencia: item.id,
             },
@@ -51,8 +51,8 @@ export async function GET() {
       });
     }
 
-    // Manuten??es n?o s?o mais processadas nesta central.
-    // Os registros e as APIs de manuten??o permanecem intactos.
+    // Manuten\u00E7\u00F5es n\u00E3o s\u00E3o mais processadas nesta central.
+    // Os registros e as APIs de manuten\u00E7\u00E3o permanecem intactos.
     const [alertas, naoLidos] = await Promise.all([
       prisma.alerta.findMany({
         orderBy: { createdAt: "desc" },
@@ -65,10 +65,10 @@ export async function GET() {
 
     return NextResponse.json({ alertas, naoLidos });
   } catch (error) {
-    console.error("Erro ao carregar notifica??es:", error);
+    console.error("Erro ao carregar notifica\u00E7\u00F5es:", error);
 
     return NextResponse.json(
-      { error: "N?o foi poss?vel carregar as notifica??es." },
+      { error: "N\u00E3o foi poss\u00EDvel carregar as notifica\u00E7\u00F5es." },
       { status: 500 }
     );
   }

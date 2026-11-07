@@ -274,8 +274,8 @@ export default function ProgramacoesPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <CalendarClock className="h-5 w-5 text-primary" />
+            <div className="rounded-lg bg-green-500/10 p-3">
+              <CalendarClock className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Agendamentos</p>
@@ -285,8 +285,8 @@ export default function ProgramacoesPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <Bell className="h-5 w-5 text-primary" />
+            <div className="rounded-lg bg-green-500/10 p-3">
+              <Bell className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Lembretes</p>

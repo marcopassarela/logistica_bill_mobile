@@ -81,6 +81,22 @@ export default function DiariasPage() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    function onDataChanged(event: Event) {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (
+        modules?.some((module) =>
+          ["diarias", "funcionarios", "caminhoes"].includes(module)
+        )
+      ) {
+        void loadData();
+      }
+    }
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [loadData]);
+
   function changeField(field: keyof typeof emptyForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
   }

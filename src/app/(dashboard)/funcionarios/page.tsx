@@ -110,6 +110,22 @@ export default function FuncionariosPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    function onDataChanged(event: Event) {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (
+        modules?.some((module) =>
+          ["funcionarios", "cargos"].includes(module)
+        )
+      ) {
+        void load();
+      }
+    }
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
+
   const filtered = items.filter((f) =>
     `${f.nome} ${f.cargo?.nome || ""} ${f.telefone || ""} ${f.email || ""}`
       .toLowerCase()

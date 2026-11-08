@@ -9,6 +9,7 @@ import { PageTransition } from "./PageTransition";
 import { useStartupTransition } from "./StartupTransitionProvider";
 import { NotificationBell } from "./NotificationBell";
 import { PushNotificationSetup } from "@/components/notifications/PushNotificationSetup";
+import { RealtimeSync } from "@/components/realtime/RealtimeSync";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -68,6 +69,7 @@ export function DashboardShell({
       transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
       className="min-h-screen bg-background text-foreground"
     >
+      <RealtimeSync />
       <Sidebar
         userName={userName}
         onLogout={handleLogout}

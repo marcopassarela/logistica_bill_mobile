@@ -181,6 +181,15 @@ export default function RotasPage() {
   useEffect(() => {
     load(dataFiltro);
   }, [load, dataFiltro]);
+  useEffect(() => {
+    const onDataChanged = (event: Event) => {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (modules.some((module) => ["rotas", "caminhoes"].includes(module))) void load();
+    };
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
 
   useEffect(() => {
     let cancelado = false;

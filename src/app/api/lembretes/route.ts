@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publishDataChanged } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/auth";
 import { z } from "zod";
 
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await publishDataChanged("lembretes");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar lembrete:", error);

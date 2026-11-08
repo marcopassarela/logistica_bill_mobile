@@ -105,6 +105,11 @@ export default function ConfiguracoesPage() {
         setMessage("Senha alterada com sucesso.");
       }
       setPendingAction(null);
+
+      if (pendingAction === "password") {
+        window.location.replace("/login");
+      }
+
       return true;
     } finally {
       setSaving(false);

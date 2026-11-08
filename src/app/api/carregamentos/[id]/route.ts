@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -346,8 +347,8 @@ export async function PATCH(
       }
     }
 
+    await publishDataChanged("carregamentos", "caminhoes");
     return NextResponse.json({
-      ...resultado.dados,
       ...(avisoExcessoPeso ? { avisoExcessoPeso } : {}),
       ...(resultado.avisoExcessoPeso
         ? { detalhesExcessoPeso: resultado.avisoExcessoPeso }
@@ -463,6 +464,7 @@ export async function DELETE(
       return { ok: true, statusCaminhao: novoStatus };
     });
 
+    await publishDataChanged("carregamentos", "caminhoes");
     return NextResponse.json(resultado);
   } catch (error) {
     if (

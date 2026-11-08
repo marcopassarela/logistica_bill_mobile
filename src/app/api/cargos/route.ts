@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { cargoSchema } from "@/lib/validations";
+import { publishDataChanged } from "@/lib/realtime";
 
 function errorCode(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       include: { _count: { select: { funcionarios: true } } },
     });
 
+    await publishDataChanged("cargos", "funcionarios");
     return NextResponse.json(cargo, { status: 201 });
   } catch (error) {
     if (errorCode(error) === "P2002") {
@@ -91,6 +93,7 @@ export async function PATCH(req: NextRequest) {
       include: { _count: { select: { funcionarios: true } } },
     });
 
+    await publishDataChanged("cargos", "funcionarios");
     return NextResponse.json(cargo);
   } catch (error) {
     if (errorCode(error) === "P2025") {
@@ -137,6 +140,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.cargo.delete({ where: { id } });
+    await publishDataChanged("cargos", "funcionarios");
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Erro ao excluir cargo:", error);

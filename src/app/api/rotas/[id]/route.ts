@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 
 const updatePontoSchema = z.object({
@@ -153,6 +154,7 @@ export async function PATCH(
       });
     });
 
+    await publishDataChanged("rotas", "caminhoes");
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Erro ao atualizar rota:", error);
@@ -183,6 +185,7 @@ export async function DELETE(
     if (!rota) return NextResponse.json({ error: "Rota não encontrada" }, { status: 404 });
 
     await prisma.rota.delete({ where: { id } });
+    await publishDataChanged("rotas", "caminhoes");
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Erro ao excluir rota:", error);

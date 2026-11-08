@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { diariaSchema } from "@/lib/validations";
 import { z } from "zod";
+import { publishDataChanged } from "@/lib/realtime";
 
 function prismaError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
       include: includeRelations,
     });
 
+    await publishDataChanged("diarias", "funcionarios", "caminhoes");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     const code = prismaError(error);
@@ -145,6 +147,7 @@ export async function PATCH(req: NextRequest) {
       include: includeRelations,
     });
 
+    await publishDataChanged("diarias", "funcionarios", "caminhoes");
     return NextResponse.json(updated);
   } catch (error) {
     const code = prismaError(error);
@@ -187,10 +190,12 @@ export async function DELETE(req: NextRequest) {
 
     if (body.deleteAll === true) {
       const result = await prisma.diaria.deleteMany();
+      if (result.count > 0) await publishDataChanged("diarias", "funcionarios", "caminhoes");
       return NextResponse.json({ ok: true, count: result.count });
     }
 
     await prisma.diaria.delete({ where: { id } });
+    await publishDataChanged("diarias", "funcionarios", "caminhoes");
     return NextResponse.json({ ok: true });
   } catch (error) {
     const code = prismaError(error);

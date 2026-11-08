@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publishDataChanged } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/auth";
 
 type Contexto = { params: Promise<{ id: string }> };
@@ -26,6 +27,7 @@ export async function PATCH(_req: Request, { params }: Contexto) {
       );
     }
 
+    await publishDataChanged("alertas");
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(
@@ -56,6 +58,7 @@ export async function DELETE(_req: Request, { params }: Contexto) {
       );
     }
 
+    await publishDataChanged("alertas");
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

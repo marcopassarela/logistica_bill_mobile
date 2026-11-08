@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import * as webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { publishDataChanged } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -450,6 +451,9 @@ export async function GET(request: Request) {
       }
     }
 
+    if (candidates.length > 0 || agendamentos.length > 0) {
+      await publishDataChanged("lembretes", "agendamentos");
+    }
     return NextResponse.json({
       success: true,
       encontrados: candidates.length,

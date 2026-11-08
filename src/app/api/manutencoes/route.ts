@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 
 const schema = z.object({
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await publishDataChanged("manutencoes", "caminhoes");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar manutenção:", error);

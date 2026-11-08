@@ -90,6 +90,22 @@ export default function ManutencoesPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    function onDataChanged(event: Event) {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (
+        modules?.some((module) =>
+          ["manutencoes", "caminhoes"].includes(module)
+        )
+      ) {
+        void load();
+      }
+    }
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
+
   function iniciarEdicao(item: Manutencao) {
     setEditingId(item.id);
     setEditingItem(item);

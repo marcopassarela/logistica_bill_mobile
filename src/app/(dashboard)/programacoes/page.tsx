@@ -110,6 +110,15 @@ export default function ProgramacoesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    const onDataChanged = (event: Event) => {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (modules.some((module) => ["agendamentos", "caminhoes", "lembretes"].includes(module))) void load();
+    };
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
 
   function iniciarEdicao(item: Agendamento | Lembrete, novoTipo: Tipo) {
     if (novoTipo === "AGENDAMENTO") {

@@ -195,6 +195,16 @@ export default function CarregamentosPage() {
   useEffect(() => {
     loadLista();
   }, [loadLista]);
+  useEffect(() => {
+    const onDataChanged = (event: Event) => {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (modules.includes("carregamentos")) void loadLista();
+      if (modules.some((module) => ["caminhoes", "produtos"].includes(module))) void loadBase();
+    };
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [loadBase, loadLista]);
 
   function addItem() {
     setItens((prev) => [

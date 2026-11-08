@@ -74,6 +74,15 @@ export default function ProdutosPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const onDataChanged = (event: Event) => {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (modules.includes("produtos")) void load();
+    };
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
 
   const filtered = items.filter((p) =>
     `${p.nome} ${p.codigo} ${p.categoria || ""}`

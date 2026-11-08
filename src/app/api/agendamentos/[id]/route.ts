@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 
 const schema = z.object({
@@ -103,6 +104,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       });
     });
 
+    await publishDataChanged("agendamentos");
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Erro ao editar agendamento:", error);
@@ -131,6 +133,7 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
       await tx.agendamentoCarregamento.delete({ where: { id } });
     });
 
+    await publishDataChanged("agendamentos");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Erro ao excluir agendamento:", error);

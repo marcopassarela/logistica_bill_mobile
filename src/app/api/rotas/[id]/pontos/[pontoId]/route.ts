@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { z } from "zod";
+import { publishDataChanged } from "@/lib/realtime";
 
 const schema = z.object({
   concluido: z.boolean(),
@@ -45,5 +46,6 @@ export async function PATCH(
     select: { id: true, concluido: true },
   });
 
+  await publishDataChanged("rotas", "caminhoes");
   return NextResponse.json(atualizado);
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { funcionarioSchema } from "@/lib/validations";
+import { publishDataChanged } from "@/lib/realtime";
 
 function normalize(body: Record<string, unknown>) {
   const result = { ...body };
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       data: data as Parameters<typeof prisma.funcionario.create>[0]["data"],
       include: { cargo: { select: { id: true, nome: true } } },
     });
+    await publishDataChanged("funcionarios", "cargos", "diarias", "faltas");
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
     if (prismaError(error) === "P2002") {
@@ -97,6 +99,7 @@ export async function PATCH(req: NextRequest) {
         data: { status: "INATIVO" },
         include: { cargo: { select: { id: true, nome: true } } },
       });
+      await publishDataChanged("funcionarios", "diarias", "faltas");
       return NextResponse.json({ ok: true, funcionario: updated });
     }
 
@@ -112,6 +115,7 @@ export async function PATCH(req: NextRequest) {
       data: data as Parameters<typeof prisma.funcionario.update>[0]["data"],
       include: { cargo: { select: { id: true, nome: true } } },
     });
+    await publishDataChanged("funcionarios", "cargos", "diarias", "faltas");
     return NextResponse.json(updated);
   } catch (error) {
     if (prismaError(error) === "P2025") {
@@ -200,6 +204,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.funcionario.delete({ where: { id } });
+    await publishDataChanged("funcionarios", "cargos", "diarias", "faltas");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

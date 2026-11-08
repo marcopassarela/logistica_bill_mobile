@@ -1,3 +1,4 @@
+import { publishAuthInvalidated } from "@/lib/realtime";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -84,11 +85,16 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "A senha atual está incorreta." }, { status: 403 });
       }
 
-      await prisma.user.update({
-        where: { id: sessionUser.id },
-        data: { passwordHash: await hashPassword(data.newPassword) },
-      });
-      return NextResponse.json({ ok: true });
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: sessionUser.id },
+          data: { passwordHash: await hashPassword(data.newPassword) },
+        }),
+        prisma.session.deleteMany({}),
+      ]);
+      await publishAuthInvalidated();
+
+      return NextResponse.json({ ok: true, sessionsInvalidated: true });
     }
 
     return NextResponse.json({ error: "Operação inválida" }, { status: 400 });

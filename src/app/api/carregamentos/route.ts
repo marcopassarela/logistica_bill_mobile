@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 
 const itemSchema = z.object({
@@ -269,6 +270,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await publishDataChanged("carregamentos", "caminhoes");
     return NextResponse.json(resultado.created, { status: 201 });
   } catch (e) {
     console.error(e);

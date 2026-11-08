@@ -87,6 +87,15 @@ export default function AgendamentosPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    const onDataChanged = (event: Event) => {
+      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      if (modules.some((module) => ["agendamentos", "caminhoes"].includes(module))) void load();
+    };
+
+    window.addEventListener("logistica:data-changed", onDataChanged);
+    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+  }, [load]);
 
   function iniciarEdicao(item: Agendamento) {
     setEditingId(item.id);

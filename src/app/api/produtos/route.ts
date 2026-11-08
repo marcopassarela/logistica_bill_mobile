@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { produtoSchema } from "@/lib/validations";
+import { publishDataChanged } from "@/lib/realtime";
 
 function normalize(body: Record<string, unknown>) {
   const result = { ...body };
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     const product = await prisma.produto.create({
       data: { ...data, codigo },
     });
+    await publishDataChanged("produtos");
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     if (prismaError(error) === "P2002") {
@@ -86,6 +88,7 @@ export async function PATCH(req: NextRequest) {
 
     const { id: _ignored, ...data } = parsed.data as typeof parsed.data & { id?: string };
     const product = await prisma.produto.update({ where: { id }, data });
+    await publishDataChanged("produtos");
     return NextResponse.json(product);
   } catch (error) {
     if (prismaError(error) === "P2025") {
@@ -128,6 +131,7 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.produto.delete({ where: { id } });
 
+    await publishDataChanged("produtos");
     return NextResponse.json({ ok: true });
   } catch (error) {
     const code = prismaError(error);

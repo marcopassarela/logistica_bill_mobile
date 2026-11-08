@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publishDataChanged } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/auth";
 import { z } from "zod";
 
@@ -80,6 +81,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       },
     });
 
+    await publishDataChanged("lembretes");
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Erro ao atualizar lembrete:", error);
@@ -112,6 +114,7 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
     }
 
     await prisma.lembrete.delete({ where: { id } });
+    await publishDataChanged("lembretes");
 
     return NextResponse.json({ success: true });
   } catch (error) {

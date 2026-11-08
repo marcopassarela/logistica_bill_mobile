@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { faltaSchema } from "@/lib/validations";
+import { publishDataChanged } from "@/lib/realtime";
 
 function prismaError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error
@@ -107,6 +108,7 @@ export async function POST(req: NextRequest) {
       include: includeRelations,
     });
 
+    await publishDataChanged("faltas", "funcionarios");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     const code = prismaError(error);
@@ -170,6 +172,7 @@ export async function PATCH(req: NextRequest) {
       include: includeRelations,
     });
 
+    await publishDataChanged("faltas", "funcionarios");
     return NextResponse.json(updated);
   } catch (error) {
     const code = prismaError(error);
@@ -236,6 +239,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.falta.delete({ where: { id } });
+    await publishDataChanged("faltas", "funcionarios");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

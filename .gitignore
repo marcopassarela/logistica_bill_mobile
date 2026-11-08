@@ -46,3 +46,8 @@ prisma/migrations
 /backup-*/
 /backups/
 *.backup-*
+# Backups e auditorias locais
+*.bak-*
+*.backup*
+*.old
+/auditoria-backups.csv

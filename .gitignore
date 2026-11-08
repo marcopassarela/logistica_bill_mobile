@@ -51,3 +51,10 @@ prisma/migrations
 *.backup*
 *.old
 /auditoria-backups.csv
+
+# Arquivos locais de auditoria e backups
+*.bak-*
+*.backup*
+*.old
+auditoria-*.csv
+auditoria-*.txt

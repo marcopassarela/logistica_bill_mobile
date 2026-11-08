@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { Realtime } from "ably";
+import { createClient } from "@ably/pubsub-device";
 
 export function RealtimeSync() {
   useEffect(() => {
-    const realtime = new Realtime({
+    const realtime = createClient({
       authUrl: "/api/realtime/auth",
     });
 

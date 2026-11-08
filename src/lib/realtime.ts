@@ -1,10 +1,12 @@
-﻿import { Rest } from "ably";
+import { createHttpClient } from "@ably/pubsub-server";
+
+type AblyHttpClient = ReturnType<typeof createHttpClient>;
 
 const globalForAbly = globalThis as typeof globalThis & {
-  __logisticaAbly?: Rest;
+  __logisticaAbly?: AblyHttpClient;
 };
 
-function getAblyClient(): Rest | null {
+function getAblyClient(): AblyHttpClient | null {
   const apiKey = process.env.ABLY_API_KEY;
 
   if (!apiKey) {
@@ -13,7 +15,7 @@ function getAblyClient(): Rest | null {
   }
 
   if (!globalForAbly.__logisticaAbly) {
-    globalForAbly.__logisticaAbly = new Rest(apiKey);
+    globalForAbly.__logisticaAbly = createHttpClient({ key: apiKey });
   }
 
   return globalForAbly.__logisticaAbly;

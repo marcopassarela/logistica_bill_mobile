@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import { Rest } from "ably";
+import { NextResponse } from "next/server";
+import { createHttpClient } from "@ably/pubsub-server";
 import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -25,13 +25,13 @@ export async function GET() {
       );
     }
 
-    const ably = new Rest(apiKey);
+    const ably = createHttpClient({ key: apiKey });
 
     const tokenRequest = await ably.auth.createTokenRequest({
       clientId: user.id,
-      capability: JSON.stringify({
-        "logistica-global": ["subscribe"]
-      }),
+      capability: {
+        "logistica-global": ["subscribe"],
+      },
     });
 
     return NextResponse.json(tokenRequest, {

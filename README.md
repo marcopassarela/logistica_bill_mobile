@@ -2,7 +2,7 @@
 
 Sistema web de gestão logística para empresas de transporte e carga. Reúne em uma única aplicação o controle de frota, funcionários, produtos, carregamentos, rotas, diárias, faltas, manutenções e agendamentos, com relatórios e notificações push. A interface é responsiva e funciona em desktop e celular.
 
-> Projeto acadêmico — _[disciplina / curso / instituição]_.
+> Projeto acadêmico
 > Autor: Marco Aurélio · Licença: [MIT](LICENSE)
 
 ## Sumário

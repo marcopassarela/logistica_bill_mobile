@@ -3,7 +3,7 @@
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FileBarChart,
   FileSpreadsheet,
@@ -133,6 +133,7 @@ export default function RelatoriosPage() {
   const [error, setError] = useState("");
   const [gerado, setGerado] = useState(false);
   const [baixarAberto, setBaixarAberto] = useState(false);
+  const requisicaoAtual = useRef(0);
 
   const periodo = useMemo(() => {
     if (dataInicio && dataFim) {
@@ -144,47 +145,28 @@ export default function RelatoriosPage() {
   }, [dataInicio, dataFim]);
 
   async function gerarRelatorio() {
+    const idRequisicao = ++requisicaoAtual.current;
     setLoading(true);
     setError("");
     setGerado(false);
     setRelatorio(null);
 
     try {
-      let diarias: Registro[] = [];
-      let faltas: Registro[] = [];
-      let carregamentos: Registro[] = [];
-      let funcionarios: Registro[] = [];
-      let caminhoes: Registro[] = [];
+      const [diariasRaw, faltasRaw, carregamentosRaw, funcionariosRaw, caminhoesRaw] = await Promise.all([
+        tipo === "diario" || tipo === "detalhe" || tipo === "funcionario" || tipo === "caminhao" || tipo === "geral" ? consultar("/api/diarias") : Promise.resolve<Registro[]>([]),
+        tipo === "falta" || tipo === "geral" ? consultar("/api/faltas") : Promise.resolve<Registro[]>([]),
+        tipo === "carregamento" || tipo === "geral" ? consultar("/api/carregamentos") : Promise.resolve<Registro[]>([]),
+        tipo === "diario" || tipo === "geral" ? consultar("/api/funcionarios") : Promise.resolve<Registro[]>([]),
+        tipo === "geral" ? consultar("/api/caminhoes") : Promise.resolve<Registro[]>([]),
+      ]);
 
-      if (tipo === "diario" || tipo === "detalhe" || tipo === "funcionario" || tipo === "caminhao" || tipo === "geral") {
-        diarias = (await consultar("/api/diarias")).filter(
-          (r) => dentroDoPeriodo(r, dataInicio, dataFim),
-        );
-      }
+      if (idRequisicao !== requisicaoAtual.current) return;
 
-      if (tipo === "falta" || tipo === "geral") {
-        faltas = (await consultar("/api/faltas")).filter(
-          (r) => dentroDoPeriodo(r, dataInicio, dataFim),
-        );
-      }
-
-      if (tipo === "carregamento" || tipo === "geral") {
-        carregamentos = (await consultar("/api/carregamentos")).filter(
-          (r) => dentroDoPeriodo(r, dataInicio, dataFim),
-        );
-      }
-
-      if (tipo === "diario") {
-        funcionarios = await consultar("/api/funcionarios");
-      }
-
-      if (tipo === "geral") {
-        [funcionarios, caminhoes] = await Promise.all([
-          consultar("/api/funcionarios"),
-          consultar("/api/caminhoes"),
-        ]);
-      }
-
+      const diarias = diariasRaw.filter((r) => dentroDoPeriodo(r, dataInicio, dataFim));
+      const faltas = faltasRaw.filter((r) => dentroDoPeriodo(r, dataInicio, dataFim));
+      const carregamentos = carregamentosRaw.filter((r) => dentroDoPeriodo(r, dataInicio, dataFim));
+      const funcionarios = funcionariosRaw;
+      const caminhoes = caminhoesRaw;
       let novo: Relatorio;
 
       if (tipo === "diario") {
@@ -423,13 +405,15 @@ export default function RelatoriosPage() {
         };
       }
 
+      if (idRequisicao !== requisicaoAtual.current) return;
       setRelatorio(novo);
       setEmissao(new Date().toLocaleString("pt-BR"));
       setGerado(true);
     } catch (e) {
+      if (idRequisicao !== requisicaoAtual.current) return;
       setError(e instanceof Error ? e.message : "Não foi possível gerar o relatório.");
     } finally {
-      setLoading(false);
+      if (idRequisicao === requisicaoAtual.current) setLoading(false);
     }
   }
 

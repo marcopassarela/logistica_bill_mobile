@@ -123,7 +123,7 @@ export default function ConfiguracoesPage() {
         <p className="text-muted-foreground">Perfil, segurança e preferências. Alterações sensíveis exigem senha do administrador.</p>
       </div>
 
-      <div role="status" aria-label="Carregando configurações" aria-busy="true" className="space-y-3"><Skeleton className="h-4 w-48" /><Skeleton className="h-10 w-full max-w-md" /></div>
+      {loading && <div role="status" aria-label="Carregando configurações" aria-busy="true" className="space-y-3"><Skeleton className="h-4 w-48" /><Skeleton className="h-10 w-full max-w-md" /></div>}
       {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
       {message && <p role="status" className="text-sm text-green-600">{message}</p>}
 

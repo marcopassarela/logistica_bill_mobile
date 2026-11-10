@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
@@ -129,12 +130,18 @@ export default function CarregamentosPage() {
   useEffect(() => {
     if (!avisoPeso) return;
 
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function fecharComEscape(event: KeyboardEvent) {
       if (event.key === "Escape") setAvisoPeso(null);
     }
 
     window.addEventListener("keydown", fecharComEscape);
-    return () => window.removeEventListener("keydown", fecharComEscape);
+    return () => {
+      window.removeEventListener("keydown", fecharComEscape);
+      document.body.style.overflow = overflowAnterior;
+    };
   }, [avisoPeso]);
 
   // form
@@ -404,6 +411,10 @@ export default function CarregamentosPage() {
       if (!res.ok) {
         setMsg({ type: "err", text: dataRes.error || "Erro ao salvar carregamento." });
         return;
+      }
+
+      if (dataRes.avisoExcessoPeso && dataRes.excessoPeso) {
+        setAvisoPeso(dataRes.excessoPeso);
       }
 
       setMsg({
@@ -853,9 +864,9 @@ export default function CarregamentosPage() {
                           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
                         >
                           <div>
-                            <span className="font-medium">{it.produto.nome}</span>
+                            <span className="font-medium">{num(it.quantidade)} {it.produto.nome}</span>
                             <span className="text-muted-foreground text-xs ml-2">
-                              {num(it.quantidade)} {it.produto.unidade} • {num(it.peso).toLocaleString("pt-BR")} kg
+                              {num(it.peso).toLocaleString("pt-BR")} kg
                             </span>
                             {it.observacao?.trim() && (
                               <p className="mt-1 text-xs text-muted-foreground">
@@ -944,16 +955,16 @@ export default function CarregamentosPage() {
         </Card>
       </ScreenAssembly>
 
-      {avisoPeso && (
+      {avisoPeso && typeof document !== "undefined" && createPortal((
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[9999] flex min-h-dvh w-screen items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
           onClick={() => setAvisoPeso(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="titulo-aviso-peso"
-            className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl"
+            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border bg-background shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="p-6">
@@ -1020,7 +1031,7 @@ export default function CarregamentosPage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       <AdminPasswordModal
         open={deleteOpen}

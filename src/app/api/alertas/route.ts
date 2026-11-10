@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
+
+export async function PATCH() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  try {
+    const resultado = await prisma.alerta.updateMany({ where: { lido: false }, data: { lido: true } });
+    await publishDataChanged("alertas");
+    return NextResponse.json({ success: true, updated: resultado.count });
+  } catch (error) {
+    console.error("Erro ao marcar notificações como lidas:", error);
+    return NextResponse.json({ error: "Não foi possível atualizar as notificações." }, { status: 500 });
+  }
+}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -29,15 +43,10 @@ export async function GET() {
 
     for (const item of agendamentos) {
       await prisma.$transaction(async (tx) => {
-        const existente = await tx.alerta.findFirst({
-          where: {
-            tipo: "AGENDAMENTO",
-            referencia: item.id,
-          },
-          select: { id: true },
-        });
+        const existente = await tx.alerta.findFirst({ where: { tipo: "AGENDAMENTO", referencia: item.id }, select: { id: true } });
+        const exclusao = await tx.auditLog.findFirst({ where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: `AGENDAMENTO:${item.id}` }, select: { id: true } });
 
-        if (!existente) {
+        if (!existente && !exclusao) {
           await tx.alerta.create({
             data: {
               tipo: "AGENDAMENTO",

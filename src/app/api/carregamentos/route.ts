@@ -21,12 +21,12 @@ const createSchema = z.object({
   status: z
     .enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"])
     .default("EM_ANDAMENTO"),
-  itens: z.array(itemSchema).min(1, "Adicione pelo menos um produto"),
+  itens: z.array(itemSchema).min(1, "Adicione pelo menos um produto."),
 });
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const data = searchParams.get("data"); // YYYY-MM-DD
@@ -60,14 +60,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   try {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { error: "Os dados informados são inválidos.", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json(
         {
-          error: `Não é possível criar um carregamento: o caminhão ${caminhaoValidado.placa} está com status ${caminhaoValidado.status}.`,
+          error: `Não é possível criar um carregamento: o caminhão ${caminhaoValidado.placa} está ${caminhaoValidado.status === "MANUTENCAO" ? "em manutenção" : "em rota"}.`,
         },
         { status: 409 }
       );
@@ -112,16 +112,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (capacidadeKg > 0 && pesoTotal > capacidadeKg) {
-      return NextResponse.json(
-        {
-          error: `Carregamento não permitido: o peso carregado (${pesoTotal.toLocaleString("pt-BR")} kg) excede a capacidade do caminhão ${caminhaoValidado.placa} (${capacidadeKg.toLocaleString("pt-BR")} kg).`,
-          pesoCarregado: pesoTotal,
-          capacidadeKg,
-        },
-        { status: 400 }
-      );
-    }
 
     const resultado = await prisma.$transaction(async (tx) => {
       // Revalidar o caminhão dentro da mesma transação.
@@ -151,14 +141,6 @@ export async function POST(req: NextRequest) {
         return { error: "PESO_INVALIDO" as const };
       }
 
-      if (capacidadeAtual > 0 && pesoTotal > capacidadeAtual) {
-        return {
-          error: "EXCESSO_PESO" as const,
-          placa: caminhao.placa,
-          pesoCarregado: pesoTotal,
-          capacidadeKg: capacidadeAtual,
-        };
-      }
 
       const created = await tx.carregamento.create({
         data: {
@@ -222,8 +204,8 @@ export async function POST(req: NextRequest) {
         data: { status: novoStatus },
       });
 
-      return { created };
-    });
+      return { created, excessoPeso: capacidadeAtual > 0 && pesoTotal > capacidadeAtual ? { placa: caminhao.placa, pesoCarregado: pesoTotal, capacidadeKg: capacidadeAtual } : null };
+    }, { maxWait: 10000, timeout: 15000 });
 
     if ("error" in resultado) {
       if (resultado.error === "PESO_INVALIDO") {
@@ -243,26 +225,12 @@ export async function POST(req: NextRequest) {
       if (resultado.error === "CAMINHAO_INDISPONIVEL") {
         return NextResponse.json(
           {
-            error: `Não é possível criar o carregamento: o caminhão ${resultado.placa} está com status ${resultado.status}.`,
+            error: `Não é possível criar o carregamento: o caminhão ${resultado.placa} está ${resultado.status === "MANUTENCAO" ? "em manutenção" : "em rota"}.`,
           },
           { status: 409 }
         );
       }
 
-      if (
-        resultado.error === "EXCESSO_PESO" &&
-        typeof resultado.pesoCarregado === "number" &&
-        typeof resultado.capacidadeKg === "number"
-      ) {
-        return NextResponse.json(
-          {
-            error: `Carregamento não permitido: o peso (${resultado.pesoCarregado.toLocaleString("pt-BR")} kg) excede a capacidade do caminhão ${resultado.placa} (${resultado.capacidadeKg.toLocaleString("pt-BR")} kg).`,
-            pesoCarregado: resultado.pesoCarregado,
-            capacidadeKg: resultado.capacidadeKg,
-          },
-          { status: 400 }
-        );
-      }
 
       return NextResponse.json(
         { error: "Não foi possível criar o carregamento." },
@@ -270,10 +238,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await publishDataChanged("carregamentos", "caminhoes");
-    return NextResponse.json(resultado.created, { status: 201 });
+    let avisoExcessoPeso: string | null = null;
+    if (resultado.excessoPeso) {
+      const excesso = resultado.excessoPeso;
+      const formatarKg = (valor: number) => valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+      avisoExcessoPeso = "ATENÇÃO: o caminhão " + excesso.placa + " está com " + formatarKg(excesso.pesoCarregado) + " kg carregados, acima da capacidade cadastrada de " + formatarKg(excesso.capacidadeKg) + " kg. Excesso: " + formatarKg(excesso.pesoCarregado - excesso.capacidadeKg) + " kg.";
+      try {
+        const alertaExistente = await prisma.alerta.findFirst({ where: { tipo: "PESO", referencia: resultado.created.id }, select: { id: true } });
+        const exclusao = await prisma.auditLog.findFirst({ where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + resultado.created.id }, select: { id: true } });
+        if (!alertaExistente && !exclusao) {
+          await prisma.alerta.create({ data: { tipo: "PESO", titulo: "Excesso de peso no carregamento", mensagem: avisoExcessoPeso, severidade: "CRITICAL", referencia: resultado.created.id } });
+        }
+      } catch (erroAlerta) {
+        console.error("Carregamento salvo, mas não foi possível registrar o alerta de peso:", erroAlerta);
+      }
+    }
+
+    await publishDataChanged("carregamentos", "caminhoes", "alertas");
+    return NextResponse.json({ ...resultado.created, ...(avisoExcessoPeso && resultado.excessoPeso ? { avisoExcessoPeso, excessoPeso: resultado.excessoPeso } : {}) }, { status: 201 });
+
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: "Erro ao criar carregamento" }, { status: 500 });
+    return NextResponse.json({ error: "Não foi possível criar o carregamento." }, { status: 500 });
   }
 }

@@ -86,6 +86,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
         where: { tipo: "AGENDAMENTO", referencia: id },
       });
 
+      await tx.auditLog.deleteMany({
+        where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "AGENDAMENTO:" + id },
+      });
+
       return tx.agendamentoCarregamento.update({
         where: { id },
         data: {

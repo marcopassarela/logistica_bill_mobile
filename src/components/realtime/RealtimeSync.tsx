@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { createClient } from "@ably/pubsub-device";
 
+let realtimeClient: ReturnType<typeof createClient> | undefined;
+
 export function RealtimeSync() {
   useEffect(() => {
-    const realtime = createClient({
+    const realtime = (realtimeClient ??= createClient({
       authUrl: "/api/realtime/auth",
-    });
+    }));
 
     const channel = realtime.channels.get("logistica-global");
 
@@ -28,7 +30,6 @@ export function RealtimeSync() {
 
     return () => {
       channel.unsubscribe();
-      realtime.close();
     };
   }, []);
 

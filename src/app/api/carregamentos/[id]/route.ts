@@ -322,16 +322,17 @@ export async function PATCH(
         `capacidade cadastrada de ${formatarKg(excesso.capacidadeKg)} kg.`;
 
       try {
-        const alertaPendente = await prisma.alerta.findFirst({
-          where: {
-            tipo: "PESO",
-            referencia: id,
-            lido: false,
-          },
+        const alertaExistente = await prisma.alerta.findFirst({
+          where: { tipo: "PESO", referencia: id },
           select: { id: true },
         });
 
-        if (!alertaPendente) {
+        const exclusao = await prisma.auditLog.findFirst({
+          where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + id },
+          select: { id: true },
+        });
+
+        if (!alertaExistente && !exclusao) {
           await prisma.alerta.create({
             data: {
               tipo: "PESO",
@@ -345,9 +346,15 @@ export async function PATCH(
       } catch (erroAlerta) {
         console.error("Carregamento salvo, mas nao foi possivel registrar o alerta de peso:", erroAlerta);
       }
+    } else {
+      try {
+        await prisma.auditLog.deleteMany({ where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + id } });
+      } catch (erroAuditoria) {
+        console.error("Não foi possível liberar a exclusão anterior do alerta de peso:", erroAuditoria);
+      }
     }
 
-    await publishDataChanged("carregamentos", "caminhoes");
+    await publishDataChanged("carregamentos", "caminhoes", "alertas");
     return NextResponse.json({
       ...(avisoExcessoPeso ? { avisoExcessoPeso } : {}),
       ...(resultado.avisoExcessoPeso
@@ -464,7 +471,7 @@ export async function DELETE(
       return { ok: true, statusCaminhao: novoStatus };
     });
 
-    await publishDataChanged("carregamentos", "caminhoes");
+    await publishDataChanged("carregamentos", "caminhoes", "alertas");
     return NextResponse.json(resultado);
   } catch (error) {
     if (

@@ -35,6 +35,7 @@ export function NotificationBell() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [naoLidos, setNaoLidos] = useState(0);
   const [carregando, setCarregando] = useState(false);
+  const [marcandoTodas, setMarcandoTodas] = useState(false);
   const [erro, setErro] = useState(false);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [deslizadoId, setDeslizadoId] = useState<string | null>(null);
@@ -160,6 +161,22 @@ export function NotificationBell() {
     }
   }
 
+  async function marcarTodasComoLidas() {
+    if (marcandoTodas || naoLidos === 0) return;
+    setMarcandoTodas(true);
+    try {
+      const response = await fetch("/api/alertas", { method: "PATCH" });
+      if (!response.ok) throw new Error("Falha ao marcar notificações.");
+      setAlertas((atuais) => atuais.map((item) => ({ ...item, lido: true })));
+      setNaoLidos(0);
+      setErro(false);
+    } catch {
+      setErro(true);
+    } finally {
+      setMarcandoTodas(false);
+    }
+  }
+
   async function excluirAlerta(alerta: Alerta) {
     if (excluindoId) return;
 
@@ -273,9 +290,10 @@ export function NotificationBell() {
 
             <button
               type="button"
-              onClick={carregar}
+              onClick={marcarTodasComoLidas}
               className="rounded-md p-2 text-muted-foreground hover:bg-accent"
-              aria-label="Atualizar notificações"
+              aria-label="Marcar todas como lidas"
+              disabled={marcandoTodas || naoLidos === 0}
             >
               <CheckCheck className="h-4 w-4" />
             </button>

@@ -64,6 +64,9 @@ model Funcionario {
   diarias Diaria[]
   faltas  Falta[]
 
+  carregamentosComoMotorista Carregamento[] @relation("CarregamentoMotorista")
+  carregamentosComoAjudante Carregamento[] @relation("CarregamentoAjudante")
+
   @@index([nome])
   @@index([status])
 }
@@ -141,6 +144,10 @@ model Carregamento {
   id          String             @id @default(cuid())
   caminhaoId  String
   caminhao    Caminhao           @relation(fields: [caminhaoId], references: [id])
+  motoristaId String?
+  motorista   Funcionario?       @relation("CarregamentoMotorista", fields: [motoristaId], references: [id])
+  ajudanteId  String?
+  ajudante    Funcionario?       @relation("CarregamentoAjudante", fields: [ajudanteId], references: [id])
   data        DateTime           @default(now())
   origem      String?
   destino     String?
@@ -155,6 +162,8 @@ model Carregamento {
   @@index([data])
   @@index([status])
   @@index([caminhaoId])
+  @@index([motoristaId])
+  @@index([ajudanteId])
 }
 
 enum StatusCarregamento {

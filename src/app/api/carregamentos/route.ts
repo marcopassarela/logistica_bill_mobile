@@ -18,6 +18,8 @@ const createSchema = z.object({
   origem: z.string().optional().nullable(),
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
+  motoristaId: z.string().optional().nullable(),
+  ajudanteId: z.string().optional().nullable(),
   status: z
     .enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"])
     .default("EM_ANDAMENTO"),
@@ -44,6 +46,8 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       caminhao: { select: { id: true, placa: true, marca: true, modelo: true, capacidadeKg: true } },
+      motorista: { select: { id: true, nome: true } },
+      ajudante: { select: { id: true, nome: true } },
       itens: {
         orderBy: [{ ordem: "asc" }, { id: "asc" }],
         include: {
@@ -142,9 +146,17 @@ export async function POST(req: NextRequest) {
       }
 
 
+      const funcionariosSelecionados = [data.motoristaId, data.ajudanteId].filter((id): id is string => id !== undefined && id !== null);
+      if (funcionariosSelecionados.length > 0) {
+        const idsUnicos = [...new Set(funcionariosSelecionados)];
+        const funcionariosAtivos = await tx.funcionario.findMany({ where: { id: { in: idsUnicos }, status: "ATIVO" }, select: { id: true } });
+        if (funcionariosAtivos.length !== idsUnicos.length) return { error: "FUNCIONARIO_INVALIDO" as const };
+      }
       const created = await tx.carregamento.create({
         data: {
           caminhaoId: data.caminhaoId,
+          motoristaId: data.motoristaId ?? null,
+          ajudanteId: data.ajudanteId ?? null,
           data: new Date(`${data.data}T12:00:00.000-03:00`),
           origem: data.origem || null,
           destino: data.destino || null,
@@ -208,6 +220,9 @@ export async function POST(req: NextRequest) {
     }, { maxWait: 10000, timeout: 15000 });
 
     if ("error" in resultado) {
+      if (resultado.error === "FUNCIONARIO_INVALIDO") {
+        return NextResponse.json({ error: "Motorista ou ajudante inválido ou inativo." }, { status: 400 });
+      }
       if (resultado.error === "PESO_INVALIDO") {
         return NextResponse.json(
           { error: "Peso carregado inválido." },

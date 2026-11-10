@@ -8,6 +8,8 @@ const updateSchema = z.object({
   origem: z.string().optional().nullable(),
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
+  motoristaId: z.string().optional().nullable(),
+  ajudanteId: z.string().optional().nullable(),
   status: z.enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"]).optional(),
   itemStatus: z.object({
     itemId: z.string(),
@@ -40,6 +42,8 @@ export async function GET(
     where: { id },
     include: {
       caminhao: true,
+      motorista: { select: { id: true, nome: true } },
+      ajudante: { select: { id: true, nome: true } },
       itens: {
         orderBy: [{ ordem: "asc" }, { id: "asc" }],
         include: { produto: true },
@@ -95,6 +99,11 @@ export async function PATCH(
         return { erro: "NAO_ENCONTRADO" as const };
       }
 
+      const funcionariosSelecionados = [data.motoristaId, data.ajudanteId].filter((id): id is string => id !== undefined && id !== null);
+      if (funcionariosSelecionados.length > 0) {
+        const funcionariosAtivos = await tx.funcionario.findMany({ where: { id: { in: [...new Set(funcionariosSelecionados)] }, status: "ATIVO" }, select: { id: true } });
+        if (funcionariosAtivos.length !== new Set(funcionariosSelecionados).size) return { erro: "FUNCIONARIO_INVALIDO" as const };
+      }
       const idsAtuais = new Set(atual.itens.map((item) => item.id));
 
       if (data.itemStatus && !idsAtuais.has(data.itemStatus.itemId)) {
@@ -212,6 +221,8 @@ export async function PATCH(
           origem: data.origem,
           destino: data.destino,
           observacoes: data.observacoes,
+          ...(data.motoristaId !== undefined ? { motoristaId: data.motoristaId } : {}),
+          ...(data.ajudanteId !== undefined ? { ajudanteId: data.ajudanteId } : {}),
           ...(data.status !== undefined ? { status: data.status } : {}),
           pesoTotal: pesoPrevisto,
         },
@@ -289,6 +300,9 @@ export async function PATCH(
         );
       }
 
+      if (resultado.erro === "FUNCIONARIO_INVALIDO") {
+        return NextResponse.json({ error: "Motorista ou ajudante inválido ou inativo." }, { status: 400 });
+      }
       if (resultado.erro === "ITEM_INVALIDO") {
         return NextResponse.json(
           { error: "Um dos itens nÃ£o pertence a este carregamento." },

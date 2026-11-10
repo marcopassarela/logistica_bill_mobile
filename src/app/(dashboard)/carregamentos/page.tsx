@@ -36,6 +36,11 @@ type Caminhao = {
   status: string;
 };
 
+type Funcionario = {
+  id: string;
+  nome: string;
+  status: string;
+};
 type Produto = {
   id: string;
   codigo: string;
@@ -62,6 +67,10 @@ type Carregamento = {
   pesoTotal: number | string;
   status: string;
   observacoes: string | null;
+  motoristaId?: string | null;
+  ajudanteId?: string | null;
+  motorista?: { id: string; nome: string } | null;
+  ajudante?: { id: string; nome: string } | null;
   caminhao: { id: string; placa: string; marca?: string | null; modelo?: string | null; capacidadeKg?: number | string | null };
   itens: {
     id: string;
@@ -111,6 +120,7 @@ function num(v: number | string | null | undefined) {
 export default function CarregamentosPage() {
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
   const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
   const carregamentosEmAtualizacao = useRef(new Set<string>());
@@ -147,6 +157,8 @@ export default function CarregamentosPage() {
   // form
   const [editingId, setEditingId] = useState<string | null>(null);
   const [caminhaoId, setCaminhaoId] = useState("");
+  const [motoristaId, setMotoristaId] = useState("");
+  const [ajudanteId, setAjudanteId] = useState("");
   const [data, setData] = useState(todayISO());
   const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
@@ -171,12 +183,17 @@ export default function CarregamentosPage() {
 
   const loadBase = useCallback(async () => {
     try {
-      const [cRes, pRes] = await Promise.all([
+      const [cRes, pRes, fRes] = await Promise.all([
         fetch("/api/caminhoes"),
         fetch("/api/produtos"),
+        fetch("/api/funcionarios"),
       ]);
       if (cRes.ok) setCaminhoes(await cRes.json());
       if (pRes.ok) setProdutos(await pRes.json());
+      if (fRes.ok) {
+        const dadosFuncionarios: Funcionario[] = await fRes.json();
+        setFuncionarios(dadosFuncionarios.filter((f) => f.status === "ATIVO"));
+      }
     } catch {
       /* ignore */
     }
@@ -206,7 +223,7 @@ export default function CarregamentosPage() {
     const onDataChanged = (event: Event) => {
       const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
       if (modules.includes("carregamentos")) void loadLista();
-      if (modules.some((module) => ["caminhoes", "produtos"].includes(module))) void loadBase();
+      if (modules.some((module) => ["caminhoes", "produtos", "funcionarios"].includes(module))) void loadBase();
     };
 
     window.addEventListener("logistica:data-changed", onDataChanged);
@@ -252,6 +269,8 @@ export default function CarregamentosPage() {
   function startEdit(carreg: Carregamento) {
     setEditingId(carreg.id);
     setCaminhaoId(carreg.caminhao.id);
+    setMotoristaId(carreg.motoristaId ?? carreg.motorista?.id ?? "");
+    setAjudanteId(carreg.ajudanteId ?? carreg.ajudante?.id ?? "");
     setData(carreg.data.slice(0, 10));
     setOrigem(carreg.origem ?? "");
     setDestino(carreg.destino ?? "");
@@ -332,6 +351,8 @@ export default function CarregamentosPage() {
   function cancelEdit() {
     setEditingId(null);
     setCaminhaoId("");
+    setMotoristaId("");
+    setAjudanteId("");
     setData(todayISO());
     setOrigem("");
     setDestino("");
@@ -392,6 +413,8 @@ export default function CarregamentosPage() {
                   destino: destino || null,
                   status,
                   observacoes: observacoes || null,
+                  motoristaId: motoristaId || null,
+                  ajudanteId: ajudanteId || null,
                   itens: payloadItens,
                 }
               : {
@@ -401,6 +424,8 @@ export default function CarregamentosPage() {
                   destino: destino || null,
                   status,
                   observacoes: observacoes || null,
+                  motoristaId: motoristaId || null,
+                  ajudanteId: ajudanteId || null,
                   itens: payloadItens,
                 }
           ),
@@ -426,6 +451,8 @@ export default function CarregamentosPage() {
 
       setEditingId(null);
       setCaminhaoId("");
+    setMotoristaId("");
+    setAjudanteId("");
       setData(todayISO());
       setOrigem("");
       setDestino("");
@@ -627,6 +654,22 @@ export default function CarregamentosPage() {
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Motorista</Label>
+                  <select className="flex h-9 w-full rounded-md border border-input bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100 px-3 py-1 text-sm" value={motoristaId} onChange={(e) => setMotoristaId(e.target.value)}>
+                    <option value="">Sem motorista</option>
+                    {funcionarios.map((f) => (<option key={f.id} value={f.id}>{f.nome}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Ajudante</Label>
+                  <select className="flex h-9 w-full rounded-md border border-input bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100 px-3 py-1 text-sm" value={ajudanteId} onChange={(e) => setAjudanteId(e.target.value)}>
+                    <option value="">Sem ajudante</option>
+                    {funcionarios.map((f) => (<option key={f.id} value={f.id}>{f.nome}</option>))}
+                  </select>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Data *</Label>

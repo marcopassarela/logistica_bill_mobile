@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
@@ -82,38 +82,8 @@ export async function POST(req: NextRequest) {
       0
     );
 
-    // Validar caminhão e capacidade antes de gravar o carregamento.
-    const caminhaoValidado = await prisma.caminhao.findUnique({
-      where: { id: data.caminhaoId },
-      select: { id: true, placa: true, capacidadeKg: true, status: true },
-    });
-
-    if (!caminhaoValidado) {
-      return NextResponse.json(
-        { error: "Caminhão não encontrado." },
-        { status: 404 }
-      );
-    }
-
-    if (
-      caminhaoValidado.status === "EM_ROTA" ||
-      caminhaoValidado.status === "MANUTENCAO"
-    ) {
-      return NextResponse.json(
-        {
-          error: `Não é possível criar um carregamento: o caminhão ${caminhaoValidado.placa} está ${caminhaoValidado.status === "MANUTENCAO" ? "em manutenção" : "em rota"}.`,
-        },
-        { status: 409 }
-      );
-    }
-
-    const capacidadeKg = Number(caminhaoValidado.capacidadeKg ?? 0);
-
     if (!Number.isFinite(pesoTotal) || pesoTotal < 0) {
-      return NextResponse.json(
-        { error: "Peso carregado inválido.", pesoCarregado: pesoTotal },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Peso carregado inválido.", pesoCarregado: pesoTotal }, { status: 400 });
     }
 
 
@@ -269,7 +239,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await publishDataChanged("carregamentos", "caminhoes", "alertas");
+    after(() => publishDataChanged("carregamentos", "caminhoes", "alertas"));
     return NextResponse.json({ ...resultado.created, ...(avisoExcessoPeso && resultado.excessoPeso ? { avisoExcessoPeso, excessoPeso: resultado.excessoPeso } : {}) }, { status: 201 });
 
   } catch (e) {

@@ -35,7 +35,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const { id } = await params;
   const item = await prisma.carregamento.findUnique({
@@ -60,7 +60,7 @@ export async function PATCH(
 ) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   const { id } = await params;
@@ -71,7 +71,7 @@ export async function PATCH(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados invÃ¡lidos", details: parsed.error.flatten() },
+        { error: "Dados inválidos", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -114,7 +114,7 @@ export async function PATCH(
         return { erro: "ITEM_INVALIDO" as const };
       }
 
-      // Preserva itens nÃ£o enviados e aplica as alteraÃ§Ãµes apenas em memÃ³ria.
+      // Preserva itens não enviados e aplica as alterações apenas em memória.
       const previstos = new Map<
         string,
         { peso: number; statusItem: string }
@@ -149,6 +149,11 @@ export async function PATCH(
         0
       );
 
+      const pesoCarregadoPrevisto = Array.from(previstos.values()).reduce(
+        (total, item) => total + (item.statusItem === "CARREGADO" ? Number(item.peso) : 0),
+        0
+      );
+
       const capacidadeKg = Number(atual.caminhao.capacidadeKg ?? 0);
 
       const validarPeso =
@@ -165,14 +170,14 @@ export async function PATCH(
       const excessoPeso =
         validarPeso &&
         capacidadeKg > 0 &&
-        pesoPrevisto > capacidadeKg;
+        pesoCarregadoPrevisto > capacidadeKg;
 
       if (excessoPeso) {
-        // O excesso gera alerta, mas nao bloqueia a gravacao.
-        // A validacao continua informativa para a operacao.
+        // O excesso gera alerta, mas não bloqueia a gravação.
+        // A validação continua informativa para a operação.
       }
 
-      // Nenhuma gravaÃ§Ã£o ocorre antes das validaÃ§Ãµes acima.
+      // Nenhuma gravação ocorre antes das validações acima.
       if (data.itemStatus !== undefined) {
         await tx.carregamentoItem.update({
           where: { id: data.itemStatus.itemId },
@@ -228,7 +233,7 @@ export async function PATCH(
         },
       });
 
-      // Preserva os estados operacionais especiais do caminhÃ£o.
+      // Preserva os estados operacionais especiais do caminhão.
       // Manutenção tem prioridade e nunca deve ser sobrescrita.
       if (atual.caminhao.status !== "MANUTENCAO") {
         const [carregamentosRestantes, rotaAtiva] = await Promise.all([
@@ -269,22 +274,10 @@ export async function PATCH(
         });
       }
 
-      const atualizado = await tx.carregamento.findUnique({
-        where: { id },
-        include: {
-          caminhao: { select: { placa: true } },
-          itens: {
-            orderBy: [{ ordem: "asc" }, { id: "asc" }],
-            include: { produto: true },
-          },
-        },
-      });
-
       return {
-        dados: atualizado,
         avisoExcessoPeso: excessoPeso
           ? {
-              pesoCarregado: pesoPrevisto,
+              pesoCarregado: pesoCarregadoPrevisto,
               capacidadeKg,
               placa: atual.caminhao.placa,
             }
@@ -295,7 +288,7 @@ export async function PATCH(
     if ("erro" in resultado) {
       if (resultado.erro === "NAO_ENCONTRADO") {
         return NextResponse.json(
-          { error: "Carregamento nÃ£o encontrado" },
+          { error: "Carregamento não encontrado" },
           { status: 404 }
         );
       }
@@ -305,20 +298,20 @@ export async function PATCH(
       }
       if (resultado.erro === "ITEM_INVALIDO") {
         return NextResponse.json(
-          { error: "Um dos itens nÃ£o pertence a este carregamento." },
+          { error: "Um dos itens não pertence a este carregamento." },
           { status: 400 }
         );
       }
 
       if (resultado.erro === "PESO_INVALIDO") {
         return NextResponse.json(
-          { error: "Peso carregado invÃ¡lido." },
+          { error: "Peso carregado inválido." },
           { status: 400 }
         );
       }
 
       return NextResponse.json(
-        { error: "NÃ£o foi possÃ­vel validar o carregamento." },
+        { error: "Não foi possível validar o carregamento." },
         { status: 400 }
       );
     }
@@ -336,15 +329,16 @@ export async function PATCH(
         `capacidade cadastrada de ${formatarKg(excesso.capacidadeKg)} kg.`;
 
       try {
-        const alertaExistente = await prisma.alerta.findFirst({
-          where: { tipo: "PESO", referencia: id },
-          select: { id: true },
-        });
-
-        const exclusao = await prisma.auditLog.findFirst({
-          where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + id },
-          select: { id: true },
-        });
+        const [alertaExistente, exclusao] = await Promise.all([
+          prisma.alerta.findFirst({
+            where: { tipo: "PESO", referencia: id },
+            select: { id: true },
+          }),
+          prisma.auditLog.findFirst({
+            where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + id },
+            select: { id: true },
+          }),
+        ]);
 
         if (!alertaExistente && !exclusao) {
           await prisma.alerta.create({
@@ -389,7 +383,7 @@ export async function DELETE(
 ) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   try {
@@ -400,7 +394,7 @@ export async function DELETE(
       !(await verifyAdminPassword(body.adminPassword))
     ) {
       return NextResponse.json(
-        { error: "Senha do administrador invÃ¡lida" },
+        { error: "Senha do administrador inválida" },
         { status: 403 }
       );
     }
@@ -408,7 +402,7 @@ export async function DELETE(
     const { id } = await params;
     if (!id) {
       return NextResponse.json(
-        { error: "ID do carregamento obrigatÃ³rio" },
+        { error: "ID do carregamento obrigatório" },
         { status: 400 }
       );
     }
@@ -441,7 +435,7 @@ export async function DELETE(
         return { ok: true };
       }
 
-      // NÃ£o interferir em caminhÃµes em rota ou em manutenÃ§Ã£o.
+      // Não interferir em caminhões em rota ou em manutenção.
       // Nunca alterar o status de um caminhão em manutenção.
       if (caminhao.status === "MANUTENCAO") {
         return { ok: true };
@@ -493,14 +487,14 @@ export async function DELETE(
       error.message === "CARREGAMENTO_NAO_ENCONTRADO"
     ) {
       return NextResponse.json(
-        { error: "Carregamento nÃ£o encontrado" },
+        { error: "Carregamento não encontrado" },
         { status: 404 }
       );
     }
 
     console.error("Erro ao excluir carregamento:", error);
     return NextResponse.json(
-      { error: "NÃ£o foi possÃ­vel excluir o carregamento" },
+      { error: "Não foi possível excluir o carregamento" },
       { status: 500 }
     );
   }

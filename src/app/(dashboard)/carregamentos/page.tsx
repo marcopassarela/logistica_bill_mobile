@@ -252,7 +252,7 @@ export default function CarregamentosPage() {
       prev.map((i) => {
         if (i.key !== key) return i;
         const next = { ...i, ...patch };
-        // auto-calcula peso se mudou produto ou quantidade
+        // Calcula o peso automaticamente quando o produto ou a quantidade muda
         if (patch.produtoId !== undefined || patch.quantidade !== undefined) {
           const prod = produtos.find((p) => p.id === (patch.produtoId ?? i.produtoId));
           const qtd = parseFloat(patch.quantidade ?? i.quantidade) || 0;
@@ -313,7 +313,7 @@ export default function CarregamentosPage() {
           if (!cancelado) {
             setMsg({
               type: "err",
-              text: "Nao foi possivel localizar o carregamento deste alerta.",
+              text: "Não foi possível localizar o carregamento deste alerta.",
             });
           }
           return;
@@ -472,7 +472,7 @@ export default function CarregamentosPage() {
   async function toggleItemStatus(carregId: string, itemId: string, novo: "CARREGADO" | "NAO_CARREGADO" | "PENDENTE") {
     const carreg = lista.find((c) => c.id === carregId);
     if (!carreg) {
-      alert("Carregamento nao encontrado na lista. Atualize a pagina.");
+      alert("Carregamento não encontrado na lista. Atualize a página.");
       return;
     }
 
@@ -511,11 +511,11 @@ export default function CarregamentosPage() {
         setLista((prev) =>
           prev.map((c) => c.id === carregId ? carreg : c)
         );
-        alert(resultado.error || `Nao foi possivel atualizar o item (HTTP ${res.status}).`);
+        alert(resultado.error || `Não foi possível atualizar o item (HTTP ${res.status}).`);
         return;
       }
 
-      if (resultado.avisoExcessoPeso) {
+      if (novo === "CARREGADO" && resultado.avisoExcessoPeso) {
         setAvisoPeso(resultado.detalhesExcessoPeso ?? null);
       }
     } catch (erro) {
@@ -560,7 +560,7 @@ export default function CarregamentosPage() {
         setLista((prev) =>
           prev.map((c) => c.id === carregId ? carreg : c)
         );
-        alert(resultado.error || `Nao foi possivel alterar o status (${res.status}).`);
+        alert(resultado.error || `Não foi possível alterar o status (${res.status}).`);
         return;
       }
     } catch (erro) {

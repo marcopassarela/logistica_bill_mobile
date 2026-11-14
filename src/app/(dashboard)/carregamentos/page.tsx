@@ -20,6 +20,10 @@ import {
   MapPinned,
   AlertTriangle,
   X,
+  FileText,
+  MessageCircle,
+  MapPin,
+  Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -686,24 +690,37 @@ useScheduledLoadRefresh(loadLista);
   }
 
   function textoParada(item: Carregamento["itens"][number]) {
-    return [item.clienteNome, item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "Destino do cliente";
+    return [item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "";
   }
 
   function abrirRotaCompleta(carregamento: Carregamento, modo: "todas" | "uma") {
-    const paradas = carregamento.itens.map(textoParada).filter(Boolean);
+    const paradas = carregamento.itens
+      .map((item) => ({
+        local: [item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "",
+        mapaUrl: item.mapaUrl,
+      }))
+      .filter((parada) => parada.local);
+
     if (!paradas.length) {
       setMsg({ type: "err", text: "Adicione cidade, bairro ou link do mapa para montar a rota." });
       return;
     }
+
     if (modo === "uma") {
-      paradas.forEach((parada, index) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parada)}`, `rota-${carregamento.id}-${index}`));
+      paradas.forEach((parada, index) => {
+        window.open(
+          parada.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parada.local)}`,
+          `rota-${carregamento.id}-${index}`
+        );
+      });
     } else {
-      const origin = paradas[0];
-      const destination = paradas[paradas.length - 1];
-      const waypoints = paradas.slice(1, -1).join("|");
+      const origin = paradas[0].local;
+      const destination = paradas[paradas.length - 1].local;
+      const waypoints = paradas.slice(1, -1).map((p) => p.local).join("|");
       const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ""}`;
       window.open(url, "rota-completa");
     }
+
     setRotaAbertaId(null);
   }
 
@@ -1027,18 +1044,68 @@ useScheduledLoadRefresh(loadLista);
                           key={it.id}
                           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
                         >
+
                           <div>
                             <p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+
                             {podeVerCliente && <>
-                            {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
-                            {it.clienteCidade && <p className="text-xs text-muted-foreground">Cidade: {it.clienteCidade}</p>}
-                            {it.clienteBairro && <p className="text-xs text-muted-foreground">Bairro: {it.clienteBairro}</p>}
-                            {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
-                            {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
-                            <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
-                            {it.notaFiscalNome && <a className="block max-w-[280px] truncate text-xs text-violet-600 underline" href={`/api/carregamentos/${c.id}/nota-fiscal/${it.id}`} target="_blank" rel="noreferrer">Nota fiscal: {it.notaFiscalNome}</a>}
-                            <div className="mt-1 flex flex-wrap gap-2 text-xs">{it.clienteTelefone && <a className="text-green-600 underline" href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>}{(it.mapaUrl || textoParada(it)) && <><a className="text-blue-600 underline" href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`} target="_blank" rel="noreferrer">Google Maps</a><a className="text-indigo-600 underline" href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`} target="_blank" rel="noreferrer">Waze</a></>}</div></>}
+                              {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
+                              {it.clienteCidade && <p className="text-xs text-muted-foreground">Cidade: {it.clienteCidade}</p>}
+                              {it.clienteBairro && <p className="text-xs text-muted-foreground">Bairro: {it.clienteBairro}</p>}
+                              {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
+                              {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
+                              <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
+
+                              {it.notaFiscalNome && (
+                                <a
+                                  className="mt-3 flex min-h-12 w-full max-w-sm items-center gap-3 rounded-lg border border-violet-500/40 bg-violet-500/5 px-4 py-3 text-sm font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+                                  href={`/api/carregamentos/${c.id}/nota-fiscal/${it.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <FileText className="h-5 w-5 shrink-0" />
+                                  <span className="truncate">Nota fiscal: {it.notaFiscalNome}</span>
+                                </a>
+                              )}
+
+                              <div className="mt-3 grid w-full max-w-sm grid-cols-1 gap-2">
+                                {it.clienteTelefone && (
+                                  <a
+                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-green-500/40 bg-green-500/5 px-4 py-3 text-sm font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
+                                    href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <MessageCircle className="h-5 w-5 shrink-0" />
+                                    WhatsApp
+                                  </a>
+                                )}
+
+                                {(it.mapaUrl || textoParada(it)) && <>
+                                  <a
+                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-blue-500/40 bg-blue-500/5 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
+                                    href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <MapPin className="h-5 w-5 shrink-0" />
+                                    Google Maps
+                                  </a>
+
+                                  <a
+                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-4 py-3 text-sm font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
+                                    href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Navigation className="h-5 w-5 shrink-0" />
+                                    Waze
+                                  </a>
+                                </>}
+                              </div>
+                            </>}
                           </div>
+
                           {podeAlterarStatus && <div className="flex items-center gap-1">
                             <Button
                               type="button"

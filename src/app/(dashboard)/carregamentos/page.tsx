@@ -1,5 +1,6 @@
 "use client";
 
+import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -239,6 +240,7 @@ export default function CarregamentosPage() {
       setLoading(false);
     }
   }, [filtroData]);
+useScheduledLoadRefresh(loadLista);
 
   useEffect(() => {
     loadBase();

@@ -2,7 +2,7 @@
 
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -177,6 +177,12 @@ export default function RotasPage() {
       setRefreshing(false);
     }
   }, [dataFiltro]);
+const refreshRotasProgramadas = useCallback(
+  () => load(dataFiltro),
+  [load, dataFiltro]
+);
+
+useScheduledLoadRefresh(refreshRotasProgramadas);
 
   useEffect(() => {
     load(dataFiltro);

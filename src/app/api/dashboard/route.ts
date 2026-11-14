@@ -54,6 +54,11 @@ export async function GET() {
     const tomorrowStart = startOfBrazilianDay(tomorrow);
     const yesterdayStart = startOfBrazilianDay(yesterday);
     const todayStart = startOfBrazilianDay(today);
+    const isDriver = user.role !== "ADMIN" && user.role !== "MANAGER";
+    const motoristaFilter = isDriver
+      ? { motoristaId: user.funcionarioId || "__sem_motorista__" }
+      : {};
+    const now = new Date();
 
     const [
       truckTotal,
@@ -70,7 +75,12 @@ export async function GET() {
       }),
       prisma.carregamento.findMany({
         where: {
-          data: { gte: weekStart, lt: tomorrowStart },
+          ...motoristaFilter,
+          data: {
+            gte: weekStart,
+            lt: tomorrowStart,
+            ...(isDriver ? { lte: now } : {}),
+          },
         },
         select: {
           data: true,
@@ -85,7 +95,12 @@ export async function GET() {
       }),
       prisma.carregamento.findMany({
         where: {
-          data: { gte: todayStart, lt: tomorrowStart },
+          ...motoristaFilter,
+          data: {
+            gte: todayStart,
+            lt: tomorrowStart,
+            ...(isDriver ? { lte: now } : {}),
+          },
         },
         orderBy: [{ data: "desc" }, { createdAt: "desc" }],
         take: 5,

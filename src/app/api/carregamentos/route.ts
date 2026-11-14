@@ -197,7 +197,9 @@ export async function POST(req: NextRequest) {
         },
         include: {
           caminhao: { select: { placa: true } },
-          itens: true,
+          itens: {
+            orderBy: [{ ordem: "asc" }, { id: "asc" }],
+          },
         },
       });
 

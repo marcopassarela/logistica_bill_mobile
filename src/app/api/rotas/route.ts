@@ -28,9 +28,27 @@ const createSchema = z.object({
   pontos: z.array(pontoSchema).min(2),
 });
 
+function dateKeyBrazil(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const { searchParams } = new URL(req.url);
   const caminhaoId = searchParams.get("caminhaoId");
@@ -42,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
 
   const where: Record<string, unknown> = {};
-  if (caminhaoId) where.caminhaoId = caminhaoId;
+
   if (status) where.status = status;
 
   if (data) {
@@ -61,18 +79,66 @@ export async function GET(req: NextRequest) {
     }];
   }
 
+  const isDriver = user.role !== "ADMIN" && user.role !== "MANAGER";
+
+  if (isDriver) {
+    if (!user.funcionarioId) {
+      return NextResponse.json([]);
+    }
+
+    const cargas = await prisma.carregamento.findMany({
+      where: {
+        motoristaId: user.funcionarioId,
+        data: { lte: new Date() },
+        status: { not: "CANCELADO" },
+      },
+      select: {
+        caminhaoId: true,
+        data: true,
+      },
+    });
+
+    if (cargas.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const combinacoes = cargas.map((carga) => ({
+      caminhaoId: carga.caminhaoId,
+      dataProgramada: dateKeyBrazil(carga.data),
+    }));
+
+    const condicoes = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      { OR: combinacoes },
+    ];
+
+    where.AND = condicoes;
+
+    if (caminhaoId) {
+      where.caminhaoId = caminhaoId;
+    } else {
+      where.caminhaoId = {
+        in: [...new Set(cargas.map((carga) => carga.caminhaoId))],
+      };
+    }
+  } else if (caminhaoId) {
+    where.caminhaoId = caminhaoId;
+  }
+
   const list = await prisma.rota.findMany({
     where,
     include: {
-      caminhao: { select: { id: true, placa: true, marca: true, modelo: true } },
+      caminhao: {
+        select: { id: true, placa: true, marca: true, modelo: true },
+      },
       pontos: { orderBy: { ordem: "asc" } },
     },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+
   return NextResponse.json(list);
 }
-
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });

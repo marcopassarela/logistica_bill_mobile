@@ -8,6 +8,8 @@ import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import {
   Plus,
+  ArrowUp,
+  ArrowDown,
   Pencil,
   Trash2,
   PackageCheck,
@@ -17,7 +19,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  MapPinned,
   AlertTriangle,
   X,
   FileText,
@@ -164,7 +165,6 @@ export default function CarregamentosPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [rotaAbertaId, setRotaAbertaId] = useState<string | null>(null);
   const [avisoPeso, setAvisoPeso] = useState<{
     pesoCarregado: number;
     capacidadeKg: number;
@@ -285,6 +285,17 @@ useScheduledLoadRefresh(loadLista);
       ...prev,
     ]);
   }
+  function moverItem(key: string, direcao: -1 | 1) {
+    setItens((prev) => {
+      const indice = prev.findIndex((item) => item.key === key);
+      const destino = indice + direcao;
+      if (indice < 0 || destino < 0 || destino >= prev.length) return prev;
+      const novaLista = [...prev];
+      [novaLista[indice], novaLista[destino]] = [novaLista[destino], novaLista[indice]];
+      return novaLista;
+    });
+  }
+
   function removeItem(key: string) {
     setItens((prev) => (prev.length <= 1 ? prev : prev.filter((i) => i.key !== key)));
   }
@@ -693,37 +704,6 @@ useScheduledLoadRefresh(loadLista);
     return [item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "";
   }
 
-  function abrirRotaCompleta(carregamento: Carregamento, modo: "todas" | "uma") {
-    const paradas = carregamento.itens
-      .map((item) => ({
-        local: [item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "",
-        mapaUrl: item.mapaUrl,
-      }))
-      .filter((parada) => parada.local);
-
-    if (!paradas.length) {
-      setMsg({ type: "err", text: "Adicione cidade, bairro ou link do mapa para montar a rota." });
-      return;
-    }
-
-    if (modo === "uma") {
-      paradas.forEach((parada, index) => {
-        window.open(
-          parada.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parada.local)}`,
-          `rota-${carregamento.id}-${index}`
-        );
-      });
-    } else {
-      const origin = paradas[0].local;
-      const destination = paradas[paradas.length - 1].local;
-      const waypoints = paradas.slice(1, -1).map((p) => p.local).join("|");
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ""}`;
-      window.open(url, "rota-completa");
-    }
-
-    setRotaAbertaId(null);
-  }
-
   const listaFiltrada = useMemo(() => lista.filter((c) => {
     if (!busca) return true;
     const q = busca.toLowerCase();
@@ -876,12 +856,20 @@ useScheduledLoadRefresh(loadLista);
                 {[...itens].map((item, idx) => (
                   <div key={item.key} className="rounded-lg border p-3 space-y-2 bg-muted/30">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                      {itens.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.key)}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium text-muted-foreground">Parada {idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={idx === 0} onClick={() => moverItem(item.key, -1)} title="Mover para cima">
+                          <ArrowUp className="h-4 w-4" />
                         </Button>
-                      )}
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={idx === itens.length - 1} onClick={() => moverItem(item.key, 1)} title="Mover para baixo">
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        {itens.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.key)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <Input value={item.descricaoLivre} onChange={(e) => updateItem(item.key, { descricaoLivre: e.target.value })} placeholder="Descrição da carga (ex.: 1 Mono 1cx 7m ae)" required />
                     {podeVerCliente && <div className="grid grid-cols-2 gap-2">
@@ -1039,14 +1027,14 @@ useScheduledLoadRefresh(loadLista);
                     </div>
 
                     <div className="space-y-1.5">
-                      {c.itens.map((it) => (
+                      {c.itens.map((it, idx) => (
                         <div
                           key={it.id}
                           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
                         >
 
                           <div>
-                            <p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+                            <div className="mb-1"><span className="inline-flex rounded-md bg-primary/10 px-2 py-1 text-[10px] font-bold tracking-wider text-primary">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
 
                             {podeVerCliente && <>
                               {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
@@ -1058,12 +1046,12 @@ useScheduledLoadRefresh(loadLista);
 
                               {it.notaFiscalNome && (
                                 <a
-                                  className="mt-3 flex min-h-12 w-full max-w-sm items-center gap-3 rounded-lg border border-violet-500/40 bg-violet-500/5 px-4 py-3 text-sm font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+                                  className="mt-3 flex min-h-10 w-full max-w-sm items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/5 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
                                   href={`/api/carregamentos/${c.id}/nota-fiscal/${it.id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  <FileText className="h-5 w-5 shrink-0" />
+                                  <FileText className="h-4 w-4 shrink-0" />
                                   <span className="truncate">Nota fiscal: {it.notaFiscalNome}</span>
                                 </a>
                               )}
@@ -1071,34 +1059,34 @@ useScheduledLoadRefresh(loadLista);
                               <div className="mt-3 grid w-full max-w-sm grid-cols-1 gap-2">
                                 {it.clienteTelefone && (
                                   <a
-                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-green-500/40 bg-green-500/5 px-4 py-3 text-sm font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
+                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
                                     href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
-                                    <MessageCircle className="h-5 w-5 shrink-0" />
+                                    <MessageCircle className="h-4 w-4 shrink-0" />
                                     WhatsApp
                                   </a>
                                 )}
 
                                 {(it.mapaUrl || textoParada(it)) && <>
                                   <a
-                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-blue-500/40 bg-blue-500/5 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
+                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
                                     href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
-                                    <MapPin className="h-5 w-5 shrink-0" />
+                                    <MapPin className="h-4 w-4 shrink-0" />
                                     Google Maps
                                   </a>
 
                                   <a
-                                    className="flex min-h-12 items-center gap-3 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-4 py-3 text-sm font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
+                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
                                     href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
-                                    <Navigation className="h-5 w-5 shrink-0" />
+                                    <Navigation className="h-4 w-4 shrink-0" />
                                     Waze
                                   </a>
                                 </>}
@@ -1148,12 +1136,6 @@ useScheduledLoadRefresh(loadLista);
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {podeRotaCompleta && <div className="relative">
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setRotaAbertaId(rotaAbertaId === c.id ? null : c.id)}>
-                          <MapPinned className="mr-1 h-3.5 w-3.5" /> Rota completa
-                        </Button>
-                        {rotaAbertaId === c.id && <div className="absolute left-0 top-9 z-20 w-56 rounded-md border bg-background p-2 shadow-lg"><Button type="button" variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => abrirRotaCompleta(c, "todas")}>Abrir todas as paradas</Button><Button type="button" variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => abrirRotaCompleta(c, "uma")}>Abrir uma por uma</Button></div>}
-                      </div>}
                       {podeEditar && <Button
                         size="sm"
                         variant="outline"

@@ -25,6 +25,7 @@ import {
   MessageCircle,
   MapPin,
   Navigation,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,6 +166,9 @@ export default function CarregamentosPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [notaFiscalPreview, setNotaFiscalPreview] = useState<{ carregamentoId: string; itemId: string; nomeArquivo: string } | null>(null);
+  const [previewMsg, setPreviewMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [sharingNota, setSharingNota] = useState(false);
   const [avisoPeso, setAvisoPeso] = useState<{
     pesoCarregado: number;
     capacidadeKg: number;
@@ -172,13 +176,20 @@ export default function CarregamentosPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!avisoPeso) return;
+    if (!avisoPeso && !notaFiscalPreview) return;
 
     const overflowAnterior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function fecharComEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setAvisoPeso(null);
+      if (event.key === "Escape") {
+        if (notaFiscalPreview) {
+          setNotaFiscalPreview(null);
+          setPreviewMsg(null);
+        } else {
+          setAvisoPeso(null);
+        }
+      }
     }
 
     window.addEventListener("keydown", fecharComEscape);
@@ -186,7 +197,7 @@ export default function CarregamentosPage() {
       window.removeEventListener("keydown", fecharComEscape);
       document.body.style.overflow = overflowAnterior;
     };
-  }, [avisoPeso]);
+  }, [avisoPeso, notaFiscalPreview]);
 
   // form
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -321,6 +332,37 @@ useScheduledLoadRefresh(loadLista);
       return;
     }
     updateItem(key, { notaFiscalNome: file.name, notaFiscalData: "", notaFiscalFile: file });
+  }
+
+  async function compartilharNotaFiscal(carregamentoId: string, itemId: string, nomeArquivo: string) {
+    setSharingNota(true);
+    setPreviewMsg(null);
+    try {
+      const response = await fetch("/api/carregamentos/" + encodeURIComponent(carregamentoId) + "/nota-fiscal/" + encodeURIComponent(itemId));
+      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Sua sessão ou permissão não permite acessar esta nota fiscal." : "Não foi possível obter o PDF da nota fiscal.");
+      const blob = await response.blob();
+      const filename = nomeArquivo || "nota-fiscal.pdf";
+      const file = new File([blob], filename, { type: "application/pdf" });
+      if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        setPreviewMsg({ type: "ok", text: "Compartilhamento aberto com a nota fiscal anexada." });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setPreviewMsg({ type: "ok", text: "PDF baixado. Agora você pode anexá-lo manualmente no WhatsApp." });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setPreviewMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao compartilhar a nota fiscal." });
+    } finally {
+      setSharingNota(false);
+    }
   }
 
   function startEdit(carreg: Carregamento) {
@@ -1045,15 +1087,17 @@ useScheduledLoadRefresh(loadLista);
                               <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
 
                               {it.notaFiscalNome && (
-                                <a
-                                  className="mt-3 flex min-h-10 w-full max-w-sm items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/5 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
-                                  href={`/api/carregamentos/${c.id}/nota-fiscal/${it.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  className="mt-3 flex min-h-10 w-full max-w-sm items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/5 px-3 py-2 text-left text-xs font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+                                  onClick={() => {
+                                    setPreviewMsg(null);
+                                    setNotaFiscalPreview({ carregamentoId: c.id, itemId: it.id, nomeArquivo: it.notaFiscalNome || "nota-fiscal.pdf" });
+                                  }}
                                 >
                                   <FileText className="h-4 w-4 shrink-0" />
                                   <span className="truncate">Nota fiscal: {it.notaFiscalNome}</span>
-                                </a>
+                                </button>
                               )}
 
                               <div className="mt-3 grid w-full max-w-sm grid-cols-1 gap-2">
@@ -1252,6 +1296,57 @@ useScheduledLoadRefresh(loadLista);
               </Button>
             </div>
           </div>
+        </div>
+      ), document.body)}
+
+      {notaFiscalPreview && typeof document !== "undefined" && createPortal((
+        <div
+          className="fixed inset-0 z-[10000] flex min-h-dvh w-screen flex-col bg-background"
+          onClick={() => { setNotaFiscalPreview(null); setPreviewMsg(null); }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-preview-nota"
+            className="flex min-h-0 flex-1 flex-col"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-center gap-3 border-b bg-background p-3 sm:p-4">
+              <FileText className="h-5 w-5 shrink-0 text-violet-600" />
+              <div className="min-w-0 flex-1">
+                <h2 id="titulo-preview-nota" className="truncate text-sm font-semibold">{notaFiscalPreview.nomeArquivo}</h2>
+                <p className="text-xs text-muted-foreground">Pré-visualização da nota fiscal</p>
+              </div>
+              <button
+                type="button"
+                disabled={sharingNota}
+                aria-busy={sharingNota}
+                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.carregamentoId, notaFiscalPreview.itemId, notaFiscalPreview.nomeArquivo)}
+                className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                <Share2 className="h-4 w-4" />
+                {sharingNota ? "Preparando..." : "Compartilhar PDF"}
+              </button>
+              <button
+                type="button"
+                aria-label="Fechar pré-visualização"
+                onClick={() => { setNotaFiscalPreview(null); setPreviewMsg(null); }}
+                className="rounded-md p-2 text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </header>
+            {previewMsg && (
+              <p className={`shrink-0 px-4 py-2 text-sm ${previewMsg.type === "ok" ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                {previewMsg.text}
+              </p>
+            )}
+            <iframe
+              title={`Pré-visualização de ${notaFiscalPreview.nomeArquivo}`}
+              src={`/api/carregamentos/${encodeURIComponent(notaFiscalPreview.carregamentoId)}/nota-fiscal/${encodeURIComponent(notaFiscalPreview.itemId)}`}
+              className="min-h-0 w-full flex-1 bg-muted"
+            />
+          </section>
         </div>
       ), document.body)}
 

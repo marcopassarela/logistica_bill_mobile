@@ -1034,7 +1034,7 @@ useScheduledLoadRefresh(loadLista);
                         >
 
                           <div>
-                            <div className="mb-1"><span className="inline-flex rounded-md border border-primary bg-primary px-3 py-1.5 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+                            <div className="mb-1"><span className="inline-flex rounded-md border border-primary bg-primary px-2 py-1 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
 
                             {podeVerCliente && <>
                               {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}

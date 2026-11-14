@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "prisma:gerar": "prisma generate",
+    "pdf:compactar": "tsx scripts/compactar-pdfs.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts"

@@ -46,6 +46,9 @@ BEGIN
   END IF;
 END $$;
 
--- Auditar alterações de perfil/exclusão já usa a tabela AuditLog existente.
--- O Prisma Client deve ser regenerado depois desta migração:
--- npx prisma generate
+-- Correção definitiva do armazenamento de PDFs:
+-- "notaFiscalData" utiliza o tipo BYTEA para armazenar o PDF compactado
+-- em formato GZIP binário, sem conversão para base64 no banco.
+-- A aplicação compacta antes de salvar e descompacta no download.
+-- O schema Prisma deve manter: notaFiscalData Bytes? @db.ByteA.
+-- Não é necessária nova migração SQL para esta alteração.

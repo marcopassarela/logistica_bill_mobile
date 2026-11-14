@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 import { requirePermission } from "@/lib/authorization";
+import { compressPdfDataUrl } from "@/lib/pdf-storage";
 
 const itemSchema = z.object({
   quantidade: z.coerce.number().positive(),
@@ -17,7 +18,9 @@ const itemSchema = z.object({
   clienteCidade: z.string().trim().min(1, "Informe a cidade do cliente.").max(100),
   clienteBairro: z.string().max(100).optional().nullable(),
   mapaUrl: z.string().url().max(500).optional().nullable(),
-});
+  notaFiscalNome: z.string().max(180).optional().nullable(),
+  notaFiscalData: z.string().max(20_000_000).optional().nullable(),
+}).refine((item) => !item.notaFiscalData || item.notaFiscalData.startsWith("data:application/pdf;base64,"), { message: "A nota fiscal deve ser um PDF válido." });
 
 const createSchema = z.object({
   caminhaoId: z.string().min(1),
@@ -61,7 +64,24 @@ export async function GET(req: NextRequest) {
       caminhao: { select: { id: true, placa: true, marca: true, modelo: true, capacidadeKg: true } },
       motorista: { select: { id: true, nome: true } },
       ajudante: { select: { id: true, nome: true } },
-      itens: { orderBy: [{ ordem: "asc" }, { id: "asc" }], select: { id: true, carregamentoId: true, quantidade: true, peso: true, ordem: true, statusItem: true, observacao: true, descricaoLivre: true, ordemServico: true, clienteNome: true, clienteTelefone: true, clienteCidade: true, clienteBairro: true, mapaUrl: true, notaFiscalNome: true } },
+      itens: {
+        orderBy: [{ ordem: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          quantidade: true,
+          peso: true,
+          statusItem: true,
+          observacao: true,
+          descricaoLivre: true,
+          ordemServico: true,
+          clienteNome: true,
+          clienteTelefone: true,
+          clienteCidade: true,
+          clienteBairro: true,
+          mapaUrl: true,
+          notaFiscalNome: true,
+        },
+      },
     },
     orderBy: [{ data: "desc" }, { createdAt: "asc" }],
     take: 100,
@@ -85,6 +105,21 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+    let itensCompactados: Array<
+      Omit<(typeof data.itens)[number], "notaFiscalData"> & {
+        notaFiscalData: Uint8Array<ArrayBuffer> | null;
+      }
+    >;
+    try {
+      // Compactar antes da transação evita que o processamento do PDF
+      // consuma o timeout interativo do Prisma.
+      itensCompactados = data.itens.map((item) => ({
+        ...item,
+        notaFiscalData: compressPdfDataUrl(item.notaFiscalData),
+      }));
+    } catch {
+      return NextResponse.json({ error: "A nota fiscal deve ser um PDF válido." }, { status: 400 });
+    }
     const pesoTotal = data.itens.reduce(
       (acc, i) => acc + Number(i.peso),
       0
@@ -130,7 +165,6 @@ export async function POST(req: NextRequest) {
         const funcionariosAtivos = await tx.funcionario.findMany({ where: { id: { in: idsUnicos }, status: "ATIVO" }, select: { id: true } });
         if (funcionariosAtivos.length !== idsUnicos.length) return { error: "FUNCIONARIO_INVALIDO" as const };
       }
-
       const created = await tx.carregamento.create({
         data: {
           caminhaoId: data.caminhaoId,
@@ -143,7 +177,7 @@ export async function POST(req: NextRequest) {
           status: data.status,
           pesoTotal,
           itens: {
-            create: data.itens.map((i, indice) => ({
+            create: itensCompactados.map((i, indice) => ({
               quantidade: i.quantidade,
               peso: i.peso,
               ordem: indice,
@@ -156,12 +190,14 @@ export async function POST(req: NextRequest) {
               clienteCidade: i.clienteCidade || null,
               clienteBairro: i.clienteBairro || null,
               mapaUrl: i.mapaUrl || null,
+              notaFiscalNome: i.notaFiscalNome || null,
+              notaFiscalData: i.notaFiscalData ?? null,
             })),
           },
         },
         include: {
           caminhao: { select: { placa: true } },
-          itens: { select: { id: true, carregamentoId: true, quantidade: true, peso: true, ordem: true, statusItem: true, observacao: true, descricaoLivre: true, ordemServico: true, clienteNome: true, clienteTelefone: true, clienteCidade: true, clienteBairro: true, mapaUrl: true, notaFiscalNome: true } },
+          itens: true,
         },
       });
 
@@ -202,7 +238,7 @@ export async function POST(req: NextRequest) {
       });
 
       return { created, excessoPeso: capacidadeAtual > 0 && pesoTotal > capacidadeAtual ? { placa: caminhao.placa, pesoCarregado: pesoTotal, capacidadeKg: capacidadeAtual } : null };
-    }, { maxWait: 10000, timeout: 15000 });
+    }, { maxWait: 10000, timeout: 30000 });
 
     if ("error" in resultado) {
       if (resultado.error === "FUNCIONARIO_INVALIDO") {
@@ -262,8 +298,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível criar o carregamento." }, { status: 500 });
   }
 }
-
-
-
-
-

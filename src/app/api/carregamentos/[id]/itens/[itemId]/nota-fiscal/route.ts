@@ -1,20 +1,25 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { requirePermission } from "@/lib/authorization";
+import { canAccess } from "@/lib/permissions";
+import { compressPdfBytes, decodePdf } from "@/lib/pdf-storage";
 
-const MAX_PDF_SIZE = 10 * 1024 * 1024;
+const MAX_PDF_SIZE = 4 * 1024 * 1024;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; itemId: string }> }) {
-  const permission = await requirePermission("carregamentos.editar");
-  if (permission.response) return permission.response;
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  if (!canAccess(user.role, user.permissions, "carregamentos.criar") && !canAccess(user.role, user.permissions, "carregamentos.editar")) {
+    return NextResponse.json({ error: "Você não tem permissão para executar esta ação." }, { status: 403 });
+  }
 
   const { id, itemId } = await params;
-  const formData = await req.formData();
+  const formData = await req.formData().catch(() => null);
+  if (!formData) return NextResponse.json({ error: "Não foi possível ler o arquivo enviado." }, { status: 400 });
   const file = formData.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "Envie um arquivo PDF." }, { status: 400 });
-  if (file.size <= 0 || file.size > MAX_PDF_SIZE) return NextResponse.json({ error: "O PDF deve ter até 10 MB." }, { status: 400 });
-  if (file.type !== "application/pdf") return NextResponse.json({ error: "O arquivo deve ser um PDF." }, { status: 400 });
+  if (file.size <= 0 || file.size > MAX_PDF_SIZE) return NextResponse.json({ error: "O PDF deve ter até 4 MB." }, { status: 400 });
+  if (file.type && file.type !== "application/pdf") return NextResponse.json({ error: "O arquivo deve ser um PDF." }, { status: 400 });
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") return NextResponse.json({ error: "O conteúdo do arquivo não é um PDF válido." }, { status: 400 });
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!item) return NextResponse.json({ error: "Item não encontrado nesta carga." }, { status: 404 });
 
   const nome = file.name.replaceAll("/", "_").replaceAll(String.fromCharCode(92), "_").replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll("\"", "_").trim().slice(0, 180) || "nota-fiscal.pdf";
-  await prisma.carregamentoItem.update({ where: { id: itemId }, data: { notaFiscalNome: nome, notaFiscalData: bytes } });
+  await prisma.carregamentoItem.update({ where: { id: itemId }, data: { notaFiscalNome: nome, notaFiscalData: compressPdfBytes(bytes) } });
   return NextResponse.json({ ok: true, notaFiscalNome: nome });
 }
 
@@ -42,11 +47,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const filename = (item.notaFiscalNome || "nota-fiscal.pdf").replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll("\"", "_");
-  return new NextResponse(new Uint8Array(item.notaFiscalData), {
+  const pdf = decodePdf(item.notaFiscalData);
+
+  return new NextResponse(pdf, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
-      "Content-Length": String(item.notaFiscalData.byteLength),
+      "Content-Length": String(pdf.length),
       "Cache-Control": "private, no-store",
     },
   });

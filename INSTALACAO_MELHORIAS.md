@@ -39,7 +39,17 @@ npx prisma generate
 
 O SQL é idempotente: pode ser executado novamente sem recriar as colunas já existentes.
 
-## 3. Gerar o Prisma Client
+## 3. Compactar notas fiscais
+
+Notas fiscais novas são compactadas automaticamente com GZIP sem perda de qualidade e descompactadas somente no download. Para compactar uma única vez os PDFs antigos já gravados:
+
+```powershell
+npm.cmd run pdf:compactar
+```
+
+O comando exige `DATABASE_URL` no `.env`. Faça backup do banco antes de executá-lo.
+
+## 4. Gerar o Prisma Client
 
 PowerShell:
 
@@ -59,7 +69,7 @@ Ou diretamente:
 npx prisma generate
 ```
 
-## 4. Validar e iniciar
+## 5. Validar e iniciar
 
 ```powershell
 npx tsc --noEmit
@@ -77,6 +87,7 @@ npm.cmd start
 - As permissões de abas e botões são validadas também no servidor; esconder o botão no navegador não é a única proteção.
 - Os campos obrigatórios de cada item são: produto/descrição, número da ordem, nome do cliente, telefone e cidade. Bairro, localização, observação e nota fiscal são opcionais e só aparecem quando preenchidos.
 - A nota fiscal aceita PDF opcional de até 10 MB por item. O conteúdo é salvo no campo `notaFiscalData` e o nome original em `notaFiscalNome`; execute a migração SQL antes de usar o anexo.
+- O limite de requisição é 25 MB para permitir o envio de PDFs de até 10 MB; a compactação ocorre sem perda antes do salvamento.
 - Usuários e Painel usam os eventos realtime do canal `logistica-global` e não fazem consultas periódicas. A lista atualiza quando há cadastro, edição, logout ou mudança de presença.
 - A alteração rápida de status do item usa uma operação direta e publica o evento depois da resposta, reduzindo a espera do motorista.
 - `PRISMA_CONNECTION_LIMIT` é opcional e pode ser definido no `.env`; o padrão desta versão é 3 conexões por instância.

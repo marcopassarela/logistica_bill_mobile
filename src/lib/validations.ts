@@ -65,4 +65,3 @@ export const rotaSchema = z.object({
   caminhaoId: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
 });
-

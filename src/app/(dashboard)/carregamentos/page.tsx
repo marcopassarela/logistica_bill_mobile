@@ -58,7 +58,8 @@ type ItemForm = {
   statusItem: "PENDENTE" | "CARREGADO" | "NAO_CARREGADO";
   observacao: string;
   notaFiscalNome: string;
-  notaFiscalArquivo: File | null;
+  notaFiscalData: string;
+  notaFiscalFile?: File;
 };
 
 type Carregamento = {
@@ -88,7 +89,7 @@ type Carregamento = {
       clienteBairro?: string | null;
       mapaUrl?: string | null;
       notaFiscalNome?: string | null;
-
+      notaFiscalData?: string | null;
   }[];
 };
 
@@ -194,7 +195,7 @@ export default function CarregamentosPage() {
   const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
-    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
+    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
   ]);
 
   const caminhaoSel = useMemo(
@@ -269,7 +270,7 @@ export default function CarregamentosPage() {
         clienteBairro: "",
         mapaUrl: "",
         notaFiscalNome: "",
-        notaFiscalArquivo: null,
+        notaFiscalData: "",
         quantidade: "",
         peso: "",
         statusItem: "PENDENTE",
@@ -298,11 +299,11 @@ export default function CarregamentosPage() {
       setMsg({ type: "err", text: "A nota fiscal deve estar no formato PDF." });
       return;
     }
-    if (file.size === 0 || file.size > 10 * 1024 * 1024) {
-      setMsg({ type: "err", text: "O PDF deve ter entre 1 byte e 10 MB." });
+    if (file.size > 10 * 1024 * 1024) {
+      setMsg({ type: "err", text: "O PDF da nota fiscal deve ter no máximo 10 MB." });
       return;
     }
-    updateItem(key, { notaFiscalNome: file.name, notaFiscalArquivo: file });
+    updateItem(key, { notaFiscalNome: file.name, notaFiscalData: "", notaFiscalFile: file });
   }
 
   function startEdit(carreg: Carregamento) {
@@ -334,7 +335,10 @@ export default function CarregamentosPage() {
         clienteBairro: item.clienteBairro || "",
         mapaUrl: item.mapaUrl || "",
         notaFiscalNome: item.notaFiscalNome || "",
-        notaFiscalArquivo: null,
+        // O PDF não é carregado para o formulário de edição. Ele é baixado
+        // somente quando o motorista clica no nome da nota fiscal.
+        notaFiscalData: "",
+        notaFiscalFile: undefined,
         quantidade: String(num(item.quantidade)),
         peso: String(num(item.peso)),
         statusItem: item.statusItem as ItemForm["statusItem"],
@@ -412,7 +416,7 @@ export default function CarregamentosPage() {
     setStatus("EM_ANDAMENTO");
     setObservacoes("");
     setItens([
-      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
+      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
     ]);
     setMsg(null);
   }
@@ -454,6 +458,9 @@ export default function CarregamentosPage() {
         clienteCidade: item.clienteCidade || null,
         clienteBairro: item.clienteBairro || null,
         mapaUrl: item.mapaUrl || null,
+        ...(item.notaFiscalData
+          ? { notaFiscalNome: item.notaFiscalNome || null, notaFiscalData: item.notaFiscalData }
+          : {}),
         quantidade: parseFloat(item.quantidade),
         peso: parseFloat(item.peso) || 0,
         statusItem: item.statusItem,
@@ -498,16 +505,27 @@ export default function CarregamentosPage() {
         return;
       }
 
-      const cargaId = editando ? editingId : dataRes.id;
-      const itensSalvos = dataRes.itens;
-      if (!cargaId || !Array.isArray(itensSalvos) || itensSalvos.length !== validItens.length) { if (cargaId) setEditingId(cargaId); setMsg({ type: "err", text: "Carga salva, mas não foi possível identificar os itens para anexar os PDFs." }); return; }
-      for (let n = 0; n < validItens.length; n++) {
-        const arquivo = validItens[n].notaFiscalArquivo;
-        if (!arquivo) continue;
-        const fd = new FormData(); fd.append("file", arquivo);
-        const up = await fetch(`/api/carregamentos/${cargaId}/itens/${itensSalvos[n].id}/nota-fiscal`, { method: "POST", body: fd });
-        if (!up.ok) { const erro = await up.json().catch(() => ({})); setEditingId(cargaId); setMsg({ type: "err", text: erro.error || "Carga salva, mas falhou o envio do PDF." }); return; }
+      // PDFs são enviados separadamente para não estourar o limite do JSON
+      // nem manter a transação Prisma aberta durante a compactação.
+      const carregamentoSalvoId = editingId || dataRes.id;
+      if (!carregamentoSalvoId) throw new Error("A API não retornou o identificador da carga.");
+      const arquivos = validItens
+        .map((item, indice) => ({ item, itemId: item.id || dataRes.itens?.[indice]?.id }))
+        .filter((entry): entry is { item: ItemForm; itemId: string } => Boolean(entry.item.notaFiscalFile && entry.itemId));
+      for (const { item, itemId } of arquivos) {
+        const form = new FormData();
+        form.append("file", item.notaFiscalFile as File);
+        const upload = await fetch(
+          `/api/carregamentos/${encodeURIComponent(carregamentoSalvoId)}/nota-fiscal/${encodeURIComponent(itemId)}`,
+          { method: "POST", body: form }
+        );
+        if (!upload.ok) {
+          const erroUpload = await upload.json().catch(() => ({}));
+          setMsg({ type: "err", text: erroUpload.error || "A carga foi salva, mas a nota fiscal não pôde ser anexada." });
+          return;
+        }
       }
+
       if (dataRes.avisoExcessoPeso && dataRes.excessoPeso) {
         setAvisoPeso(dataRes.excessoPeso);
       }
@@ -530,7 +548,7 @@ export default function CarregamentosPage() {
       setStatus("EM_ANDAMENTO");
       setObservacoes("");
       setItens([
-        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
+        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
       ]);
 
       await loadLista();
@@ -1016,7 +1034,7 @@ export default function CarregamentosPage() {
                             {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
                             {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
                             <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
-                            {it.notaFiscalNome && <a className="block max-w-[280px] truncate text-xs text-violet-600 underline" href={`/api/carregamentos/${c.id}/itens/${it.id}/nota-fiscal`} download={it.notaFiscalNome} target="_blank" rel="noreferrer">Nota fiscal: {it.notaFiscalNome}</a>}
+                            {it.notaFiscalNome && <a className="block max-w-[280px] truncate text-xs text-violet-600 underline" href={`/api/carregamentos/${c.id}/nota-fiscal/${it.id}`} target="_blank" rel="noreferrer">Nota fiscal: {it.notaFiscalNome}</a>}
                             <div className="mt-1 flex flex-wrap gap-2 text-xs">{it.clienteTelefone && <a className="text-green-600 underline" href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>}{(it.mapaUrl || textoParada(it)) && <><a className="text-blue-600 underline" href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`} target="_blank" rel="noreferrer">Google Maps</a><a className="text-indigo-600 underline" href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`} target="_blank" rel="noreferrer">Waze</a></>}</div></>}
                           </div>
                           {podeAlterarStatus && <div className="flex items-center gap-1">
@@ -1196,8 +1214,3 @@ export default function CarregamentosPage() {
     </div>
   );
 }
-
-
-
-
-

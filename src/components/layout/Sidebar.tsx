@@ -8,7 +8,6 @@ import {
   Map,
   Truck,
   Users,
-  Package,
   CalendarDays,
   UserX,
   FileBarChart,
@@ -21,11 +20,13 @@ import {
   Wrench,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { useState } from "react";
+import { canAccess, permissionId, type PermissionMap, type PermissionKey } from "@/lib/permissions";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,10 +35,11 @@ const menuItems = [
   { href: "/rotas", label: "Rotas", icon: Map },
   { href: "/caminhoes", label: "Caminhões", icon: Truck },
   { href: "/funcionarios", label: "Funcionários", icon: Users },
-  { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/diarias", label: "Diárias", icon: CalendarDays },
   { href: "/faltas", label: "Faltas", icon: UserX },
   { href: "/relatorios", label: "Relatórios", icon: FileBarChart },
+  { href: "/usuarios", label: "Usuários", icon: Users },
+  { href: "/painel", label: "Painel", icon: ShieldCheck },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -46,6 +48,8 @@ interface SidebarProps {
   onLogout: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  userRole: string;
+  userPermissions: PermissionMap | null;
 }
 
 export function Sidebar({
@@ -53,6 +57,8 @@ export function Sidebar({
   onLogout,
   collapsed,
   onToggleCollapsed,
+  userRole,
+  userPermissions,
 }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -126,7 +132,7 @@ export function Sidebar({
           )}
           aria-label="Menu principal"
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => canAccess(userRole, userPermissions, permissionId(item.href.slice(1) as PermissionKey))).map((item) => {
             const isActive =
               pathname === item.href ||
               pathname.startsWith(item.href + "/");

@@ -51,7 +51,7 @@ export function PageTransition({
                 }
           }
           transition={{
-            duration: reduceMotion ? 0 : 0.55,
+            duration: reduceMotion ? 0 : 0.22,
             ease: [0.22, 1, 0.36, 1],
           }}
           style={{

@@ -13,7 +13,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardShell userName={user.name} userRole={user.role}>
+    <DashboardShell userName={user.name} userRole={user.role} userPermissions={user.permissions as import("@/lib/permissions").PermissionMap | null}>
       {children}
     </DashboardShell>
   );

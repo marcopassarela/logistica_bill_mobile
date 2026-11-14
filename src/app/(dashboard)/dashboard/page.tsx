@@ -43,7 +43,7 @@ type DashboardData = {
   recentes: {
     id: string;
     placa: string;
-    produtos: { quantidade: number; nome: string; unidade: string; pesoKg: number }[];
+    itens: { quantidade: number; nome: string; unidade: string; pesoKg: number }[];
     pesoToneladas: number;
     status: string;
     data: string;
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                       <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3 text-sm transition-colors hover:bg-muted/40">
                         <div className="min-w-0">
                           <p className="font-medium">{item.placa}</p>
-                          <div className="mt-1 space-y-1 text-foreground/80">{item.produtos.length ? item.produtos.map((produto, index) => (<p key={`${item.id}-${index}`}>{numberFormat.format(produto.quantidade)} {produto.nome} ({produto.unidade})<span className="text-muted-foreground"> • {numberFormat.format(produto.pesoKg)} kg</span></p>)) : <p className="text-muted-foreground">Sem produto informado</p>}</div><p className="mt-1 font-medium">Total: {numberFormat.format(item.pesoToneladas)} t</p>
+                          <div className="mt-1 space-y-1 text-foreground/80">{item.itens.length ? item.itens.map((itemCarga, index) => (<p key={`${item.id}-${index}`}>{itemCarga.nome}<span className="text-muted-foreground"> • {numberFormat.format(itemCarga.pesoKg)} kg</span></p>)) : <p className="text-muted-foreground">Sem item informado</p>}</div><p className="mt-1 font-medium">Total: {numberFormat.format(item.pesoToneladas)} t</p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {dateTimeFormat.format(new Date(item.data))}
                           </p>

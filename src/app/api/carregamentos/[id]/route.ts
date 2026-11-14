@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
+import { requirePermission } from "@/lib/authorization";
+import { canAccess } from "@/lib/permissions";
 
 const updateSchema = z.object({
   origem: z.string().optional().nullable(),
@@ -19,14 +21,20 @@ const updateSchema = z.object({
     .array(
       z.object({
         id: z.string().optional(),
-        produtoId: z.string(),
         quantidade: z.coerce.number().positive(),
         peso: z.coerce.number().min(0),
         statusItem: z.enum(["PENDENTE", "CARREGADO", "NAO_CARREGADO"]),
         observacao: z.string().optional().nullable(),
+        descricaoLivre: z.string().trim().min(1, "Informe o item/produto.").max(1000),
+        ordemServico: z.string().trim().min(1, "Informe o número da ordem.").max(100),
+        clienteNome: z.string().trim().min(1, "Informe o nome do cliente.").max(160),
+        clienteTelefone: z.string().trim().min(1, "Informe o telefone do cliente.").max(40),
+        clienteCidade: z.string().trim().min(1, "Informe a cidade do cliente.").max(100),
+        clienteBairro: z.string().max(100).optional().nullable(),
+        mapaUrl: z.string().url().max(500).optional().nullable(),
       })
     )
-    .min(1, "Informe pelo menos um produto")
+    .min(1, "Informe pelo menos um item")
     .optional(),
 });
 
@@ -44,13 +52,13 @@ export async function GET(
       caminhao: true,
       motorista: { select: { id: true, nome: true } },
       ajudante: { select: { id: true, nome: true } },
-      itens: {
-        orderBy: [{ ordem: "asc" }, { id: "asc" }],
-        include: { produto: true },
-      },
+      itens: { orderBy: [{ ordem: "asc" }, { id: "asc" }], select: { id: true, carregamentoId: true, quantidade: true, peso: true, statusItem: true, observacao: true, ordem: true, descricaoLivre: true, ordemServico: true, clienteNome: true, clienteTelefone: true, clienteCidade: true, clienteBairro: true, mapaUrl: true, notaFiscalNome: true } },
     },
   });
   if (!item) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  if (user.role !== "ADMIN" && user.role !== "MANAGER" && (item.motoristaId !== user.funcionarioId || item.data > new Date())) {
+    return NextResponse.json({ error: "Esta carga ainda não está disponível para o motorista." }, { status: 403 });
+  }
   return NextResponse.json(item);
 }
 
@@ -58,11 +66,6 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
-
   const { id } = await params;
 
   try {
@@ -77,6 +80,31 @@ export async function PATCH(
     }
 
     const data = parsed.data;
+    const somenteStatus = data.status !== undefined && data.itemStatus === undefined && data.itens === undefined && data.origem === undefined && data.destino === undefined && data.observacoes === undefined && data.motoristaId === undefined && data.ajudanteId === undefined;
+    const permission = await requirePermission(data.itemStatus || somenteStatus ? "carregamentos.alterarStatus" : "carregamentos.editar");
+    if (permission.response) return permission.response;
+    const podeAlterarStatus = canAccess(permission.user!.role, permission.user!.permissions, "carregamentos.alterarStatus");
+    if ((data.itemStatus !== undefined || data.status !== undefined) && !podeAlterarStatus) {
+      return NextResponse.json({ error: "Você não tem permissão para alterar o status da carga." }, { status: 403 });
+    }
+
+    if (data.itemStatus) {
+      const alvo = await prisma.carregamento.findUnique({
+        where: { id },
+        select: { id: true, data: true, motoristaId: true },
+      });
+      if (!alvo) return NextResponse.json({ error: "Carregamento não encontrado" }, { status: 404 });
+      if (permission.user!.role !== "ADMIN" && permission.user!.role !== "MANAGER" && (alvo.motoristaId !== permission.user!.funcionarioId || alvo.data > new Date())) {
+        return NextResponse.json({ error: "Esta carga ainda não está disponível para alteração." }, { status: 403 });
+      }
+      const alterado = await prisma.carregamentoItem.updateMany({
+        where: { id: data.itemStatus.itemId, carregamentoId: id },
+        data: { statusItem: data.itemStatus.statusItem },
+      });
+      if (!alterado.count) return NextResponse.json({ error: "Item não encontrado neste carregamento." }, { status: 400 });
+      after(() => publishDataChanged("carregamentos"));
+      return NextResponse.json({ ok: true });
+    }
 
     const resultado = await prisma.$transaction(async (tx) => {
       const atual = await tx.carregamento.findUnique({
@@ -124,7 +152,7 @@ export async function PATCH(
         for (const item of atual.itens) {
           previstos.set(item.id, {
             peso: Number(item.peso),
-            statusItem: item.id === data.itemStatus.itemId
+                statusItem: item.id === data.itemStatus.itemId
               ? data.itemStatus.statusItem
               : item.statusItem,
           });
@@ -197,14 +225,22 @@ export async function PATCH(
           },
         });
 
+        const statusAtuais = new Map(atual.itens.map((item) => [item.id, item.statusItem]));
+
         for (const [indice, item] of data.itens.entries()) {
           const itemData = {
-            produtoId: item.produtoId,
             quantidade: item.quantidade,
             peso: item.peso,
             ordem: indice,
-            statusItem: item.statusItem,
+            statusItem: podeAlterarStatus ? item.statusItem : (item.id ? statusAtuais.get(item.id) || "PENDENTE" : "PENDENTE"),
             observacao: item.observacao ?? null,
+            descricaoLivre: item.descricaoLivre ?? null,
+            ordemServico: item.ordemServico ?? null,
+            clienteNome: item.clienteNome ?? null,
+            clienteTelefone: item.clienteTelefone ?? null,
+            clienteCidade: item.clienteCidade ?? null,
+            clienteBairro: item.clienteBairro ?? null,
+            mapaUrl: item.mapaUrl ?? null,
           };
 
           if (item.id) {
@@ -363,7 +399,8 @@ export async function PATCH(
     }
 
     await publishDataChanged("carregamentos", "caminhoes", "alertas");
-    return NextResponse.json({
+    const itensSalvos = await prisma.carregamentoItem.findMany({ where: { carregamentoId: id }, orderBy: [{ ordem: "asc" }, { id: "asc" }], select: { id: true, ordem: true, notaFiscalNome: true } });
+    return NextResponse.json({ itens: itensSalvos,
       ...(avisoExcessoPeso ? { avisoExcessoPeso } : {}),
       ...(resultado.avisoExcessoPeso
         ? { detalhesExcessoPeso: resultado.avisoExcessoPeso }
@@ -381,10 +418,8 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
+  const permission = await requirePermission("carregamentos.excluir");
+  if (permission.response) return permission.response;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -499,3 +534,4 @@ export async function DELETE(
     );
   }
 }
+

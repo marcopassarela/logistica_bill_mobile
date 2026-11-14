@@ -26,7 +26,7 @@ export default function LoginPage() {
 
   async function checkDatabase(): Promise<boolean> {
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
     try {
       const response = await fetch("/api/health/database", {
@@ -60,60 +60,9 @@ export default function LoginPage() {
     let loginController: AbortController | null = null;
     let loginTimeoutId: number | undefined;
 
-    const date = new Date();
-    const today =
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const storageKey = "logisticas-bill-startup-date";
-
-    let firstAccessToday = true;
-
-    try {
-      firstAccessToday = localStorage.getItem(storageKey) !== today;
-    } catch {
-      firstAccessToday = true;
-    }
-
-    let mustShowModal = firstAccessToday;
-
-    if (mustShowModal) {
-      setShowStartupModal(true);
-    }
-
     try {
       let databaseReady = await checkDatabase();
-
-      if (!databaseReady) {
-        mustShowModal = true;
-        setShowStartupModal(true);
-      }
-
-      if (mustShowModal) {
-        const startedAt = Date.now();
-
-        while (Date.now() - startedAt < 46000) {
-          const elapsed = Date.now() - startedAt;
-
-          if (elapsed >= 20000) {
-            databaseReady = await checkDatabase();
-
-            if (databaseReady) break;
-          }
-
-          await new Promise<void>((resolve) => {
-            window.setTimeout(resolve, 1000);
-          });
-        }
-
-        if (!databaseReady || Date.now() - startedAt < 20000) {
-          keepModalOpen = true;
-          setShowStartupModal(true);
-          setSlowConnection(true);
-          setError(
-            "O banco de dados do Layerbase continua indisponível. Tente novamente."
-          );
-          return;
-        }
-      }
+      if (!databaseReady) setShowStartupModal(true);
 
       loginController = new AbortController();
       loginTimeoutId = window.setTimeout(
@@ -135,15 +84,8 @@ export default function LoginPage() {
         return;
       }
 
-      try {
-        localStorage.setItem(storageKey, today);
-      } catch {
-        // Se o navegador bloquear o armazenamento, o modal poderá
-        // reaparecer no próximo acesso. O login continua normalmente.
-      }
-
       setIsNavigating(true);
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 1350));
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
       router.push("/dashboard");
     } catch {
       if (loginController?.signal.aborted) {
@@ -172,7 +114,7 @@ export default function LoginPage() {
     await performLogin();
   }
   return (
-    <motion.div initial={false} animate={{ opacity: isNavigating ? 0 : 1 }} transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }} className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
+    <motion.div initial={false} animate={{ opacity: isNavigating ? 0 : 1 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -384,8 +326,6 @@ export default function LoginPage() {
       )}    </motion.div>
   );
 }
-
-
 
 
 

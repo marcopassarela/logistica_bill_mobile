@@ -61,8 +61,8 @@ export default function ConfiguracoesPage() {
         setPageError("Informe sua senha atual.");
         return;
       }
-      if (newPassword.length < 8) {
-        setPageError("A nova senha deve ter pelo menos 8 caracteres.");
+      if (newPassword.length < 4) {
+        setPageError("A nova senha deve ter pelo menos 4 caracteres.");
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -149,7 +149,7 @@ export default function ConfiguracoesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base"><Lock className="h-4 w-4" /> Alterar senha</CardTitle>
-          <CardDescription>A nova senha deve ter pelo menos 8 caracteres.</CardDescription>
+          <CardDescription>A nova senha deve ter pelo menos 4 caracteres.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">

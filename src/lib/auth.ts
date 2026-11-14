@@ -30,16 +30,17 @@ export async function verifyPassword(
   }
 }
 
-export async function createSession(userId: string) {
+export async function createSession(userId: string, permissions: unknown = {}, role = "USER") {
   const token = crypto.randomUUID() + crypto.randomUUID();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DAYS);
 
-  await prisma.session.create({
-    data: { userId, token, expiresAt },
-  });
+  await prisma.$transaction([
+    prisma.session.create({ data: { userId, token, expiresAt } }),
+    prisma.user.update({ where: { id: userId }, data: { lastSeenAt: new Date(), lastLoginAt: new Date() } }),
+  ]);
 
-  const jwt = await new SignJWT({ sub: userId, sid: token })
+  const jwt = await new SignJWT({ sub: userId, sid: token, permissions, role })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
@@ -65,7 +66,9 @@ export async function destroySession() {
       const { payload } = await jwtVerify(jwt, JWT_SECRET);
       const sid = payload.sid as string;
       if (sid) {
+        const session = await prisma.session.findUnique({ where: { token: sid }, select: { userId: true } });
         await prisma.session.deleteMany({ where: { token: sid } });
+        if (session) await prisma.user.update({ where: { id: session.userId }, data: { lastLogoutAt: new Date(), lastSeenAt: new Date() } });
       }
     } catch {
       // ignore
@@ -93,8 +96,14 @@ export async function getCurrentUser() {
             username: true,
             name: true,
             role: true,
+            cargoUsuario: true,
+            funcionarioId: true,
             theme: true,
             isActive: true,
+            permissions: true,
+            lastSeenAt: true,
+            lastLoginAt: true,
+            lastLogoutAt: true,
           },
         },
       },

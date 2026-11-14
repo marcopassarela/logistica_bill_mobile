@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  MapPinned,
   AlertTriangle,
   X,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { useUserAccess } from "@/components/layout/UserAccessContext";
 
 type Caminhao = {
   id: string;
@@ -41,22 +43,22 @@ type Funcionario = {
   nome: string;
   status: string;
 };
-type Produto = {
-  id: string;
-  codigo: string;
-  nome: string;
-  unidade: string;
-  pesoUnitario: number | string | null;
-};
-
 type ItemForm = {
   key: string;
   id?: string;
-  produtoId: string;
+  descricaoLivre: string;
+  ordemServico: string;
+  clienteNome: string;
+  clienteTelefone: string;
+  clienteCidade: string;
+  clienteBairro: string;
+  mapaUrl: string;
   quantidade: string;
   peso: string;
   statusItem: "PENDENTE" | "CARREGADO" | "NAO_CARREGADO";
   observacao: string;
+  notaFiscalNome: string;
+  notaFiscalArquivo: File | null;
 };
 
 type Carregamento = {
@@ -76,9 +78,17 @@ type Carregamento = {
     id: string;
     quantidade: number | string;
     peso: number | string;
-    statusItem: string;
-    observacao: string | null;
-    produto: { id: string; codigo: string; nome: string; unidade: string };
+      statusItem: string;
+      observacao: string | null;
+      descricaoLivre?: string | null;
+      ordemServico?: string | null;
+      clienteNome?: string | null;
+      clienteTelefone?: string | null;
+      clienteCidade?: string | null;
+      clienteBairro?: string | null;
+      mapaUrl?: string | null;
+      notaFiscalNome?: string | null;
+
   }[];
 };
 
@@ -112,14 +122,31 @@ function todayISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
+function brazilDateInput(value: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
 function num(v: number | string | null | undefined) {
   if (v == null) return 0;
   return typeof v === "string" ? parseFloat(v) || 0 : v;
 }
 
 export default function CarregamentosPage() {
+  const { can } = useUserAccess();
+  const podeCriar = can("carregamentos.criar");
+  const podeEditar = can("carregamentos.editar");
+  const podeExcluir = can("carregamentos.excluir");
+  const podeAlterarStatus = can("carregamentos.alterarStatus");
+  const podeVerCliente = can("carregamentos.detalhesCliente");
+  const podeRotaCompleta = can("carregamentos.rotaCompleta");
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
-  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
   const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
@@ -131,6 +158,7 @@ export default function CarregamentosPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [rotaAbertaId, setRotaAbertaId] = useState<string | null>(null);
   const [avisoPeso, setAvisoPeso] = useState<{
     pesoCarregado: number;
     capacidadeKg: number;
@@ -160,12 +188,13 @@ export default function CarregamentosPage() {
   const [motoristaId, setMotoristaId] = useState("");
   const [ajudanteId, setAjudanteId] = useState("");
   const [data, setData] = useState(todayISO());
+  const [horaProgramada, setHoraProgramada] = useState("08:00");
   const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
   const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
-    { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
+    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
   ]);
 
   const caminhaoSel = useMemo(
@@ -183,13 +212,11 @@ export default function CarregamentosPage() {
 
   const loadBase = useCallback(async () => {
     try {
-      const [cRes, pRes, fRes] = await Promise.all([
+      const [cRes, fRes] = await Promise.all([
         fetch("/api/caminhoes"),
-        fetch("/api/produtos"),
         fetch("/api/funcionarios"),
       ]);
       if (cRes.ok) setCaminhoes(await cRes.json());
-      if (pRes.ok) setProdutos(await pRes.json());
       if (fRes.ok) {
         const dadosFuncionarios: Funcionario[] = await fRes.json();
         setFuncionarios(dadosFuncionarios.filter((f) => f.status === "ATIVO"));
@@ -223,7 +250,7 @@ export default function CarregamentosPage() {
     const onDataChanged = (event: Event) => {
       const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
       if (modules.includes("carregamentos")) void loadLista();
-      if (modules.some((module) => ["caminhoes", "produtos", "funcionarios"].includes(module))) void loadBase();
+      if (modules.some((module) => ["caminhoes", "funcionarios"].includes(module))) void loadBase();
     };
 
     window.addEventListener("logistica:data-changed", onDataChanged);
@@ -234,7 +261,15 @@ export default function CarregamentosPage() {
     setItens((prev) => [
       {
         key: crypto.randomUUID(),
-        produtoId: "",
+        descricaoLivre: "",
+        ordemServico: "",
+        clienteNome: "",
+        clienteTelefone: "",
+        clienteCidade: "",
+        clienteBairro: "",
+        mapaUrl: "",
+        notaFiscalNome: "",
+        notaFiscalArquivo: null,
         quantidade: "",
         peso: "",
         statusItem: "PENDENTE",
@@ -252,26 +287,35 @@ export default function CarregamentosPage() {
       prev.map((i) => {
         if (i.key !== key) return i;
         const next = { ...i, ...patch };
-        // Calcula o peso automaticamente quando o produto ou a quantidade muda
-        if (patch.produtoId !== undefined || patch.quantidade !== undefined) {
-          const prod = produtos.find((p) => p.id === (patch.produtoId ?? i.produtoId));
-          const qtd = parseFloat(patch.quantidade ?? i.quantidade) || 0;
-          const pu = num(prod?.pesoUnitario);
-          if (pu > 0 && qtd > 0) {
-            next.peso = (pu * qtd).toFixed(3);
-          }
-        }
         return next;
       })
     );
   }
 
+  function handleNotaFiscal(key: string, file?: File) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setMsg({ type: "err", text: "A nota fiscal deve estar no formato PDF." });
+      return;
+    }
+    if (file.size === 0 || file.size > 10 * 1024 * 1024) {
+      setMsg({ type: "err", text: "O PDF deve ter entre 1 byte e 10 MB." });
+      return;
+    }
+    updateItem(key, { notaFiscalNome: file.name, notaFiscalArquivo: file });
+  }
+
   function startEdit(carreg: Carregamento) {
+    if (!podeEditar) {
+      setMsg({ type: "err", text: "Você não tem permissão para editar carregamentos." });
+      return;
+    }
     setEditingId(carreg.id);
     setCaminhaoId(carreg.caminhao.id);
     setMotoristaId(carreg.motoristaId ?? carreg.motorista?.id ?? "");
     setAjudanteId(carreg.ajudanteId ?? carreg.ajudante?.id ?? "");
-    setData(carreg.data.slice(0, 10));
+    setData(brazilDateInput(carreg.data));
+    setHoraProgramada(new Date(carreg.data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
     setOrigem(carreg.origem ?? "");
     setDestino(carreg.destino ?? "");
     setStatus(
@@ -282,7 +326,15 @@ export default function CarregamentosPage() {
       carreg.itens.map((item) => ({
         key: item.id,
         id: item.id,
-        produtoId: item.produto.id,
+        descricaoLivre: item.descricaoLivre || "",
+        ordemServico: item.ordemServico || "",
+        clienteNome: item.clienteNome || "",
+        clienteTelefone: item.clienteTelefone || "",
+        clienteCidade: item.clienteCidade || "",
+        clienteBairro: item.clienteBairro || "",
+        mapaUrl: item.mapaUrl || "",
+        notaFiscalNome: item.notaFiscalNome || "",
+        notaFiscalArquivo: null,
         quantidade: String(num(item.quantidade)),
         peso: String(num(item.peso)),
         statusItem: item.statusItem as ItemForm["statusItem"],
@@ -354,12 +406,13 @@ export default function CarregamentosPage() {
     setMotoristaId("");
     setAjudanteId("");
     setData(todayISO());
+    setHoraProgramada("08:00");
     setOrigem("");
     setDestino("");
     setStatus("EM_ANDAMENTO");
     setObservacoes("");
     setItens([
-      { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
+      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
     ]);
     setMsg(null);
   }
@@ -374,17 +427,17 @@ export default function CarregamentosPage() {
     }
 
     const validItens = itens.filter(
-      (item) => item.produtoId && parseFloat(item.quantidade) > 0
+      (item) => item.descricaoLivre.trim() && parseFloat(item.quantidade) > 0
     );
 
     if (validItens.length === 0) {
-      setMsg({ type: "err", text: "Adicione pelo menos um produto com quantidade." });
+      setMsg({ type: "err", text: "Adicione pelo menos um item com descrição e quantidade." });
       return;
     }
 
     for (const item of validItens) {
       if (!Number.isFinite(Number(item.peso)) || Number(item.peso) < 0) {
-        setMsg({ type: "err", text: "Confira o peso de todos os produtos." });
+        setMsg({ type: "err", text: "Confira o peso de todos os itens." });
         return;
       }
     }
@@ -394,7 +447,13 @@ export default function CarregamentosPage() {
       const editando = Boolean(editingId);
       const payloadItens = validItens.map((item) => ({
         ...(item.id ? { id: item.id } : {}),
-        produtoId: item.produtoId,
+        descricaoLivre: item.descricaoLivre || null,
+        ordemServico: item.ordemServico || null,
+        clienteNome: item.clienteNome || null,
+        clienteTelefone: item.clienteTelefone || null,
+        clienteCidade: item.clienteCidade || null,
+        clienteBairro: item.clienteBairro || null,
+        mapaUrl: item.mapaUrl || null,
         quantidade: parseFloat(item.quantidade),
         peso: parseFloat(item.peso) || 0,
         statusItem: item.statusItem,
@@ -407,11 +466,11 @@ export default function CarregamentosPage() {
           method: editando ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            editando
+              editando
               ? {
                   origem: origem || null,
                   destino: destino || null,
-                  status,
+                  ...(podeAlterarStatus ? { status } : {}),
                   observacoes: observacoes || null,
                   motoristaId: motoristaId || null,
                   ajudanteId: ajudanteId || null,
@@ -420,6 +479,7 @@ export default function CarregamentosPage() {
               : {
                   caminhaoId,
                   data,
+                  horaProgramada,
                   origem: origem || null,
                   destino: destino || null,
                   status,
@@ -438,6 +498,16 @@ export default function CarregamentosPage() {
         return;
       }
 
+      const cargaId = editando ? editingId : dataRes.id;
+      const itensSalvos = dataRes.itens;
+      if (!cargaId || !Array.isArray(itensSalvos) || itensSalvos.length !== validItens.length) { if (cargaId) setEditingId(cargaId); setMsg({ type: "err", text: "Carga salva, mas não foi possível identificar os itens para anexar os PDFs." }); return; }
+      for (let n = 0; n < validItens.length; n++) {
+        const arquivo = validItens[n].notaFiscalArquivo;
+        if (!arquivo) continue;
+        const fd = new FormData(); fd.append("file", arquivo);
+        const up = await fetch(`/api/carregamentos/${cargaId}/itens/${itensSalvos[n].id}/nota-fiscal`, { method: "POST", body: fd });
+        if (!up.ok) { const erro = await up.json().catch(() => ({})); setEditingId(cargaId); setMsg({ type: "err", text: erro.error || "Carga salva, mas falhou o envio do PDF." }); return; }
+      }
       if (dataRes.avisoExcessoPeso && dataRes.excessoPeso) {
         setAvisoPeso(dataRes.excessoPeso);
       }
@@ -454,12 +524,13 @@ export default function CarregamentosPage() {
     setMotoristaId("");
     setAjudanteId("");
       setData(todayISO());
+      setHoraProgramada("08:00");
       setOrigem("");
       setDestino("");
       setStatus("EM_ANDAMENTO");
       setObservacoes("");
       setItens([
-        { key: crypto.randomUUID(), produtoId: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "" },
+        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalArquivo: null },
       ]);
 
       await loadLista();
@@ -594,6 +665,28 @@ export default function CarregamentosPage() {
     return false;
   }
 
+  function textoParada(item: Carregamento["itens"][number]) {
+    return [item.clienteNome, item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "Destino do cliente";
+  }
+
+  function abrirRotaCompleta(carregamento: Carregamento, modo: "todas" | "uma") {
+    const paradas = carregamento.itens.map(textoParada).filter(Boolean);
+    if (!paradas.length) {
+      setMsg({ type: "err", text: "Adicione cidade, bairro ou link do mapa para montar a rota." });
+      return;
+    }
+    if (modo === "uma") {
+      paradas.forEach((parada, index) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parada)}`, `rota-${carregamento.id}-${index}`));
+    } else {
+      const origin = paradas[0];
+      const destination = paradas[paradas.length - 1];
+      const waypoints = paradas.slice(1, -1).join("|");
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ""}`;
+      window.open(url, "rota-completa");
+    }
+    setRotaAbertaId(null);
+  }
+
   const listaFiltrada = useMemo(() => lista.filter((c) => {
     if (!busca) return true;
     const q = busca.toLowerCase();
@@ -601,7 +694,7 @@ export default function CarregamentosPage() {
       c.caminhao.placa.toLowerCase().includes(q) ||
       (c.origem || "").toLowerCase().includes(q) ||
       (c.destino || "").toLowerCase().includes(q) ||
-      c.itens.some((i) => i.produto.nome.toLowerCase().includes(q))
+      c.itens.some((i) => (i.descricaoLivre || "").toLowerCase().includes(q))
     );
   }), [lista, busca]);
 
@@ -611,7 +704,7 @@ export default function CarregamentosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Carregamentos</h1>
           <p className="text-muted-foreground">
-            Monte o que cada caminhão (placa) vai carregar — peso por produto e total, origem, destino e status
+            Monte o que cada caminhão vai carregar — descrição, peso, clientes, origem, destino e status
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
@@ -622,7 +715,7 @@ export default function CarregamentosPage() {
 
       <ScreenAssembly className="grid items-start gap-6 lg:grid-cols-5" itemClassNames={["lg:col-span-2", "lg:col-span-3"]}>
         {/* FORMULÁRIO */}
-        <Card id="form-carregamento" className="lg:col-span-2">
+        {(podeCriar || (editingId !== null && podeEditar)) && <Card id="form-carregamento" className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Plus className="h-4 w-4" />
@@ -676,11 +769,16 @@ export default function CarregamentosPage() {
                   <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required disabled={Boolean(editingId)} />
                 </div>
                 <div className="space-y-2">
+                  <Label>Horário programado *</Label>
+                  <Input type="time" value={horaProgramada} onChange={(e) => setHoraProgramada(e.target.value)} required disabled={Boolean(editingId)} />
+                </div>
+                <div className="space-y-2">
                   <Label>Status geral</Label>
                   <select
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                     value={status}
                     onChange={(e) => setStatus(e.target.value as typeof status)}
+                    disabled={!podeAlterarStatus}
                   >
                     <option value="EM_ANDAMENTO">Em andamento</option>
                     <option value="FINALIZADO">Liberado</option>
@@ -732,8 +830,8 @@ export default function CarregamentosPage() {
               {/* ITENS */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Produtos / cargas *</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                  <Label>Itens da carga *</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={editingId ? !podeEditar : !podeCriar}>
                     <Plus className="mr-1 h-3.5 w-3.5" /> Item
                   </Button>
                 </div>
@@ -748,18 +846,15 @@ export default function CarregamentosPage() {
                         </Button>
                       )}
                     </div>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                      value={item.produtoId}
-                      onChange={(e) => updateItem(item.key, { produtoId: e.target.value })}
-                    >
-                      <option value="">Produto...</option>
-                      {produtos.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.codigo} — {p.nome} ({p.unidade})
-                        </option>
-                      ))}
-                    </select>
+                    <Input value={item.descricaoLivre} onChange={(e) => updateItem(item.key, { descricaoLivre: e.target.value })} placeholder="Descrição da carga (ex.: 1 Mono 1cx 7m ae)" required />
+                    {podeVerCliente && <div className="grid grid-cols-2 gap-2">
+                      <Input value={item.ordemServico} onChange={(e) => updateItem(item.key, { ordemServico: e.target.value })} placeholder="Nº da ordem de serviço *" required />
+                      <Input value={item.clienteNome} onChange={(e) => updateItem(item.key, { clienteNome: e.target.value })} placeholder="Nome do cliente *" required />
+                      <Input value={item.clienteTelefone} onChange={(e) => updateItem(item.key, { clienteTelefone: e.target.value })} placeholder="Telefone / WhatsApp *" required />
+                      <Input value={item.clienteCidade} onChange={(e) => updateItem(item.key, { clienteCidade: e.target.value })} placeholder="Cidade *" required />
+                      <Input value={item.clienteBairro} onChange={(e) => updateItem(item.key, { clienteBairro: e.target.value })} placeholder="Bairro" />
+                      <Input type="url" value={item.mapaUrl} onChange={(e) => updateItem(item.key, { mapaUrl: e.target.value })} placeholder="Link do Google Maps" />
+                    </div>}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className="text-xs">Qtd</Label>
@@ -792,6 +887,7 @@ export default function CarregamentosPage() {
                         <select
                           className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                           value={item.statusItem}
+                          disabled={!podeAlterarStatus}
                           onChange={(e) =>
                             updateItem(item.key, {
                               statusItem: e.target.value as ItemForm["statusItem"],
@@ -803,6 +899,11 @@ export default function CarregamentosPage() {
                           <option value="NAO_CARREGADO">Não carregou</option>
                         </select>
                       </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nota fiscal em PDF (opcional)</Label>
+                      <Input type="file" accept="application/pdf,.pdf" onChange={(e) => handleNotaFiscal(item.key, e.target.files?.[0])} className="text-xs" />
+                      {item.notaFiscalNome && <p className="truncate text-xs text-muted-foreground">Anexo: {item.notaFiscalNome}</p>}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Observação do item</Label>
@@ -839,7 +940,7 @@ export default function CarregamentosPage() {
               )}
             </form>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* LISTA / PRÉ-VISUALIZAÇÃO */}
         <Card className="lg:col-span-3">
@@ -855,7 +956,7 @@ export default function CarregamentosPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar placa, origem, destino, produto..."
+                  placeholder="Buscar placa, origem, destino ou item..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   className="pl-9"
@@ -882,7 +983,7 @@ export default function CarregamentosPage() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-mono font-bold text-lg">{c.caminhao.placa}</p>
+                        <p className="font-mono font-bold text-lg">{c.caminhao.placa}{c.motorista?.nome && <span className="ml-2 font-sans text-sm font-medium text-muted-foreground">• {c.motorista.nome}</span>}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatDateTime(c.data)}
                           {c.origem || c.destino
@@ -907,17 +1008,18 @@ export default function CarregamentosPage() {
                           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
                         >
                           <div>
-                            <span className="font-medium">{num(it.quantidade)} {it.produto.nome}</span>
-                            <span className="text-muted-foreground text-xs ml-2">
-                              {num(it.peso).toLocaleString("pt-BR")} kg
-                            </span>
-                            {it.observacao?.trim() && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Observação: {it.observacao}
-                              </p>
-                            )}
+                            <p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+                            {podeVerCliente && <>
+                            {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
+                            {it.clienteCidade && <p className="text-xs text-muted-foreground">Cidade: {it.clienteCidade}</p>}
+                            {it.clienteBairro && <p className="text-xs text-muted-foreground">Bairro: {it.clienteBairro}</p>}
+                            {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
+                            {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
+                            <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
+                            {it.notaFiscalNome && <a className="block max-w-[280px] truncate text-xs text-violet-600 underline" href={`/api/carregamentos/${c.id}/itens/${it.id}/nota-fiscal`} download={it.notaFiscalNome} target="_blank" rel="noreferrer">Nota fiscal: {it.notaFiscalNome}</a>}
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs">{it.clienteTelefone && <a className="text-green-600 underline" href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>}{(it.mapaUrl || textoParada(it)) && <><a className="text-blue-600 underline" href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`} target="_blank" rel="noreferrer">Google Maps</a><a className="text-indigo-600 underline" href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`} target="_blank" rel="noreferrer">Waze</a></>}</div></>}
                           </div>
-                          <div className="flex items-center gap-1">
+                          {podeAlterarStatus && <div className="flex items-center gap-1">
                             <Button
                               type="button"
                               size="sm"
@@ -953,13 +1055,19 @@ export default function CarregamentosPage() {
                               <Clock className="mr-1 h-3 w-3" />
                               Pendente
                             </Button>
-                          </div>
+                          </div>}
                         </div>
                       ))}
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <Button
+                      {podeRotaCompleta && <div className="relative">
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setRotaAbertaId(rotaAbertaId === c.id ? null : c.id)}>
+                          <MapPinned className="mr-1 h-3.5 w-3.5" /> Rota completa
+                        </Button>
+                        {rotaAbertaId === c.id && <div className="absolute left-0 top-9 z-20 w-56 rounded-md border bg-background p-2 shadow-lg"><Button type="button" variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => abrirRotaCompleta(c, "todas")}>Abrir todas as paradas</Button><Button type="button" variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => abrirRotaCompleta(c, "uma")}>Abrir uma por uma</Button></div>}
+                      </div>}
+                      {podeEditar && <Button
                         size="sm"
                         variant="outline"
                         className="h-8 text-xs"
@@ -968,7 +1076,8 @@ export default function CarregamentosPage() {
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
-                      </Button>
+                      </Button>}
+                      {podeAlterarStatus && <>
                       <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
                         Em andamento
                       </Button>
@@ -978,7 +1087,8 @@ export default function CarregamentosPage() {
                       <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
                         Em rota
                       </Button>
-                      <Button
+                      </>}
+                      {podeExcluir && <Button
                         size="sm"
                         variant="ghost"
                         className="h-8 text-xs text-destructive ml-auto"
@@ -988,7 +1098,7 @@ export default function CarregamentosPage() {
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      </Button>}
                     </div>
                   </motion.div>
                 ))}
@@ -1086,3 +1196,8 @@ export default function CarregamentosPage() {
     </div>
   );
 }
+
+
+
+
+

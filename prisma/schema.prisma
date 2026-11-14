@@ -14,8 +14,15 @@ model User {
   passwordHash String
   name         String
   role         Role     @default(USER)
+  cargoUsuario String?
+  funcionarioId String? @unique
+  funcionario  Funcionario? @relation("FuncionarioUsuario", fields: [funcionarioId], references: [id], onDelete: SetNull)
   isActive     Boolean  @default(true)
   theme        String   @default("system") // light | dark | system
+  permissions  Json?
+  lastSeenAt   DateTime?
+  lastLoginAt  DateTime?
+  lastLogoutAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -26,6 +33,7 @@ model User {
   manutencoesCriadas  ManutencaoProgramada[]    @relation("ManutencaoCreatedBy")
   lembretes           Lembrete[]
   pushSubscriptions   PushSubscription[]
+  auditLogs            AuditLog[]
 }
 
 enum Role {
@@ -66,6 +74,7 @@ model Funcionario {
 
   carregamentosComoMotorista Carregamento[] @relation("CarregamentoMotorista")
   carregamentosComoAjudante Carregamento[] @relation("CarregamentoAjudante")
+  usuario User? @relation("FuncionarioUsuario")
 
   @@index([nome])
   @@index([status])
@@ -121,25 +130,6 @@ enum StatusCaminhao {
   MANUTENCAO
 }
 
-model Produto {
-  id           String   @id @default(cuid())
-  codigo       String   @unique
-  nome         String
-  descricao    String?
-  unidade      String   @default("KG") // KG, UN, LT, SC
-  pesoUnitario Decimal? @db.Decimal(12, 3)
-  preco        Decimal? @db.Decimal(12, 2)
-  categoria    String?
-  ativo        Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  carregamentos CarregamentoItem[]
-
-  @@index([codigo])
-  @@index([nome])
-}
-
 model Carregamento {
   id          String             @id @default(cuid())
   caminhaoId  String
@@ -178,13 +168,20 @@ model CarregamentoItem {
   id             String                 @id @default(cuid())
   carregamentoId String
   carregamento   Carregamento           @relation(fields: [carregamentoId], references: [id], onDelete: Cascade)
-  produtoId      String
-  produto        Produto                @relation(fields: [produtoId], references: [id])
   quantidade     Decimal                @db.Decimal(14, 3)
   peso           Decimal                @db.Decimal(14, 3)
   statusItem     StatusItemCarregamento @default(PENDENTE)
   observacao     String?
   ordem          Int                    @default(0)
+  descricaoLivre String?
+  ordemServico   String?
+  clienteNome    String?
+  clienteTelefone String?
+  clienteCidade  String?
+  clienteBairro  String?
+  mapaUrl        String?
+  notaFiscalNome String?
+  notaFiscalData Bytes? @db.ByteA
 
   @@index([carregamentoId])
 }
@@ -310,6 +307,7 @@ model AuditLog {
   details   Json?
   ip        String?
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([entity])

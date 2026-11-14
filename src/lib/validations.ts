@@ -33,17 +33,6 @@ export const caminhaoSchema = z.object({
   observacoes: z.string().optional().nullable(),
 });
 
-export const produtoSchema = z.object({
-  codigo: z.string().min(1).optional(),
-  nome: z.string().min(2, "Nome obrigatório"),
-  descricao: z.string().optional().nullable(),
-  unidade: z.string().default("KG"),
-  pesoUnitario: z.coerce.number().optional().nullable(),
-  preco: z.coerce.number().optional().nullable(),
-  categoria: z.string().optional().nullable(),
-  ativo: z.boolean().default(true),
-});
-
 export const diariaSchema = z.object({
   funcionarioId: z.string().min(1, "Funcionário obrigatório"),
   caminhaoId: z.string().optional().nullable(),
@@ -76,3 +65,4 @@ export const rotaSchema = z.object({
   caminhaoId: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
 });
+

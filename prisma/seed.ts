@@ -72,20 +72,6 @@ async function main() {
     },
   });
 
-  // Produtos
-  await prisma.produto.upsert({
-    where: { codigo: "PROD-SOJA-001" },
-    update: {},
-    create: {
-      codigo: "PROD-SOJA-001",
-      nome: "Soja em grão",
-      unidade: "KG",
-      pesoUnitario: 1,
-      preco: 1.85,
-      categoria: "Grãos",
-    },
-  });
-
   console.log("Seed concluído com sucesso.");
 }
 

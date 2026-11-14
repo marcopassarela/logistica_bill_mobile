@@ -10,16 +10,21 @@ import { useStartupTransition } from "./StartupTransitionProvider";
 import { NotificationBell } from "./NotificationBell";
 import { PushNotificationSetup } from "@/components/notifications/PushNotificationSetup";
 import { RealtimeSync } from "@/components/realtime/RealtimeSync";
+import type { PermissionMap } from "@/lib/permissions";
+import { UserAccessProvider } from "./UserAccessContext";
 
 interface DashboardShellProps {
   children: React.ReactNode;
   userName: string;
   userRole: string;
+  userPermissions: PermissionMap | null;
 }
 
 export function DashboardShell({
   children,
   userName,
+  userRole,
+  userPermissions,
 }: DashboardShellProps) {
   const router = useRouter();
   const { finishStartupTransition } = useStartupTransition();
@@ -40,6 +45,13 @@ export function DashboardShell({
 
     return () => window.clearTimeout(timeout);
   }, [finishStartupTransition]);
+
+  useEffect(() => {
+    const sendHeartbeat = () => { void fetch("/api/auth/heartbeat", { method: "POST", cache: "no-store" }); };
+    sendHeartbeat();
+    const timer = window.setInterval(sendHeartbeat, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -66,12 +78,14 @@ export function DashboardShell({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className="min-h-screen bg-background text-foreground"
     >
       <RealtimeSync />
       <Sidebar
         userName={userName}
+        userRole={userRole}
+        userPermissions={userPermissions}
         onLogout={handleLogout}
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
@@ -87,7 +101,11 @@ export function DashboardShell({
           <PushNotificationSetup />
           <ThemeToggle />
         </header>
-        <main className="p-4 lg:p-6"><PageTransition>{children}</PageTransition></main>
+        <main className="p-4 lg:p-6">
+          <UserAccessProvider role={userRole} permissions={userPermissions}>
+            <PageTransition>{children}</PageTransition>
+          </UserAccessProvider>
+        </main>
       </div>
     </motion.div>
   );

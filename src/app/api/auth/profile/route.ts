@@ -27,7 +27,7 @@ const profileSchema = z.object({
 const passwordSchema = z.object({
   action: z.literal("password"),
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(128),
+  newPassword: z.string().min(4).max(128),
   adminPassword: z.string().min(1),
 });
 
@@ -58,18 +58,20 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Este nome de usuário já está em uso." }, { status: 409 });
       }
 
+      const before = { username: sessionUser.username, name: sessionUser.name };
       const updated = await prisma.user.update({
         where: { id: sessionUser.id },
         data: { username, name: data.name.trim() },
         select: { id: true, username: true, name: true, role: true, theme: true },
       });
+      await prisma.auditLog.create({ data: { userId: sessionUser.id, action: "PERFIL_ATUALIZADO", entity: "User", entityId: sessionUser.id, details: { antes: before, depois: { username: updated.username, name: updated.name } } } });
       return NextResponse.json({ ok: true, user: updated });
     }
 
     if (body?.action === "password") {
       const parsed = passwordSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: "A nova senha deve ter entre 8 e 128 caracteres." }, { status: 400 });
+        return NextResponse.json({ error: "A nova senha deve ter entre 4 e 128 caracteres." }, { status: 400 });
       }
       const data = parsed.data;
 

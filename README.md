@@ -1,6 +1,6 @@
 # Logísticas Bill
 
-Sistema web de gestão logística para empresas de transporte e carga. Reúne em uma única aplicação o controle de frota, funcionários, produtos, carregamentos, rotas, diárias, faltas, manutenções e agendamentos, com relatórios e notificações push. A interface é responsiva e funciona em desktop e celular.
+Sistema web de gestão logística para empresas de transporte e carga. Reúne em uma única aplicação o controle de frota, funcionários, carregamentos digitados, rotas, diárias, faltas, manutenções e agendamentos, com relatórios e notificações push. A interface é responsiva e funciona em desktop e celular.
 
 > Projeto acadêmico
 > Autor: Marco Aurélio · Licença: [MIT](LICENSE)
@@ -24,7 +24,6 @@ Sistema web de gestão logística para empresas de transporte e carga. Reúne em
 | **Dashboard** | Indicadores e gráficos da operação (cargas, pesos, diárias, frota). |
 | **Caminhões** | Cadastro da frota com capacidade em kg, status e dados do veículo. |
 | **Funcionários e cargos** | Cadastro de equipe e de cargos; a exclusão exige a senha do administrador. |
-| **Produtos** | Cadastro com código, unidade, peso e categoria. |
 | **Carregamentos** | Montagem de cargas por caminhão, controle de peso total e alerta de excesso de capacidade. |
 | **Rotas** | Planejamento no mapa (OpenStreetMap), busca de endereços, cálculo do percurso por estradas e otimização da ordem das paradas. |
 | **Diárias** | Lançamento de diárias de motoristas e ajudantes. |

@@ -92,9 +92,7 @@ export async function GET() {
         include: {
           caminhao: { select: { placa: true } },
           itens: {
-            include: {
-              produto: { select: { nome: true, unidade: true } },
-            },
+            select: { quantidade: true, peso: true, descricaoLivre: true },
           },
         },
       }),
@@ -187,7 +185,7 @@ export async function GET() {
       recentes: recentLoads.map((load) => ({
         id: load.id,
         placa: load.caminhao.placa,
-        produtos: load.itens.map((item) => ({ quantidade: numberOf(item.quantidade), nome: item.produto.nome, unidade: item.produto.unidade, pesoKg: numberOf(item.peso) })),
+        itens: load.itens.map((item) => ({ quantidade: numberOf(item.quantidade), nome: item.descricaoLivre || "Carga", unidade: "UN", pesoKg: numberOf(item.peso) })),
         pesoToneladas: Number((load.itens.reduce((sum, item) => sum + numberOf(item.peso), 0) / 1000).toFixed(3)),
         status: load.status,
         data: load.data,

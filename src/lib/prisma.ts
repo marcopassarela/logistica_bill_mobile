@@ -14,7 +14,7 @@ function createPrismaClient() {
   const url = new URL(databaseUrl);
 
   // Limita as conexões por instância serverless.
-  url.searchParams.set("connection_limit", "1");
+  url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT || "3");
 
   return new PrismaClient({
     datasources: {

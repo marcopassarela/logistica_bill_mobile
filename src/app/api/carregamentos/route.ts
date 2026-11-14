@@ -3,18 +3,26 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
+import { requirePermission } from "@/lib/authorization";
 
 const itemSchema = z.object({
-  produtoId: z.string().min(1),
   quantidade: z.coerce.number().positive(),
   peso: z.coerce.number().min(0),
   statusItem: z.enum(["PENDENTE", "CARREGADO", "NAO_CARREGADO"]).default("PENDENTE"),
   observacao: z.string().optional().nullable(),
+  descricaoLivre: z.string().trim().min(1, "Informe o item/produto.").max(1000),
+  ordemServico: z.string().trim().min(1, "Informe o número da ordem.").max(100),
+  clienteNome: z.string().trim().min(1, "Informe o nome do cliente.").max(160),
+  clienteTelefone: z.string().trim().min(1, "Informe o telefone do cliente.").max(40),
+  clienteCidade: z.string().trim().min(1, "Informe a cidade do cliente.").max(100),
+  clienteBairro: z.string().max(100).optional().nullable(),
+  mapaUrl: z.string().url().max(500).optional().nullable(),
 });
 
 const createSchema = z.object({
   caminhaoId: z.string().min(1),
   data: z.string().min(1),
+  horaProgramada: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("00:00"),
   origem: z.string().optional().nullable(),
   destino: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
@@ -23,7 +31,7 @@ const createSchema = z.object({
   status: z
     .enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"])
     .default("EM_ANDAMENTO"),
-  itens: z.array(itemSchema).min(1, "Adicione pelo menos um produto."),
+  itens: z.array(itemSchema).min(1, "Adicione pelo menos um item."),
 });
 
 export async function GET(req: NextRequest) {
@@ -41,6 +49,11 @@ export async function GET(req: NextRequest) {
     where.data = { gte: start, lte: end };
   }
   if (caminhaoId) where.caminhaoId = caminhaoId;
+  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    where.motoristaId = user.funcionarioId || "__sem_motorista__";
+    const dataAtual = (where.data || {}) as Record<string, Date>;
+    where.data = { ...dataAtual, lte: new Date() };
+  }
 
   const list = await prisma.carregamento.findMany({
     where,
@@ -48,12 +61,7 @@ export async function GET(req: NextRequest) {
       caminhao: { select: { id: true, placa: true, marca: true, modelo: true, capacidadeKg: true } },
       motorista: { select: { id: true, nome: true } },
       ajudante: { select: { id: true, nome: true } },
-      itens: {
-        orderBy: [{ ordem: "asc" }, { id: "asc" }],
-        include: {
-          produto: { select: { id: true, codigo: true, nome: true, unidade: true, pesoUnitario: true } },
-        },
-      },
+      itens: { orderBy: [{ ordem: "asc" }, { id: "asc" }], select: { id: true, carregamentoId: true, quantidade: true, peso: true, ordem: true, statusItem: true, observacao: true, descricaoLivre: true, ordemServico: true, clienteNome: true, clienteTelefone: true, clienteCidade: true, clienteBairro: true, mapaUrl: true, notaFiscalNome: true } },
     },
     orderBy: [{ data: "desc" }, { createdAt: "asc" }],
     take: 100,
@@ -63,8 +71,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const permission = await requirePermission("carregamentos.criar");
+  if (permission.response) return permission.response;
 
   try {
     const body = await req.json();
@@ -122,12 +130,13 @@ export async function POST(req: NextRequest) {
         const funcionariosAtivos = await tx.funcionario.findMany({ where: { id: { in: idsUnicos }, status: "ATIVO" }, select: { id: true } });
         if (funcionariosAtivos.length !== idsUnicos.length) return { error: "FUNCIONARIO_INVALIDO" as const };
       }
+
       const created = await tx.carregamento.create({
         data: {
           caminhaoId: data.caminhaoId,
           motoristaId: data.motoristaId ?? null,
           ajudanteId: data.ajudanteId ?? null,
-          data: new Date(`${data.data}T12:00:00.000-03:00`),
+          data: new Date(`${data.data}T${data.horaProgramada}:00.000-03:00`),
           origem: data.origem || null,
           destino: data.destino || null,
           observacoes: data.observacoes || null,
@@ -135,18 +144,24 @@ export async function POST(req: NextRequest) {
           pesoTotal,
           itens: {
             create: data.itens.map((i, indice) => ({
-              produtoId: i.produtoId,
               quantidade: i.quantidade,
               peso: i.peso,
               ordem: indice,
               statusItem: i.statusItem,
               observacao: i.observacao || null,
+              descricaoLivre: i.descricaoLivre || null,
+              ordemServico: i.ordemServico || null,
+              clienteNome: i.clienteNome || null,
+              clienteTelefone: i.clienteTelefone || null,
+              clienteCidade: i.clienteCidade || null,
+              clienteBairro: i.clienteBairro || null,
+              mapaUrl: i.mapaUrl || null,
             })),
           },
         },
         include: {
           caminhao: { select: { placa: true } },
-          itens: { include: { produto: true } },
+          itens: { select: { id: true, carregamentoId: true, quantidade: true, peso: true, ordem: true, statusItem: true, observacao: true, descricaoLivre: true, ordemServico: true, clienteNome: true, clienteTelefone: true, clienteCidade: true, clienteBairro: true, mapaUrl: true, notaFiscalNome: true } },
         },
       });
 
@@ -247,3 +262,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível criar o carregamento." }, { status: 500 });
   }
 }
+
+
+
+
+

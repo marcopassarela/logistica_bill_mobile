@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
@@ -10,7 +10,7 @@ import { useStartupTransition } from "./StartupTransitionProvider";
 import { NotificationBell } from "./NotificationBell";
 import { PushNotificationSetup } from "@/components/notifications/PushNotificationSetup";
 import { RealtimeSync } from "@/components/realtime/RealtimeSync";
-import type { PermissionMap } from "@/lib/permissions";
+import { canAccess, firstAllowedPath, permissionFromPath, type PermissionMap } from "@/lib/permissions";
 import { UserAccessProvider } from "./UserAccessContext";
 
 interface DashboardShellProps {
@@ -27,6 +27,7 @@ export function DashboardShell({
   userPermissions,
 }: DashboardShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { finishStartupTransition } = useStartupTransition();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -58,6 +59,21 @@ export function DashboardShell({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  useEffect(() => {
+    const permission = permissionFromPath(pathname);
+    if (!permission || canAccess(userRole, userPermissions, permission)) return;
+
+    const allowedPath = firstAllowedPath(userRole, userPermissions);
+    if (allowedPath === "/login") {
+      void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+        window.location.replace("/login");
+      });
+      return;
+    }
+
+    router.replace(allowedPath);
+  }, [pathname, router, userRole, userPermissions]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {

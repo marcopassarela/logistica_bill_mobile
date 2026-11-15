@@ -18,7 +18,7 @@ export function RealtimeSync() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const pendingModules = new Set<string>();
 
-    const flushChanges = () => {
+    const flushChanges = async () => {
       timer = undefined;
 
       if (pendingModules.size === 0) return;
@@ -27,7 +27,7 @@ export function RealtimeSync() {
       pendingModules.clear();
       const refreshAccess = modules.includes("usuarios");
 
-      if (refreshAccess) router.refresh();
+      if (refreshAccess) { try { const response = await fetch("/api/auth/heartbeat", { method: "POST", cache: "no-store" }); if (!response.ok) { window.location.replace("/login"); return; } router.refresh(); } catch { return; } }
       window.dispatchEvent(
         new CustomEvent("logistica:data-changed", {
           detail: { modules },

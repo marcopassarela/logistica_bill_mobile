@@ -58,6 +58,27 @@ export async function createSession(userId: string, permissions: unknown = {}, r
   return jwt;
 }
 
+export async function refreshSessionPermissions(user: { id: string; role: string; permissions: unknown }) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return false;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET, { algorithms: ["HS256"] });
+    const sid = typeof payload.sid === "string" ? payload.sid : "";
+    const exp = typeof payload.exp === "number" ? payload.exp : 0;
+    if (payload.sub !== user.id || !sid || !exp || exp * 1000 <= Date.now()) return false;
+    const refreshedJwt = await new SignJWT({ sub: user.id, sid, permissions: user.permissions, role: user.role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime(exp)
+      .sign(JWT_SECRET);
+    cookieStore.set(COOKIE_NAME, refreshedJwt, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: new Date(exp * 1000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function destroySession() {
   const cookieStore = await cookies();
   const jwt = cookieStore.get(COOKIE_NAME)?.value;

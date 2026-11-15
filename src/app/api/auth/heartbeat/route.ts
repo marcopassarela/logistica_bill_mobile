@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, refreshSessionPermissions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishDataChanged } from "@/lib/realtime";
 
@@ -12,6 +12,9 @@ const INTERVALO_MINIMO_GRAVACAO_MS = 30_000;
 export async function POST() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  const permissaoAtualizada = await refreshSessionPermissions({ id: user.id, role: user.role, permissions: user.permissions });
+  if (!permissaoAtualizada) return NextResponse.json({ error: "Sessão inválida" }, { status: 401 });
 
   const agora = Date.now();
   const idade = user.lastSeenAt ? agora - user.lastSeenAt.getTime() : Infinity;

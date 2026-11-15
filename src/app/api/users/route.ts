@@ -113,7 +113,7 @@ export async function PATCH(req: NextRequest) {
     if (before && (before.username !== user.username || before.name !== user.name)) {
       await prisma.auditLog.create({ data: { userId: current.id, action: "PERFIL_ATUALIZADO", entity: "User", entityId: user.id, details: { antes: before, depois: { username: user.username, name: user.name } } } });
     }
-    if (current.role === "ADMIN" && (data.permissions !== undefined || data.isActive === false || data.password !== undefined || data.role !== undefined || data.username !== undefined || data.name !== undefined || data.funcionarioId !== undefined)) {
+    if (current.role === "ADMIN" && (data.isActive === false || data.password !== undefined)) {
       await prisma.session.deleteMany({ where: { userId: data.id } });
     }
     void publishDataChanged("usuarios");

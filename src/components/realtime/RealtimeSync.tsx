@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@ably/pubsub-device";
 
 let realtimeClient: ReturnType<typeof createClient> | undefined;
 
 export function RealtimeSync() {
+  const router = useRouter();
   useEffect(() => {
     const realtime = (realtimeClient ??= createClient({
       authUrl: "/api/realtime/auth",
@@ -23,7 +25,9 @@ export function RealtimeSync() {
 
       const modules = Array.from(pendingModules);
       pendingModules.clear();
+      const refreshAccess = modules.includes("usuarios");
 
+      if (refreshAccess) router.refresh();
       window.dispatchEvent(
         new CustomEvent("logistica:data-changed", {
           detail: { modules },
@@ -53,7 +57,7 @@ export function RealtimeSync() {
       if (timer) clearTimeout(timer);
       channel.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   return null;
 }

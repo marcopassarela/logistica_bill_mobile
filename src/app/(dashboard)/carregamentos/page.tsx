@@ -1201,10 +1201,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
                               )}
 
                               <div className="mt-3 grid w-full max-w-sm grid-cols-1 gap-2">
-                                {it.clienteTelefone && (
+                                {it.clienteTelefone?.replace(/\D/g, "") && (
                                   <a
-                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
-                                    href={`https://wa.me/55${it.clienteTelefone.replace(/\D/g, "")}`}
+                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
+                                    href={`https://wa.me/55${it.clienteTelefone!.replace(/\D/g, "")}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
@@ -1213,10 +1213,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
                                   </a>
                                 )}
 
-                                {(it.mapaUrl || textoParada(it)) && <>
+                                {it.mapaUrl?.trim() && <>
                                   <a
-                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
-                                    href={it.mapaUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textoParada(it))}`}
+                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
+                                    href={it.mapaUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
@@ -1225,7 +1225,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
                                   </a>
 
                                   <a
-                                    className="flex min-h-10 items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
+                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
                                     href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`}
                                     target="_blank"
                                     rel="noopener noreferrer"

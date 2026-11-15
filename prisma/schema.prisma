@@ -5,7 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -182,6 +183,7 @@ model CarregamentoItem {
   mapaUrl        String?
   notaFiscalNome String?
   notaFiscalData Bytes? @db.ByteA
+  notaFiscalPath String?
 
   @@index([carregamentoId])
 }
@@ -290,6 +292,7 @@ model Alerta {
 
   @@index([lido])
   @@index([createdAt])
+  @@index([tipo, referencia])
 }
 
 enum Severidade {
@@ -311,6 +314,7 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([entity])
+  @@index([action, entity, entityId])
 }
 
 model EnderecoFavorito {

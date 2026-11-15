@@ -67,3 +67,6 @@ backups/
 *.old
 auditoria-*.csv
 auditoria-*.txt
+
+.vercel
+.env*

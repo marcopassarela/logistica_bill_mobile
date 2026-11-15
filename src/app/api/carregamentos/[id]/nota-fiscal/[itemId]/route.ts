@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/permissions";
-import { compressPdfDataUrl, decodePdf } from "@/lib/pdf-storage";
+import { decodePdf } from "@/lib/pdf-storage";
 import { after } from "next/server";
 import { publishDataChanged } from "@/lib/realtime";
+import { get, put } from "@vercel/blob";
 
 export async function GET(
   _req: NextRequest,
@@ -22,10 +23,11 @@ export async function GET(
     select: {
       notaFiscalNome: true,
       notaFiscalData: true,
+      notaFiscalPath: true,
       carregamento: { select: { data: true, motoristaId: true } },
     },
   });
-  if (!item?.notaFiscalData) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
+  if (!item || (!item.notaFiscalData && !item.notaFiscalPath)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
 
   const podeVerTudo = user.role === "ADMIN" || user.role === "MANAGER";
   if (!podeVerTudo && (item.carregamento.motoristaId !== user.funcionarioId || item.carregamento.data > new Date())) {
@@ -33,8 +35,25 @@ export async function GET(
   }
 
   try {
-    const pdf = decodePdf(item.notaFiscalData);
     const filename = (item.notaFiscalNome || "nota-fiscal.pdf").replace(/[\\/\r\n"']/g, "_");
+    if (item.notaFiscalPath) {
+      const prefix = `notas-fiscais/${id}/${itemId}/`;
+      if (!item.notaFiscalPath.startsWith(prefix)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
+      const blob = await get(item.notaFiscalPath, { access: "private" });
+      if (!blob || blob.statusCode !== 200 || blob.blob.contentType !== "application/pdf" || blob.blob.size > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
+      }
+      return new NextResponse(blob.stream, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Length": String(blob.blob.size),
+          "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+    const pdf = decodePdf(item.notaFiscalData!);
     return new NextResponse(pdf as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
@@ -80,11 +99,14 @@ export async function POST(
     // O upload é separado da criação/edição da carga. Assim, a compactação
     // nunca mantém uma transação Prisma aberta.
     const bytes = Buffer.from(await file.arrayBuffer());
-    const dataUrl = `data:application/pdf;base64,${bytes.toString("base64")}`;
-    const compactado = compressPdfDataUrl(dataUrl);
+    if (bytes.length === 0 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      return NextResponse.json({ error: "O conteúdo enviado não é um PDF válido." }, { status: 400 });
+    }
+    const pathname = `notas-fiscais/${id}/${itemId}/${crypto.randomUUID()}.pdf`;
+    await put(pathname, bytes, { access: "private", contentType: "application/pdf", addRandomSuffix: false });
     await prisma.carregamentoItem.update({
       where: { id: itemId },
-      data: { notaFiscalNome: file.name.replace(/[\\/\r\n"']/g, "_"), notaFiscalData: compactado },
+      data: { notaFiscalNome: file.name.replace(/[\\/\r\n"']/g, "_").slice(0, 180), notaFiscalPath: pathname, notaFiscalData: null },
     });
     after(() => publishDataChanged("carregamentos"));
     return NextResponse.json({ ok: true, nome: file.name });

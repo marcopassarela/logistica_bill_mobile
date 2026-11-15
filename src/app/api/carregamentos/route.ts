@@ -4,7 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
 import { z } from "zod";
 import { requirePermission } from "@/lib/authorization";
-import { compressPdfDataUrl } from "@/lib/pdf-storage";
+import { decodePdfDataUrl } from "@/lib/pdf-storage";
+import { put } from "@vercel/blob";
 
 const itemSchema = z.object({
   quantidade: z.coerce.number().positive(),
@@ -107,16 +108,15 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
     let itensCompactados: Array<
       Omit<(typeof data.itens)[number], "notaFiscalData"> & {
-        notaFiscalData: Uint8Array<ArrayBuffer> | null;
+        notaFiscalData: null;
       }
     >;
     try {
-      // Compactar antes da transação evita que o processamento do PDF
-      // consuma o timeout interativo do Prisma.
-      itensCompactados = data.itens.map((item) => ({
-        ...item,
-        notaFiscalData: compressPdfDataUrl(item.notaFiscalData),
-      }));
+      // Validar os PDFs antes da transação evita manter blobs no PostgreSQL.
+      itensCompactados = data.itens.map((item) => {
+        if (item.notaFiscalData) decodePdfDataUrl(item.notaFiscalData);
+        return { ...item, notaFiscalData: null };
+      });
     } catch {
       return NextResponse.json({ error: "A nota fiscal deve ser um PDF válido." }, { status: 400 });
     }
@@ -274,6 +274,22 @@ export async function POST(req: NextRequest) {
         { error: "Não foi possível criar o carregamento." },
         { status: 400 }
       );
+    }
+
+    // Compatibilidade com clientes antigos que ainda enviam o PDF em data URL:
+    // o arquivo é validado acima, enviado ao Blob e nunca incluído na escrita Prisma.
+    for (let indice = 0; indice < resultado.created.itens.length; indice += 1) {
+      const original = data.itens[indice];
+      const criado = resultado.created.itens[indice];
+      if (!original?.notaFiscalData) continue;
+      const bytes = decodePdfDataUrl(original.notaFiscalData);
+      if (!bytes) continue;
+      const pathname = `notas-fiscais/${resultado.created.id}/${criado.id}/${crypto.randomUUID()}.pdf`;
+      await put(pathname, Buffer.from(bytes), { access: "private", contentType: "application/pdf", addRandomSuffix: false });
+      await prisma.carregamentoItem.update({
+        where: { id: criado.id },
+        data: { notaFiscalPath: pathname, notaFiscalData: null },
+      });
     }
 
     let avisoExcessoPeso: string | null = null;

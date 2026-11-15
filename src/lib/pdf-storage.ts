@@ -3,22 +3,22 @@ import { gunzipSync, gzipSync } from "node:zlib";
 
 const PREFIX = "gzip+base64:";
 const DATA_URL_PREFIX = "data:application/pdf;base64,";
+const MAX_PDF_SIZE = 10 * 1024 * 1024;
+
+export function decodePdfDataUrl(value: string | null | undefined): Uint8Array | null {
+  if (!value) return null;
+  if (!value.startsWith(DATA_URL_PREFIX)) throw new Error("A nota fiscal deve ser um PDF válido.");
+  const pdf = Buffer.from(value.slice(DATA_URL_PREFIX.length), "base64");
+  if (pdf.length === 0 || pdf.length > MAX_PDF_SIZE) throw new Error("O PDF deve ter no máximo 10 MB.");
+  if (pdf.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("A nota fiscal não contém um PDF válido.");
+  return Uint8Array.from(pdf);
+}
 
 export function compressPdfDataUrl(
   value: string | null | undefined
 ): Uint8Array<ArrayBuffer> | null {
-  if (!value) return null;
-
-  if (!value.startsWith(DATA_URL_PREFIX)) {
-    throw new Error("A nota fiscal deve ser um PDF válido.");
-  }
-
-  const pdf = Buffer.from(value.slice(DATA_URL_PREFIX.length), "base64");
-
-  if (pdf.subarray(0, 4).toString("ascii") !== "%PDF") {
-    throw new Error("A nota fiscal não contém um PDF válido.");
-  }
-
+  const pdf = decodePdfDataUrl(value);
+  if (!pdf) return null;
   return Uint8Array.from(gzipSync(pdf, { level: 9 }));
 }
 

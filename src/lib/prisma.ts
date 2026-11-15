@@ -7,11 +7,24 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const databaseUrl = process.env.DATABASE_URL;
 
-  if (!databaseUrl) {
+  const isProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
+  const resolvedDatabaseUrl = databaseUrl || (isProductionBuild
+    ? "postgresql://build:build@127.0.0.1:5432/build?sslmode=disable"
+    : undefined);
+
+  if (!resolvedDatabaseUrl) {
     throw new Error("DATABASE_URL não está configurada.");
   }
 
-  const url = new URL(databaseUrl);
+  let url: URL;
+  try {
+    url = new URL(resolvedDatabaseUrl);
+  } catch {
+    if (!isProductionBuild) {
+      throw new Error("DATABASE_URL está configurada com formato inválido.");
+    }
+    url = new URL("postgresql://build:build@127.0.0.1:5432/build?sslmode=disable");
+  }
 
   // Limita as conexões por instância serverless.
   url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT || "1");

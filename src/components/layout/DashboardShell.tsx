@@ -48,9 +48,15 @@ export function DashboardShell({
 
   useEffect(() => {
     const sendHeartbeat = () => { void fetch("/api/auth/heartbeat", { method: "POST", cache: "no-store" }); };
+    // Ao voltar para a aba, marca presença na hora (os timers de abas em segundo plano são atrasados pelo navegador).
+    const onVisible = () => { if (document.visibilityState === "visible") sendHeartbeat(); };
     sendHeartbeat();
-    const timer = window.setInterval(sendHeartbeat, 30_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(sendHeartbeat, 45_000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   function toggleCollapsed() {

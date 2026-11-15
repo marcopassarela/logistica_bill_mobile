@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
+import { uploadPresigned } from "@vercel/blob/client";
 import {
   Plus,
   ArrowUp,
@@ -564,23 +565,67 @@ useScheduledLoadRefresh(loadLista);
         return;
       }
 
-      // PDFs são enviados separadamente para não estourar o limite do JSON
-      // nem manter a transação Prisma aberta durante a compactação.
+            // PDFs são enviados diretamente para o Vercel Blob privado.
       const carregamentoSalvoId = editingId || dataRes.id;
-      if (!carregamentoSalvoId) throw new Error("A API não retornou o identificador da carga.");
+
+      if (!carregamentoSalvoId) {
+        throw new Error("A API não retornou o identificador da carga.");
+      }
+
       const arquivos = validItens
-        .map((item, indice) => ({ item, itemId: item.id || dataRes.itens?.[indice]?.id }))
-        .filter((entry): entry is { item: ItemForm; itemId: string } => Boolean(entry.item.notaFiscalFile && entry.itemId));
-      for (const { item, itemId } of arquivos) {
-        const form = new FormData();
-        form.append("file", item.notaFiscalFile as File);
-        const upload = await fetch(
-          `/api/carregamentos/${encodeURIComponent(carregamentoSalvoId)}/nota-fiscal/${encodeURIComponent(itemId)}`,
-          { method: "POST", body: form }
+        .map((item, indice) => ({
+          item,
+          itemId: item.id || dataRes.itens?.[indice]?.id,
+        }))
+        .filter(
+          (entry): entry is { item: ItemForm; itemId: string } =>
+            Boolean(entry.item.notaFiscalFile && entry.itemId)
         );
-        if (!upload.ok) {
-          const erroUpload = await upload.json().catch(() => ({}));
-          setMsg({ type: "err", text: erroUpload.error || "A carga foi salva, mas a nota fiscal não pôde ser anexada." });
+
+      for (const { item, itemId } of arquivos) {
+        const arquivo = item.notaFiscalFile as File;
+
+        const pathname = `notas-fiscais/${carregamentoSalvoId}/${itemId}/${crypto.randomUUID()}.pdf`;
+
+        const baseUrl = `/api/carregamentos/${encodeURIComponent(carregamentoSalvoId)}/nota-fiscal/${encodeURIComponent(itemId)}`;
+
+        try {
+          // Envia o PDF diretamente para o armazenamento privado.
+          await uploadPresigned(pathname, arquivo, {
+            access: "private",
+            handleUploadUrl: `${baseUrl}/upload`,
+            contentType: "application/pdf",
+            multipart: false,
+          });
+
+          // Confirma o envio e registra o caminho no banco.
+          const finalizar = await fetch(`${baseUrl}/finalizar`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              pathname,
+              nomeArquivo: arquivo.name,
+            }),
+          });
+
+          if (!finalizar.ok) {
+            const erro = await finalizar.json().catch(() => ({}));
+
+            throw new Error(
+              erro.error || "Não foi possível finalizar o envio."
+            );
+          }
+        } catch (error) {
+          setMsg({
+            type: "err",
+            text:
+              error instanceof Error
+                ? `A carga foi salva, mas a nota fiscal não pôde ser anexada: ${error.message}`
+                : "A carga foi salva, mas a nota fiscal não pôde ser anexada.",
+          });
+
           return;
         }
       }

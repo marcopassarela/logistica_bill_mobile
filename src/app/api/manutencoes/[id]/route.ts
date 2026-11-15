@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { z } from "zod";
+import { publishDataChanged } from "@/lib/realtime";
 
 const schema = z.object({
   caminhaoId: z.string().min(1),
@@ -78,6 +79,8 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       });
     });
 
+    await publishDataChanged("manutencoes", "alertas");
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Erro ao editar manutenção:", error);
@@ -110,6 +113,8 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
         where: { id },
       });
     });
+
+    await publishDataChanged("manutencoes", "alertas");
 
     return NextResponse.json({ success: true });
   } catch (error) {

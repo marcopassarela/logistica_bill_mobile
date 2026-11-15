@@ -182,7 +182,7 @@ const refreshRotasProgramadas = useCallback(
   [load, dataFiltro]
 );
 
-useScheduledLoadRefresh(refreshRotasProgramadas);
+useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"]);
 
   useEffect(() => {
     load(dataFiltro);

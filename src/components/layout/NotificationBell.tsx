@@ -103,11 +103,6 @@ export function NotificationBell() {
   useEffect(() => {
     carregar();
 
-    // Consulta periódica (gera alertas por horário), mas só com a aba visível.
-    const intervalo = window.setInterval(() => {
-      if (document.visibilityState === "visible") carregar();
-    }, 60000);
-
     // Atualiza na hora quando outro usuário/aba altera alertas (Ably), com um pequeno
     // atraso para juntar vários eventos seguidos em uma única consulta.
     let atraso: ReturnType<typeof setTimeout> | undefined;
@@ -126,7 +121,6 @@ export function NotificationBell() {
     document.addEventListener("visibilitychange", aoVoltarParaAba);
 
     return () => {
-      window.clearInterval(intervalo);
       if (atraso) clearTimeout(atraso);
       window.removeEventListener("logistica:data-changed", aoMudarDados);
       document.removeEventListener("visibilitychange", aoVoltarParaAba);

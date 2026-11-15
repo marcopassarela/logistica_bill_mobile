@@ -1,14 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useScheduledLoadRefresh(
-  onRelease: () => void | Promise<void>
+  onRelease: () => void | Promise<void>,
+  relevantModules: readonly string[]
 ) {
+  const onReleaseRef = useRef(onRelease);
+
+  useEffect(() => {
+    onReleaseRef.current = onRelease;
+  }, [onRelease]);
+
+  const modulesKey = relevantModules.join("|");
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
     let requestId = 0;
+
+    const modules = new Set(modulesKey.split("|"));
 
     const scheduleNext = async () => {
       const currentRequest = ++requestId;
@@ -40,19 +51,24 @@ export function useScheduledLoadRefresh(
             return;
           }
 
-          Promise.resolve(onRelease())
+          Promise.resolve(onReleaseRef.current())
             .catch(() => {})
             .finally(() => {
               if (!disposed) void scheduleNext();
             });
         }, Math.min(Math.max(delay + 1000, 0), 2147000000));
       } catch {
-        // Uma nova tentativa acontece quando houver uma atualizacao em tempo real.
+        // Nova tentativa após alteração relevante.
       }
     };
 
-    const handleDataChanged = () => {
-      void scheduleNext();
+    const handleDataChanged = (event: Event) => {
+      const changedModules =
+        (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+
+      if (changedModules.some((module) => modules.has(module))) {
+        void scheduleNext();
+      }
     };
 
     void scheduleNext();
@@ -65,10 +81,7 @@ export function useScheduledLoadRefresh(
 
       if (timer) clearTimeout(timer);
 
-      window.removeEventListener(
-        "logistica:data-changed",
-        handleDataChanged
-      );
+      window.removeEventListener("logistica:data-changed", handleDataChanged);
     };
-  }, [onRelease]);
+  }, [modulesKey]);
 }

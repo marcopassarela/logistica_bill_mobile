@@ -256,7 +256,7 @@ export default function CarregamentosPage() {
       setLoading(false);
     }
   }, [filtroData]);
-useScheduledLoadRefresh(loadLista);
+useScheduledLoadRefresh(loadLista, ["carregamentos"]);
 
   useEffect(() => {
     loadBase();

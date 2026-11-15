@@ -51,7 +51,7 @@ export function DashboardShell({
     // Ao voltar para a aba, marca presença na hora (os timers de abas em segundo plano são atrasados pelo navegador).
     const onVisible = () => { if (document.visibilityState === "visible") sendHeartbeat(); };
     sendHeartbeat();
-    const timer = window.setInterval(sendHeartbeat, 45_000);
+    const timer = window.setInterval(sendHeartbeat, 60_000);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(timer);

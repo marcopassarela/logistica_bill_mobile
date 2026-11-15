@@ -1410,7 +1410,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas);
               <div className="max-h-[420px] space-y-2 overflow-y-auto overscroll-contain pr-2">
               {rotas.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
-                  Nenhuma rota ainda. Crie uma à esquerda — cada caminhão pode ter a sua.
+                  Nenhuma rota ainda.
                 </p>
               ) : (
                 rotas.map((r) => (

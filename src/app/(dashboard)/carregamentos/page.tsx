@@ -763,7 +763,7 @@ useScheduledLoadRefresh(loadLista);
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Carregamentos</h1>
           <p className="text-muted-foreground">
-            Monte o que cada caminhão vai carregar — descrição, peso, clientes, origem, destino e status
+            Monte o que cada caminhão vai carregar.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
@@ -1036,7 +1036,7 @@ useScheduledLoadRefresh(loadLista);
               <RecordListSkeleton rows={3} />
             ) : listaFiltrada.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                Nenhum carregamento nesta data. Monte uma a esquerda e salve.
+                Nenhum carregamento nesta data.
               </div>
             ) : (
               <div className="space-y-4">

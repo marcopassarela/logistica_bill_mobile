@@ -271,7 +271,7 @@ export default function ProgramacoesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Programações</h1>
           <p className="text-sm text-muted-foreground">
-            Centralize agendamentos de cargas e lembretes em um só lugar.
+            Centralize agendamentos de cargas e lembretes.
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}>

@@ -191,7 +191,7 @@ export default function CaminhoesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Caminhoes</h1>
-          <p className="text-muted-foreground">Cadastre caminhões e mantenha os dados organizados.</p>
+          <p className="text-muted-foreground">Cadastre os veiculos.</p>
         </div>
         <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4 text-emerald-500 dark:text-emerald-400" /> Novo Caminhao

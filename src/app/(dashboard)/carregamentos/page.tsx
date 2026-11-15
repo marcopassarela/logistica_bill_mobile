@@ -335,6 +335,40 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
     updateItem(key, { notaFiscalNome: file.name, notaFiscalData: "", notaFiscalFile: file });
   }
 
+    async function removerNotaFiscal(key: string) {
+    const item = itens.find((i) => i.key === key);
+    if (!item) return;
+
+    if (editingId && item.id && item.notaFiscalNome) {
+      try {
+        const response = await fetch(
+          `/api/carregamentos/${encodeURIComponent(editingId)}/nota-fiscal/${encodeURIComponent(item.id)}`,
+          { method: "DELETE" }
+        );
+
+        if (!response.ok) {
+          const result = await response.json().catch(() => null);
+          setMsg({
+            type: "err",
+            text: result?.error || "Não foi possível remover a nota fiscal.",
+          });
+          return;
+        }
+      } catch {
+        setMsg({ type: "err", text: "Erro de conexão ao remover a nota fiscal." });
+        return;
+      }
+    }
+
+    updateItem(key, {
+      notaFiscalNome: "",
+      notaFiscalData: "",
+      notaFiscalFile: undefined,
+    });
+
+    setMsg({ type: "ok", text: "Nota fiscal removida." });
+  }
+
   async function compartilharNotaFiscal(carregamentoId: string, itemId: string, nomeArquivo: string) {
     setSharingNota(true);
     setPreviewMsg(null);
@@ -1014,8 +1048,29 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Nota fiscal em PDF (opcional)</Label>
-                      <Input type="file" accept="application/pdf,.pdf" onChange={(e) => handleNotaFiscal(item.key, e.target.files?.[0])} className="text-xs" />
-                      {item.notaFiscalNome && <p className="truncate text-xs text-muted-foreground">Anexo: {item.notaFiscalNome}</p>}
+                      <Input
+                        key={`${item.key}-${item.notaFiscalNome}`}
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={(e) => handleNotaFiscal(item.key, e.target.files?.[0])}
+                        className="text-xs"
+                      />
+                      {item.notaFiscalNome && (
+                        <div className="flex min-w-0 items-center gap-1">
+                          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                            Anexo: {item.notaFiscalNome}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => void removerNotaFiscal(item.key)}
+                            aria-label="Remover nota fiscal"
+                            title="Remover nota fiscal"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Observação do item</Label>

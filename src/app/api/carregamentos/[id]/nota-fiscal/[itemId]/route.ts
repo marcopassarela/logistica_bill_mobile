@@ -5,7 +5,7 @@ import { canAccess } from "@/lib/permissions";
 import { decodePdf } from "@/lib/pdf-storage";
 import { after } from "next/server";
 import { publishDataChanged } from "@/lib/realtime";
-import { get, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
 
 export async function GET(
   _req: NextRequest,
@@ -113,5 +113,63 @@ export async function POST(
   } catch (error) {
     console.error("Erro ao armazenar nota fiscal:", error);
     return NextResponse.json({ error: "Não foi possível armazenar a nota fiscal." }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string; itemId: string }> }
+) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  if (!canAccess(user.role, user.permissions, "carregamentos.editar")) {
+    return NextResponse.json(
+      { error: "Você não tem permissão para remover notas fiscais." },
+      { status: 403 }
+    );
+  }
+
+  try {
+    const { id, itemId } = await params;
+    const item = await prisma.carregamentoItem.findFirst({
+      where: { id: itemId, carregamentoId: id },
+      select: { id: true, notaFiscalPath: true },
+    });
+
+    if (!item) {
+      return NextResponse.json({ error: "Item não encontrado." }, { status: 404 });
+    }
+
+    if (item.notaFiscalPath) {
+      const prefix = `notas-fiscais/${id}/${itemId}/`;
+
+      if (!item.notaFiscalPath.startsWith(prefix)) {
+        return NextResponse.json({ error: "Nota fiscal inválida." }, { status: 400 });
+      }
+
+      await del(item.notaFiscalPath);
+    }
+
+    await prisma.carregamentoItem.update({
+      where: { id: itemId },
+      data: {
+        notaFiscalNome: null,
+        notaFiscalPath: null,
+        notaFiscalData: null,
+      },
+    });
+
+    after(() => publishDataChanged("carregamentos"));
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao remover nota fiscal:", error);
+    return NextResponse.json(
+      { error: "Não foi possível remover a nota fiscal." },
+      { status: 500 }
+    );
   }
 }

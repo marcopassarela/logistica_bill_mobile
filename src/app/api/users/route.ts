@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getCurrentUser, hashPassword, verifyPassword, verifyAdminPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess, normalizePermissions } from "@/lib/permissions";
-import { publishDataChanged } from "@/lib/realtime";
+import { getOnlineUserIds, publishDataChanged } from "@/lib/realtime";
 
 const publicSelect = {
   id: true, username: true, name: true, role: true, cargoUsuario: true, funcionarioId: true, isActive: true,
@@ -17,7 +17,7 @@ const createSchema = z.object({
   cargoUsuario: z.string().trim().min(2).max(60).optional().nullable(),
   funcionarioId: z.string().optional().nullable(),
   role: z.enum(["USER", "MANAGER", "ADMIN"]).default("USER"),
-  permissions: z.record(z.boolean()).optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
 });
 
 const updateSchema = z.object({
@@ -30,25 +30,40 @@ const updateSchema = z.object({
   funcionarioId: z.string().optional().nullable(),
   role: z.enum(["USER", "MANAGER", "ADMIN"]).optional(),
   isActive: z.boolean().optional(),
-  permissions: z.record(z.boolean()).optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
 });
-
-function isOnline(lastSeenAt: Date | null) {
-  return !!lastSeenAt && Date.now() - lastSeenAt.getTime() < 90_000;
-}
 
 export async function GET() {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
+  const onlineUserIds = await getOnlineUserIds();
+
   if (current.role !== "ADMIN") {
-    return NextResponse.json({ admin: false, users: [{ ...current, permissions: normalizePermissions(current.permissions), online: isOnline(current.lastSeenAt) }] });
+    return NextResponse.json({
+      admin: false,
+      users: [{
+        ...current,
+        permissions: normalizePermissions(current.permissions),
+        online: onlineUserIds?.has(current.id) ?? false,
+      }],
+    });
   }
 
-  const users = await prisma.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }], select: publicSelect });
-  return NextResponse.json({ admin: true, users: users.map((user) => ({ ...user, permissions: normalizePermissions(user.permissions), online: isOnline(user.lastSeenAt) })) });
-}
+  const users = await prisma.user.findMany({
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+    select: publicSelect,
+  });
 
+  return NextResponse.json({
+    admin: true,
+    users: users.map((user) => ({
+      ...user,
+      permissions: normalizePermissions(user.permissions),
+      online: onlineUserIds?.has(user.id) ?? false,
+    })),
+  });
+}
 export async function POST(req: NextRequest) {
   const current = await getCurrentUser();
   if (!current || current.role !== "ADMIN") return NextResponse.json({ error: "Apenas administradores podem cadastrar usuários." }, { status: 403 });

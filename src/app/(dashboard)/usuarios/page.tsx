@@ -58,8 +58,18 @@ export default function UsuariosPage() {
       const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
       if (modules.includes("usuarios")) void load();
     };
+    const onPresenceChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId: string; online: boolean; lastSeenAt?: string }>).detail;
+      if (!detail?.userId) return;
+      setUsers((current) => current.map((user) => user.id === detail.userId ? { ...user, online: detail.online, lastSeenAt: detail.lastSeenAt ?? user.lastSeenAt } : user));
+    };
+
+    window.addEventListener("logistica:presence-changed", onPresenceChanged);
     window.addEventListener("logistica:data-changed", onDataChanged);
-    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+    return () => {
+      window.removeEventListener("logistica:presence-changed", onPresenceChanged);
+      window.removeEventListener("logistica:data-changed", onDataChanged);
+    };
   }, [load]);
 
   async function createUser(event: React.FormEvent) {

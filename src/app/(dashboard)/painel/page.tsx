@@ -19,8 +19,20 @@ export default function PainelPage() {
       const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
       if (modules.includes("usuarios")) void load();
     };
+    const onPresenceChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId: string; online: boolean; lastSeenAt?: string }>).detail;
+      if (!detail?.userId) return;
+      const updatePresence = (user: UserRecord): UserRecord => user.id === detail.userId ? { ...user, online: detail.online, lastSeenAt: detail.lastSeenAt ?? user.lastSeenAt } : user;
+      setUsers((current) => current.map(updatePresence));
+      setSelected((current) => current ? updatePresence(current) : current);
+    };
+
+    window.addEventListener("logistica:presence-changed", onPresenceChanged);
     window.addEventListener("logistica:data-changed", onDataChanged);
-    return () => window.removeEventListener("logistica:data-changed", onDataChanged);
+    return () => {
+      window.removeEventListener("logistica:presence-changed", onPresenceChanged);
+      window.removeEventListener("logistica:data-changed", onDataChanged);
+    };
   }, [load]);
   function selectUser(user: UserRecord) { setSelected(user); setPermissions(user.permissions || {}); setMessage(""); setError(""); }
   async function save() { if (!selected) return; setSaving(true); try { const response = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: selected.id, permissions }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "Não foi possível salvar."); setMessage("Permissões salvas. O usuário deve entrar novamente para aplicar a nova sessão."); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Erro ao salvar permissões."); } finally { setSaving(false); } }

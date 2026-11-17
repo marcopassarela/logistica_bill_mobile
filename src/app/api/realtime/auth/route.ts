@@ -30,7 +30,7 @@ export async function GET() {
     const tokenRequest = await ably.auth.createTokenRequest({
       clientId: user.id,
       capability: {
-        "logistica-global": ["subscribe"],
+        "logistica-global": ["subscribe", "presence"],
       },
     });
 

@@ -44,3 +44,26 @@ export function publishAuthInvalidated() {
     reason: "password_changed",
   });
 }
+
+export async function getOnlineUserIds(): Promise<Set<string> | null> {
+  try {
+    const ably = getAblyClient();
+    if (!ably) return null;
+
+    const presence = ably.channels.get("logistica-global").presence;
+    const onlineUserIds = new Set<string>();
+    let page: Awaited<ReturnType<typeof presence.get>> | null = await presence.get();
+
+    while (page) {
+      for (const member of page.items) {
+        if (member.clientId) onlineUserIds.add(member.clientId);
+      }
+      page = await page.next();
+    }
+
+    return onlineUserIds;
+  } catch (error) {
+    console.error("Falha ao consultar usuários online no Ably:", error);
+    return null;
+  }
+}

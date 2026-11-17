@@ -47,18 +47,6 @@ export function DashboardShell({
     return () => window.clearTimeout(timeout);
   }, [finishStartupTransition]);
 
-  useEffect(() => {
-    const sendHeartbeat = () => { void fetch("/api/auth/heartbeat", { method: "POST", cache: "no-store" }); };
-    // Ao voltar para a aba, marca presença na hora (os timers de abas em segundo plano são atrasados pelo navegador).
-    const onVisible = () => { if (document.visibilityState === "visible") sendHeartbeat(); };
-    sendHeartbeat();
-    const timer = window.setInterval(sendHeartbeat, 60_000);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []);
 
   useEffect(() => {
     const permission = permissionFromPath(pathname);

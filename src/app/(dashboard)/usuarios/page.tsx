@@ -18,7 +18,13 @@ const roleLabel: Record<string, string> = { ADMIN: "Administrador", MANAGER: "Ge
 function offlineText(user: UserRecord) {
   if (user.online) return "Online agora";
   if (!user.lastSeenAt) return "Nunca acessou";
-  return `Offline desde ${new Date(user.lastSeenAt).toLocaleString("pt-BR")}`;
+  const lastSeen = new Date(user.lastSeenAt);
+  const date = lastSeen.toLocaleDateString("pt-BR");
+  const today = new Date().toLocaleDateString("pt-BR");
+  const time = lastSeen.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  if (date === today) return `Visto por último hoje às ${time}`;
+  return `Visto por último em ${date} às ${time}`;
 }
 
 export default function UsuariosPage() {

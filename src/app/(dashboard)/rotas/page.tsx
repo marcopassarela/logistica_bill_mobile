@@ -3,6 +3,7 @@
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
+import { useUserAccess } from "@/components/layout/UserAccessContext";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -182,7 +183,8 @@ const refreshRotasProgramadas = useCallback(
   [load, dataFiltro]
 );
 
-useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"]);
+const { role, funcionarioId } = useUserAccess();
+useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "USER" && Boolean(funcionarioId));
 
   useEffect(() => {
     load(dataFiltro);

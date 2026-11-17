@@ -5,16 +5,17 @@ import { canAccess, normalizePermissions, type PermissionMap } from "@/lib/permi
 
 type UserAccess = {
   role: string;
+  funcionarioId: string | null;
   permissions: PermissionMap;
   can: (permission: string) => boolean;
 };
 
 const UserAccessContext = createContext<UserAccess | null>(null);
 
-export function UserAccessProvider({ role, permissions, children }: { role: string; permissions: PermissionMap | null; children: React.ReactNode }) {
+export function UserAccessProvider({ role, funcionarioId, permissions, children }: { role: string; funcionarioId: string | null; permissions: PermissionMap | null; children: React.ReactNode }) {
   const normalized = normalizePermissions(permissions);
   return (
-    <UserAccessContext.Provider value={{ role, permissions: normalized, can: (permission) => canAccess(role, normalized, permission) }}>
+    <UserAccessContext.Provider value={{ role, funcionarioId, permissions: normalized, can: (permission) => canAccess(role, normalized, permission) }}>
       {children}
     </UserAccessContext.Provider>
   );

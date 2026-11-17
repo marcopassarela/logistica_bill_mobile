@@ -18,6 +18,7 @@ interface DashboardShellProps {
   userName: string;
   userRole: string;
   userPermissions: PermissionMap | null;
+  funcionarioId: string | null;
 }
 
 export function DashboardShell({
@@ -25,6 +26,7 @@ export function DashboardShell({
   userName,
   userRole,
   userPermissions,
+  funcionarioId,
 }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -112,7 +114,7 @@ export function DashboardShell({
           <ThemeToggle />
         </header>
         <main className="p-4 lg:p-6">
-          <UserAccessProvider role={userRole} permissions={userPermissions}>
+          <UserAccessProvider role={userRole} funcionarioId={funcionarioId} permissions={userPermissions}>
             <PageTransition>{children}</PageTransition>
           </UserAccessProvider>
         </main>

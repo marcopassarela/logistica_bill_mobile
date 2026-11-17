@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 
 export function useScheduledLoadRefresh(
   onRelease: () => void | Promise<void>,
-  relevantModules: readonly string[]
+  relevantModules: readonly string[],
+  enabled = true
 ) {
   const onReleaseRef = useRef(onRelease);
 
@@ -15,6 +16,8 @@ export function useScheduledLoadRefresh(
   const modulesKey = relevantModules.join("|");
 
   useEffect(() => {
+    if (!enabled) return;
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
     let requestId = 0;
@@ -83,5 +86,5 @@ export function useScheduledLoadRefresh(
 
       window.removeEventListener("logistica:data-changed", handleDataChanged);
     };
-  }, [modulesKey]);
+  }, [modulesKey, enabled]);
 }

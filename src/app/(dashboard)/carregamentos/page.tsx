@@ -149,7 +149,7 @@ function num(v: number | string | null | undefined) {
 }
 
 export default function CarregamentosPage() {
-  const { can } = useUserAccess();
+  const { can, role, funcionarioId } = useUserAccess();
   const podeCriar = can("carregamentos.criar");
   const podeEditar = can("carregamentos.editar");
   const podeExcluir = can("carregamentos.excluir");
@@ -257,7 +257,7 @@ export default function CarregamentosPage() {
       setLoading(false);
     }
   }, [filtroData]);
-useScheduledLoadRefresh(loadLista, ["carregamentos"]);
+useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean(funcionarioId));
 
   useEffect(() => {
     loadBase();

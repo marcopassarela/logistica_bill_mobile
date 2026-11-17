@@ -62,8 +62,12 @@ export async function GET(
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Não foi possível abrir a nota fiscal." }, { status: 500 });
+    } catch (error) {
+    console.error("Erro ao abrir nota fiscal:", error);
+    return NextResponse.json(
+      { error: "Não foi possível abrir a nota fiscal." },
+      { status: 500 }
+    );
   }
 }
 

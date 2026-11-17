@@ -1,5 +1,6 @@
 "use client";
 
+import { NotaFiscalPdfViewer } from "@/components/NotaFiscalPdfViewer";
 import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -1441,10 +1442,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"]);
                 {previewMsg.text}
               </p>
             )}
-            <iframe
-              title={`Pré-visualização de ${notaFiscalPreview.nomeArquivo}`}
+            <NotaFiscalPdfViewer
               src={`/api/carregamentos/${encodeURIComponent(notaFiscalPreview.carregamentoId)}/nota-fiscal/${encodeURIComponent(notaFiscalPreview.itemId)}`}
-              className="min-h-0 w-full flex-1 bg-muted"
             />
           </section>
         </div>

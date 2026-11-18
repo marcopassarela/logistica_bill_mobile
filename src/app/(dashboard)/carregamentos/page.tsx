@@ -171,11 +171,15 @@ export default function CarregamentosPage() {
   const [notaFiscalPreview, setNotaFiscalPreview] = useState<{ carregamentoId: string; itemId: string; nomeArquivo: string } | null>(null);
   const [previewMsg, setPreviewMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [sharingNota, setSharingNota] = useState(false);
+  const [notaFiscalPdf, setNotaFiscalPdf] = useState<{ blob: Blob; url: string } | null>(null);
+  const [loadingNotaFiscal, setLoadingNotaFiscal] = useState(false);
   const [avisoPeso, setAvisoPeso] = useState<{
     pesoCarregado: number;
     capacidadeKg: number;
     placa: string;
   } | null>(null);
+
+  useEffect(() => { if (!notaFiscalPreview) { setNotaFiscalPdf(null); setLoadingNotaFiscal(false); return; } const controller = new AbortController(); let active = true; let objectUrl: string | null = null; setNotaFiscalPdf(null); setLoadingNotaFiscal(true); setPreviewMsg(null); const endpoint = "/api/carregamentos/" + encodeURIComponent(notaFiscalPreview.carregamentoId) + "/nota-fiscal/" + encodeURIComponent(notaFiscalPreview.itemId); fetch(endpoint, { signal: controller.signal }).then(async response => { if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Sua sessão ou permissão não permite acessar esta nota fiscal." : "Não foi possível obter o PDF da nota fiscal."); return response.blob(); }).then(blob => { if (!active) return; objectUrl = URL.createObjectURL(blob); setNotaFiscalPdf({ blob, url: objectUrl }); }).catch(error => { if (!active || (error instanceof DOMException && error.name === "AbortError")) return; setPreviewMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao carregar a nota fiscal." }); }).finally(() => { if (active) setLoadingNotaFiscal(false); }); return () => { active = false; controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); }; }, [notaFiscalPreview]);
 
   useEffect(() => {
     if (!avisoPeso && !notaFiscalPreview) return;
@@ -370,13 +374,12 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setMsg({ type: "ok", text: "Nota fiscal removida." });
   }
 
-  async function compartilharNotaFiscal(carregamentoId: string, itemId: string, nomeArquivo: string) {
+  async function compartilharNotaFiscal(nomeArquivo: string) {
+    const blob = notaFiscalPdf?.blob;
+    if (!blob) { setPreviewMsg({ type: "err", text: "O PDF ainda não está disponível." }); return; }
     setSharingNota(true);
     setPreviewMsg(null);
     try {
-      const response = await fetch("/api/carregamentos/" + encodeURIComponent(carregamentoId) + "/nota-fiscal/" + encodeURIComponent(itemId));
-      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Sua sessão ou permissão não permite acessar esta nota fiscal." : "Não foi possível obter o PDF da nota fiscal.");
-      const blob = await response.blob();
       const filename = nomeArquivo || "nota-fiscal.pdf";
       const file = new File([blob], filename, { type: "application/pdf" });
       if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
@@ -386,19 +389,13 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       }
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setPreviewMsg({ type: "ok", text: "PDF baixado. Agora você pode anexá-lo manualmente no WhatsApp." });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setPreviewMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao compartilhar a nota fiscal." });
-    } finally {
-      setSharingNota(false);
-    }
+    } finally { setSharingNota(false); }
   }
 
   function startEdit(carreg: Carregamento) {
@@ -1420,9 +1417,9 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
               </div>
               <button
                 type="button"
-                disabled={sharingNota}
+                disabled={sharingNota || loadingNotaFiscal || !notaFiscalPdf}
                 aria-busy={sharingNota}
-                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.carregamentoId, notaFiscalPreview.itemId, notaFiscalPreview.nomeArquivo)}
+                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.nomeArquivo)}
                 className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
               >
                 <Share2 className="h-4 w-4" />
@@ -1442,9 +1439,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                 {previewMsg.text}
               </p>
             )}
-            <NotaFiscalPdfViewer
-              src={`/api/carregamentos/${encodeURIComponent(notaFiscalPreview.carregamentoId)}/nota-fiscal/${encodeURIComponent(notaFiscalPreview.itemId)}`}
-            />
+            {loadingNotaFiscal && <p className="p-4 text-center text-sm text-muted-foreground">Carregando PDF...</p>}
+            {notaFiscalPdf && <NotaFiscalPdfViewer src={notaFiscalPdf.url} />}
           </section>
         </div>
       ), document.body)}

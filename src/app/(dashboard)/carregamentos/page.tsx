@@ -126,6 +126,10 @@ const itemStatusLabel: Record<string, string> = {
   NAO_CARREGADO: "Não carregou",
 };
 
+function gerarId() {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+}
+
 function todayISO() {
   const d = new Date();
   const ano = d.getFullYear();
@@ -224,7 +228,7 @@ const [itemDeleteTarget, setItemDeleteTarget] = useState<{
   const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
-    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+    { key: gerarId(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
   ]);
 
   const caminhaoSel = useMemo(
@@ -291,7 +295,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
   function addItem() {
     setItens((prev) => [
       {
-        key: crypto.randomUUID(),
+        key: gerarId(),
         descricaoLivre: "",
         ordemServico: "",
         clienteNome: "",
@@ -381,49 +385,41 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setMsg({ type: "ok", text: "Nota fiscal removida." });
   }
 
-  async function compartilharNotaFiscal(
-    nomeArquivo: string,
-    carregamentoId: string,
-    itemId: string
-  ) {
-    if (!notaFiscalPdf) {
-      setPreviewMsg({ type: "err", text: "O PDF ainda não está disponível." });
-      return;
+async function compartilharNotaFiscal() {
+  if (sharingNota || !notaFiscalPdf?.blob || !notaFiscalPreview) return;
+
+  setSharingNota(true);
+  setPreviewMsg(null);
+
+  try {
+    if (!navigator.share) {
+      throw new Error("Seu navegador não oferece compartilhamento nativo.");
     }
-    setSharingNota(true);
-    setPreviewMsg(null);
-    try {
-      // O visualizador usa react-pdf/canvas para exibir a página. Para
-      // compartilhar, sempre buscamos novamente o PDF original da API e
-      // nunca usamos canvas, screenshot ou dados rasterizados.
-      const endpoint = `/api/carregamentos/${encodeURIComponent(carregamentoId)}/nota-fiscal/${encodeURIComponent(itemId)}`;
-      const response = await fetch(endpoint, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error("Não foi possível obter o PDF original para compartilhar.");
-      }
-      const bytes = await response.arrayBuffer();
-      const cabecalho = new TextDecoder().decode(bytes.slice(0, 5));
-      if (cabecalho !== "%PDF-") {
-        throw new Error("O arquivo recebido não é um PDF válido.");
-      }
 
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const filename = nomeArquivo || "nota-fiscal.pdf";
+    const filename = (notaFiscalPreview.nomeArquivo || "nota-fiscal.pdf").replace(
+      /[<>:"/\\|?*]/g,
+      "_"
+    );
 
-      // Não usar navigator.share({ files }) aqui. Alguns previews nativos
-      // de Android/WhatsApp renderizam PDFs válidos com pontilhado, embora
-      // o arquivo original esteja correto. O download preserva os bytes
-      // originais e permite anexar o PDF normalmente no aplicativo desejado.
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setPreviewMsg({ type: "ok", text: "PDF original baixado. Anexe este arquivo no WhatsApp ou no aplicativo desejado." });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setPreviewMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao compartilhar a nota fiscal." });
-    } finally { setSharingNota(false); }
+    const file = new File([notaFiscalPdf.blob], filename, {
+      type: "application/pdf",
+    });
+
+    await navigator.share({
+      files: [file],
+      title: filename,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+
+    setPreviewMsg({
+      type: "err",
+      text: e instanceof Error ? e.message : "Não foi possível compartilhar.",
+    });
+  } finally {
+    setSharingNota(false);
   }
+}
 
   function startEdit(carreg: Carregamento) {
     if (!podeEditar) {
@@ -536,7 +532,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setStatus("EM_ANDAMENTO");
     setObservacoes("");
     setItens([
-      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+      { key: gerarId(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
     ]);
     setMsg(null);
   }
@@ -646,7 +642,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       for (const { item, itemId } of arquivos) {
         const arquivo = item.notaFiscalFile as File;
 
-        const pathname = `notas-fiscais/${carregamentoSalvoId}/${itemId}/${crypto.randomUUID()}.pdf`;
+        const pathname = `notas-fiscais/${carregamentoSalvoId}/${itemId}/${gerarId()}.pdf`;
 
         const baseUrl = `/api/carregamentos/${encodeURIComponent(carregamentoSalvoId)}/nota-fiscal/${encodeURIComponent(itemId)}`;
 
@@ -713,7 +709,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       setStatus("EM_ANDAMENTO");
       setObservacoes("");
       setItens([
-        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+        { key: gerarId(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
       ]);
 
       await loadLista();
@@ -1523,8 +1519,7 @@ async function confirmDeleteItem(password: string) {
               <button
                 type="button"
                 disabled={sharingNota || loadingNotaFiscal || !notaFiscalPdf}
-                aria-busy={sharingNota}
-                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.nomeArquivo, notaFiscalPreview.carregamentoId, notaFiscalPreview.itemId)}
+                onClick={() => void compartilharNotaFiscal()}
                 className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
               >
                 <Share2 className="h-4 w-4" />

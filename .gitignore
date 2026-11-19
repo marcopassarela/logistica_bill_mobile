@@ -70,3 +70,5 @@ auditoria-*.txt
 
 .vercel
 .env*
+
+.env*

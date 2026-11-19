@@ -825,7 +825,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       await loadLista();
       return true;
     }
-    return false;
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Não foi possível excluir o carregamento (HTTP ${res.status}).`);
   }
 
 async function confirmDeleteItem(password: string) {
@@ -1548,7 +1549,26 @@ async function confirmDeleteItem(password: string) {
         </div>
       ), document.body)}
 
-      <AdminPasswordModal open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteId(null); }} onConfirm={confirmDelete} title={"Excluir carregamento"} description={"Digite a senha do administrador para excluir este carregamento."} />
+      <AdminPasswordModal
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setDeleteId(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Excluir carregamento"
+        description="Digite a senha do administrador para excluir este carregamento."
+      />
+
+      <AdminPasswordModal
+        open={Boolean(itemDeleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setItemDeleteTarget(null);
+        }}
+        onConfirm={confirmDeleteItem}
+        title="Excluir item"
+        description="Digite a senha do administrador para excluir somente este item da carga."
+      />
 
     </div>
   );

@@ -482,12 +482,13 @@ export async function PATCH(
             data: itemData,
           });
         } else {
-          await tx.carregamentoItem.create({
+          const novoItem = await tx.carregamentoItem.create({
             data: {
               carregamentoId: id,
               ...itemData,
             },
           });
+          idsRecebidos.push(novoItem.id);
         }
       }
 

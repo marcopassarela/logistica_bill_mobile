@@ -155,6 +155,7 @@ export default function CarregamentosPage() {
   const podeCriar = can("carregamentos.criar");
   const podeEditar = can("carregamentos.editar");
   const podeExcluir = can("carregamentos.excluir");
+  const podeExcluirItem = can("carregamentos.excluirItem");
   const podeAlterarStatus = can("carregamentos.alterarStatus");
   const podeVerCliente = can("carregamentos.detalhesCliente");
   const podeRotaCompleta = can("carregamentos.rotaCompleta");
@@ -169,6 +170,10 @@ export default function CarregamentosPage() {
   const [busca, setBusca] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+const [itemDeleteTarget, setItemDeleteTarget] = useState<{
+  carregamentoId: string;
+  itemId: string;
+} | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [notaFiscalPreview, setNotaFiscalPreview] = useState<{ carregamentoId: string; itemId: string; nomeArquivo: string } | null>(null);
   const [previewMsg, setPreviewMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -823,6 +828,28 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     return false;
   }
 
+async function confirmDeleteItem(password: string) {
+  if (!itemDeleteTarget) return false;
+
+  const res = await fetch(
+    `/api/carregamentos/${itemDeleteTarget.carregamentoId}/itens/${itemDeleteTarget.itemId}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPassword: password }),
+    }
+  );
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Não foi possível excluir o item.");
+  }
+
+  await loadLista();
+  setItemDeleteTarget(null);
+  return true;
+}
+
   function textoParada(item: Carregamento["itens"][number]) {
     return [item.clienteBairro, item.clienteCidade].filter(Boolean).join(", ") || item.mapaUrl || "";
   }
@@ -1227,7 +1254,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                 )}
 
                                 {it.mapaUrl?.trim() && <>
-                                  <div className="col-span-2 text-xs font-semibold text-muted-foreground">Localização 1</div>
+                                  {it.mapaUrl2?.trim() && <div className="col-span-2 text-xs font-semibold text-muted-foreground">Localização 1</div>}
                                   <a
                                     className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-2 py-0 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
                                     href={it.mapaUrl}
@@ -1249,7 +1276,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                   </a>
                                 </>}
                                 {it.mapaUrl2?.trim() && <>
-                                  <div className="col-span-2 mt-1 text-xs font-semibold text-muted-foreground">Localização 2</div>
+                                  {it.mapaUrl?.trim() && <div className="col-span-2 mt-1 text-xs font-semibold text-muted-foreground">Localização 2</div>}
                                   <a className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400" href={it.mapaUrl2} target="_blank" rel="noopener noreferrer">
                                     <MapPin className="h-4 w-4 shrink-0" /> Google Maps
                                   </a>
@@ -1261,7 +1288,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                             </>}
                           </div>
 
-                          {podeAlterarStatus && <div className="flex flex-wrap items-center justify-end gap-1">
+                          {(podeAlterarStatus || podeExcluirItem) && <div className="flex flex-wrap items-center justify-end gap-1">
+{podeAlterarStatus && <>
                             <Button
                               type="button"
                               size="sm"
@@ -1297,6 +1325,24 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                               <Clock className="mr-1 h-3 w-3" />
                               Pendente
                             </Button>
+                            </>}
+                            {podeExcluirItem && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"
+                                disabled={carregamentosPendentes.has(c.id)}
+                                onClick={() => setItemDeleteTarget({
+                                  carregamentoId: c.id,
+                                  itemId: it.id,
+                                })}
+                                title="Excluir somente este item"
+                              >
+                                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                Excluir item
+                              </Button>
+                            )}
                           </div>}
                         </div>
                       ))}
@@ -1501,6 +1547,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
           </section>
         </div>
       ), document.body)}
+
+      <AdminPasswordModal open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteId(null); }} onConfirm={confirmDelete} title={"Excluir carregamento"} description={"Digite a senha do administrador para excluir este carregamento."} />
 
     </div>
   );

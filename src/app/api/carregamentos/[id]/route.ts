@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { publishDataChanged } from "@/lib/realtime";
 import { canAccess } from "@/lib/permissions";
+import { del } from "@vercel/blob";
 import { z } from "zod";
 
 const statusCargaSchema = z.enum([
@@ -29,6 +30,7 @@ const itemSchema = z.object({
   clienteCidade: z.string().nullable().optional(),
   clienteBairro: z.string().nullable().optional(),
   mapaUrl: z.string().url().max(500).nullable().optional(),
+  mapaUrl2: z.string().url().max(500).nullable().optional(),
   quantidade: z.coerce.number().finite().positive(),
   peso: z.coerce.number().finite().min(0),
   statusItem: statusItemSchema,
@@ -119,6 +121,7 @@ async function obterCarregamento(id: string) {
           clienteCidade: true,
           clienteBairro: true,
           mapaUrl: true,
+          mapaUrl2: true,
           notaFiscalNome: true,
         },
       },
@@ -469,6 +472,7 @@ export async function PATCH(
           clienteCidade: item.clienteCidade || null,
           clienteBairro: item.clienteBairro || null,
           mapaUrl: item.mapaUrl || null,
+          mapaUrl2: item.mapaUrl2 || null,
         };
 
         if (item.id) {
@@ -528,6 +532,7 @@ export async function PATCH(
               clienteCidade: true,
               clienteBairro: true,
               mapaUrl: true,
+          mapaUrl2: true,
               notaFiscalNome: true,
             },
           },
@@ -584,6 +589,7 @@ export async function DELETE(
         id: true,
         caminhaoId: true,
         caminhao: { select: { placa: true } },
+        itens: { select: { notaFiscalPath: true } },
       },
     });
 
@@ -593,6 +599,10 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    const caminhosNotas = carregamento.itens
+      .flatMap((item) => item.notaFiscalPath ? [item.notaFiscalPath] : [])
+      .filter((path) => path.startsWith(`notas-fiscais/${id}/`));
 
     await prisma.$transaction(async (tx) => {
       await tx.auditLog.create({

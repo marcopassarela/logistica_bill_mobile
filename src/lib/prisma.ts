@@ -28,6 +28,7 @@ function createPrismaClient() {
 
   // Limita as conexões por instância serverless.
   url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT || "1");
+  url.searchParams.set("pool_timeout", process.env.PRISMA_POOL_TIMEOUT || "10");
 
   return new PrismaClient({
     datasources: {

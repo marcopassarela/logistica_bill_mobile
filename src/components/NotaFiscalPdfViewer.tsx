@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
@@ -13,15 +13,22 @@ const PDF_OPTIONS = {
 };
 
 type Props = {
-  src: string;
+  blob: Blob;
 };
 
-export function NotaFiscalPdfViewer({ src }: Props) {
+export function NotaFiscalPdfViewer({ blob }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
   const [containerWidth, setContainerWidth] = useState(320);
   const [pageNumber, setPageNumber] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const pdfFile = useMemo(
+    () => (pdfData ? { data: pdfData } : null),
+    [pdfData]
+  );
 
   useEffect(() => {
     const element = containerRef.current;
@@ -39,12 +46,32 @@ export function NotaFiscalPdfViewer({ src }: Props) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     setError(null);
     setNumPages(0);
     setPageNumber(1);
-  }, [src]);
+    setPdfData(null);
 
-  const pageWidth = Math.max(280, Math.min(containerWidth - 24, 1100));
+    blob.arrayBuffer()
+      .then((buffer) => {
+        if (active) setPdfData(new Uint8Array(buffer));
+      })
+      .catch(() => {
+        if (active) {
+          setError("Não foi possível ler o arquivo PDF.");
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [blob]);
+
+  const pageWidth = Math.max(
+    280,
+    Math.min(containerWidth - 24, 1100)
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-muted">
@@ -54,7 +81,9 @@ export function NotaFiscalPdfViewer({ src }: Props) {
             type="button"
             className="rounded-md border px-4 py-2 text-sm disabled:opacity-40"
             disabled={pageNumber <= 1}
-            onClick={() => setPageNumber((page) => Math.max(1, page - 1))}
+            onClick={() =>
+              setPageNumber((page) => Math.max(1, page - 1))
+            }
           >
             Anterior
           </button>
@@ -67,7 +96,9 @@ export function NotaFiscalPdfViewer({ src }: Props) {
             type="button"
             className="rounded-md border px-4 py-2 text-sm disabled:opacity-40"
             disabled={pageNumber >= numPages}
-            onClick={() => setPageNumber((page) => Math.min(numPages, page + 1))}
+            onClick={() =>
+              setPageNumber((page) => Math.min(numPages, page + 1))
+            }
           >
             Próxima
           </button>
@@ -83,13 +114,14 @@ export function NotaFiscalPdfViewer({ src }: Props) {
             <p className="text-sm font-medium text-red-600">
               Não foi possível exibir esta nota fiscal.
             </p>
+
             <p className="mt-2 break-words text-xs text-muted-foreground">
               {error}
             </p>
           </div>
         ) : (
           <Document
-            file={src}
+            file={pdfFile}
             options={PDF_OPTIONS}
             loading={
               <p className="py-8 text-center text-sm text-muted-foreground">

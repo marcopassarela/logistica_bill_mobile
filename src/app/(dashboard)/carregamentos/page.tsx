@@ -62,6 +62,7 @@ type ItemForm = {
   clienteCidade: string;
   clienteBairro: string;
   mapaUrl: string;
+  mapaUrl2: string;
   quantidade: string;
   peso: string;
   statusItem: "PENDENTE" | "CARREGADO" | "NAO_CARREGADO";
@@ -97,6 +98,7 @@ type Carregamento = {
       clienteCidade?: string | null;
       clienteBairro?: string | null;
       mapaUrl?: string | null;
+      mapaUrl2?: string | null;
       notaFiscalNome?: string | null;
       notaFiscalData?: string | null;
   }[];
@@ -217,7 +219,7 @@ export default function CarregamentosPage() {
   const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
-    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
   ]);
 
   const caminhaoSel = useMemo(
@@ -291,7 +293,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         clienteTelefone: "",
         clienteCidade: "",
         clienteBairro: "",
-        mapaUrl: "",
+        mapaUrl: "", mapaUrl2: "",
         notaFiscalNome: "",
         notaFiscalData: "",
         quantidade: "",
@@ -426,6 +428,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         clienteCidade: item.clienteCidade || "",
         clienteBairro: item.clienteBairro || "",
         mapaUrl: item.mapaUrl || "",
+        mapaUrl2: item.mapaUrl2 || "",
         notaFiscalNome: item.notaFiscalNome || "",
         // O PDF não é carregado para o formulário de edição. Ele é baixado
         // somente quando o motorista clica no nome da nota fiscal.
@@ -508,7 +511,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setStatus("EM_ANDAMENTO");
     setObservacoes("");
     setItens([
-      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
     ]);
     setMsg(null);
   }
@@ -550,6 +553,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         clienteCidade: item.clienteCidade || null,
         clienteBairro: item.clienteBairro || null,
         mapaUrl: item.mapaUrl || null,
+        mapaUrl2: item.mapaUrl2 || null,
         ...(item.notaFiscalData
           ? { notaFiscalNome: item.notaFiscalNome || null, notaFiscalData: item.notaFiscalData }
           : {}),
@@ -684,7 +688,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       setStatus("EM_ANDAMENTO");
       setObservacoes("");
       setItens([
-        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
       ]);
 
       await loadLista();
@@ -997,7 +1001,8 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                       <Input value={item.clienteTelefone} onChange={(e) => updateItem(item.key, { clienteTelefone: e.target.value })} placeholder="Telefone / WhatsApp *" required />
                       <Input value={item.clienteCidade} onChange={(e) => updateItem(item.key, { clienteCidade: e.target.value })} placeholder="Cidade *" required />
                       <Input value={item.clienteBairro} onChange={(e) => updateItem(item.key, { clienteBairro: e.target.value })} placeholder="Bairro" />
-                      <Input type="url" value={item.mapaUrl} onChange={(e) => updateItem(item.key, { mapaUrl: e.target.value })} placeholder="Link do Google Maps" />
+                      <Input type="url" value={item.mapaUrl} onChange={(e) => updateItem(item.key, { mapaUrl: e.target.value })} placeholder="Link do Google Maps - Localização 1" />
+                      <Input type="url" value={item.mapaUrl2} onChange={(e) => updateItem(item.key, { mapaUrl2: e.target.value })} placeholder="Link do Google Maps - Localização 2 (opcional)" />
                     </div>}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
@@ -1144,7 +1149,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className="rounded-xl border p-4 space-y-3"
+                    className="rounded-xl border p-3 space-y-2 sm:p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -1166,15 +1171,25 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                       </div>
                     </div>
 
+                    <div className="rounded-lg border bg-primary/5 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-medium">Progresso da carga</span>
+                        <span className="text-muted-foreground">{c.itens.filter((item) => item.statusItem === "CARREGADO").length}/{c.itens.length} paradas carregadas</span>
+                      </div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${c.itens.length ? (c.itens.filter((item) => item.statusItem === "CARREGADO").length / c.itens.length) * 100 : 0}%` }} />
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       {c.itens.map((it, idx) => (
                         <div
                           key={it.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                          className="grid grid-cols-1 gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                         >
 
-                          <div>
-                            <div className="mb-1"><span className="inline-flex rounded-md border border-primary bg-primary px-2 py-1 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+                          <div className="min-w-0">
+                            <div className="mb-1 flex items-center gap-2"><span className="inline-flex rounded-md border border-primary bg-primary px-2 py-1 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
 
                             {podeVerCliente && <>
                               {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
@@ -1187,7 +1202,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                               {it.notaFiscalNome && (
                                 <button
                                   type="button"
-                                  className="mt-3 flex min-h-10 w-full max-w-sm items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/5 px-3 py-2 text-left text-xs font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+                                  className="mt-2 flex h-10 min-w-0 w-full max-w-sm items-center justify-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/5 px-2 py-0 text-center text-xs font-medium text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
                                   onClick={() => {
                                     setPreviewMsg(null);
                                     setNotaFiscalPreview({ carregamentoId: c.id, itemId: it.id, nomeArquivo: it.notaFiscalNome || "nota-fiscal.pdf" });
@@ -1198,10 +1213,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                 </button>
                               )}
 
-                              <div className="mt-3 grid w-full max-w-sm grid-cols-1 gap-2">
+                              <div className="mt-2 grid w-full max-w-sm grid-cols-2 gap-2">
                                 {it.clienteTelefone?.replace(/\D/g, "") && (
                                   <a
-                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
+                                    className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-2 py-0 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:text-green-400"
                                     href={`https://wa.me/55${it.clienteTelefone!.replace(/\D/g, "")}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -1212,8 +1227,9 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                 )}
 
                                 {it.mapaUrl?.trim() && <>
+                                  <div className="col-span-2 text-xs font-semibold text-muted-foreground">Localização 1</div>
                                   <a
-                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
+                                    className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-2 py-0 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400"
                                     href={it.mapaUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -1223,7 +1239,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                   </a>
 
                                   <a
-                                    className="flex w-full min-h-10 items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
+                                    className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-2 py-0 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400"
                                     href={`https://www.waze.com/ul?q=${encodeURIComponent(textoParada(it))}&navigate=yes`}
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -1232,11 +1248,20 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                                     Waze
                                   </a>
                                 </>}
+                                {it.mapaUrl2?.trim() && <>
+                                  <div className="col-span-2 mt-1 text-xs font-semibold text-muted-foreground">Localização 2</div>
+                                  <a className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/5 px-2 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:text-blue-400" href={it.mapaUrl2} target="_blank" rel="noopener noreferrer">
+                                    <MapPin className="h-4 w-4 shrink-0" /> Google Maps
+                                  </a>
+                                  <a className="flex h-10 min-w-0 w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/5 px-2 text-xs font-medium text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-400" href={`https://www.waze.com/ul?q=${encodeURIComponent(it.mapaUrl2)}&navigate=yes`} target="_blank" rel="noopener noreferrer">
+                                    <Navigation className="h-4 w-4 shrink-0" /> Waze
+                                  </a>
+                                </>}
                               </div>
                             </>}
                           </div>
 
-                          {podeAlterarStatus && <div className="flex items-center gap-1">
+                          {podeAlterarStatus && <div className="flex flex-wrap items-center justify-end gap-1">
                             <Button
                               type="button"
                               size="sm"
@@ -1397,10 +1422,14 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         </div>
       ), document.body)}
 
+
       {notaFiscalPreview && typeof document !== "undefined" && createPortal((
         <div
           className="fixed inset-0 z-[10000] flex min-h-dvh w-screen flex-col bg-background"
-          onClick={() => { setNotaFiscalPreview(null); setPreviewMsg(null); }}
+          onClick={() => {
+            setNotaFiscalPreview(null);
+            setPreviewMsg(null);
+          }}
         >
           <section
             role="dialog"
@@ -1411,10 +1440,19 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
           >
             <header className="flex shrink-0 items-center gap-3 border-b bg-background p-3 sm:p-4">
               <FileText className="h-5 w-5 shrink-0 text-violet-600" />
+
               <div className="min-w-0 flex-1">
-                <h2 id="titulo-preview-nota" className="truncate text-sm font-semibold">{notaFiscalPreview.nomeArquivo}</h2>
-                <p className="text-xs text-muted-foreground">Pré-visualização da nota fiscal</p>
+                <h2
+                  id="titulo-preview-nota"
+                  className="truncate text-sm font-semibold"
+                >
+                  {notaFiscalPreview.nomeArquivo}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Pré-visualização da nota fiscal
+                </p>
               </div>
+
               <button
                 type="button"
                 disabled={sharingNota || loadingNotaFiscal || !notaFiscalPdf}
@@ -1425,33 +1463,45 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
                 <Share2 className="h-4 w-4" />
                 {sharingNota ? "Preparando..." : "Compartilhar PDF"}
               </button>
+
               <button
                 type="button"
                 aria-label="Fechar pré-visualização"
-                onClick={() => { setNotaFiscalPreview(null); setPreviewMsg(null); }}
+                onClick={() => {
+                  setNotaFiscalPreview(null);
+                  setPreviewMsg(null);
+                }}
                 className="rounded-md p-2 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-5 w-5" />
               </button>
             </header>
+
             {previewMsg && (
-              <p className={`shrink-0 px-4 py-2 text-sm ${previewMsg.type === "ok" ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              <p
+                className={`shrink-0 px-4 py-2 text-sm ${
+                  previewMsg.type === "ok"
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
                 {previewMsg.text}
               </p>
             )}
-            {loadingNotaFiscal && <p className="p-4 text-center text-sm text-muted-foreground">Carregando PDF...</p>}
-            {notaFiscalPdf && <NotaFiscalPdfViewer src={notaFiscalPdf.url} />}
+
+            {loadingNotaFiscal && (
+              <p className="p-4 text-center text-sm text-muted-foreground">
+                Carregando PDF...
+              </p>
+            )}
+
+            {notaFiscalPdf && (
+              <NotaFiscalPdfViewer blob={notaFiscalPdf.blob} />
+            )}
           </section>
         </div>
       ), document.body)}
 
-      <AdminPasswordModal
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        onConfirm={confirmDelete}
-        title="Excluir carregamento"
-        description="Atenção: esta ação excluirá o carregamento e todos os itens relacionados. Digite a senha do administrador para confirmar."
-      />
     </div>
   );
 }

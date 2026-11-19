@@ -19,6 +19,7 @@ const itemSchema = z.object({
   clienteCidade: z.string().trim().min(1, "Informe a cidade do cliente.").max(100),
   clienteBairro: z.string().max(100).optional().nullable(),
   mapaUrl: z.string().url().max(500).optional().nullable(),
+  mapaUrl2: z.string().url().max(500).optional().nullable(),
   notaFiscalNome: z.string().max(180).optional().nullable(),
   notaFiscalData: z.string().max(20_000_000).optional().nullable(),
 }).refine((item) => !item.notaFiscalData || item.notaFiscalData.startsWith("data:application/pdf;base64,"), { message: "A nota fiscal deve ser um PDF válido." });
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
           clienteCidade: true,
           clienteBairro: true,
           mapaUrl: true,
+          mapaUrl2: true,
           notaFiscalNome: true,
         },
       },
@@ -190,16 +192,16 @@ export async function POST(req: NextRequest) {
               clienteCidade: i.clienteCidade || null,
               clienteBairro: i.clienteBairro || null,
               mapaUrl: i.mapaUrl || null,
+              mapaUrl2: i.mapaUrl2 || null,
               notaFiscalNome: i.notaFiscalNome || null,
-              notaFiscalData: i.notaFiscalData ?? null,
+              notaFiscalDisponivel: false,
+              notaFiscalData: null,
             })),
           },
         },
         include: {
           caminhao: { select: { placa: true } },
-          itens: {
-            orderBy: [{ ordem: "asc" }, { id: "asc" }],
-          },
+          itens: { select: { id: true } },
         },
       });
 
@@ -288,7 +290,7 @@ export async function POST(req: NextRequest) {
       await put(pathname, Buffer.from(bytes), { access: "private", contentType: "application/pdf", addRandomSuffix: false });
       await prisma.carregamentoItem.update({
         where: { id: criado.id },
-        data: { notaFiscalPath: pathname, notaFiscalData: null },
+        data: { notaFiscalPath: pathname, notaFiscalDisponivel: true, notaFiscalData: null },
       });
     }
 

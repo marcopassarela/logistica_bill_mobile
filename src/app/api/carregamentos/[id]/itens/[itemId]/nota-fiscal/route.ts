@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const nome = file.name.replaceAll("/", "_").replaceAll(String.fromCharCode(92), "_").replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll("\"", "_").trim().slice(0, 180) || "nota-fiscal.pdf";
   const pathname = `notas-fiscais/${id}/${itemId}/${crypto.randomUUID()}.pdf`;
   await put(pathname, Buffer.from(bytes), { access: "private", contentType: "application/pdf", addRandomSuffix: false });
-  await prisma.carregamentoItem.update({ where: { id: itemId }, data: { notaFiscalNome: nome, notaFiscalPath: pathname, notaFiscalData: null } });
+  await prisma.carregamentoItem.update({ where: { id: itemId }, data: { notaFiscalNome: nome, notaFiscalPath: pathname, notaFiscalDisponivel: true, notaFiscalData: null } });
   after(() => publishDataChanged("carregamentos"));
   return NextResponse.json({ ok: true, notaFiscalNome: nome });
 }
@@ -44,9 +44,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id, itemId } = await params;
   const item = await prisma.carregamentoItem.findFirst({
     where: { id: itemId, carregamentoId: id },
-    select: { notaFiscalNome: true, notaFiscalData: true, notaFiscalPath: true, carregamento: { select: { motoristaId: true, data: true } } },
+    select: { notaFiscalNome: true, notaFiscalDisponivel: true, notaFiscalData: true, notaFiscalPath: true, carregamento: { select: { motoristaId: true, data: true } } },
   });
-  if (!item || (!item.notaFiscalData && !item.notaFiscalPath)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
+  if (!item || (!item.notaFiscalDisponivel && !item.notaFiscalData && !item.notaFiscalPath)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
   if (user.role !== "ADMIN" && user.role !== "MANAGER" && (item.carregamento.motoristaId !== user.funcionarioId || item.carregamento.data > new Date())) {
     return NextResponse.json({ error: "Você não tem acesso a esta nota fiscal." }, { status: 403 });
   }

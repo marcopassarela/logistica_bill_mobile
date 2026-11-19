@@ -49,6 +49,10 @@ npm.cmd run pdf:compactar
 
 O comando exige `DATABASE_URL` no `.env`. Faça backup do banco antes de executá-lo.
 
+### Presença do PDF no Blob
+
+Para bancos já existentes, execute também `sql/migration_pdf_blob_boolean.sql` após o backup. A migração cria `notaFiscalDisponivel`, marca os registros que já possuem PDF e adiciona o índice usado nas consultas. PDFs novos são enviados diretamente ao Vercel Blob privado; o PostgreSQL não recebe o conteúdo binário. O campo legado `notaFiscalData` pode ser limpo somente depois de validar os downloads antigos.
+
 ## 4. Gerar o Prisma Client
 
 PowerShell:

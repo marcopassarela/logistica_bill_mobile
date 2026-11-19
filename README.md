@@ -146,7 +146,8 @@ Medidas presentes no projeto:
 - O limitador de tentativas é **em memória**: em ambiente serverless cada instância tem o próprio contador. Para produção em maior escala, o ideal é um armazenamento compartilhado (por exemplo, Redis).
 - Ainda não há **Content-Security-Policy**; ela exige ajuste fino por causa do mapa e das animações.
 - Não há **testes automatizados**.
-- As telas carregam dados com `fetch` dentro de `useEffect`. Migrar para Server Components ou para uma biblioteca de dados (como TanStack Query) removeria os avisos de lint correspondentes.
+- As telas usam projeções explícitas nas APIs e os endpoints de listagem nunca carregam bytes de PDF do PostgreSQL.
+- PDFs novos são enviados diretamente ao Vercel Blob privado; o PostgreSQL guarda apenas nome, caminho e o booleano `notaFiscalDisponivel`. O campo de bytes permanece somente para migração legada.
 - Dependências com avisos de segurança sem correção compatível: `xlsx` (usada apenas para **gerar** planilhas, nunca para ler arquivos enviados), `zod` 3.x (a correção exige a versão 4) e `deepmerge-ts` (dependência interna do CLI do Prisma 6). Acompanhe com `npm audit`.
 
 ## Licença

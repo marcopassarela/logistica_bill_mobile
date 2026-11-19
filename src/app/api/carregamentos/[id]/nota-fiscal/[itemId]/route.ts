@@ -22,12 +22,13 @@ export async function GET(
     where: { id: itemId, carregamentoId: id },
     select: {
       notaFiscalNome: true,
+      notaFiscalDisponivel: true,
       notaFiscalData: true,
       notaFiscalPath: true,
       carregamento: { select: { data: true, motoristaId: true } },
     },
   });
-  if (!item || (!item.notaFiscalData && !item.notaFiscalPath)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
+  if (!item || (!item.notaFiscalDisponivel && !item.notaFiscalData && !item.notaFiscalPath)) return NextResponse.json({ error: "Nota fiscal não encontrada." }, { status: 404 });
 
   const podeVerTudo = user.role === "ADMIN" || user.role === "MANAGER";
   if (!podeVerTudo && (item.carregamento.motoristaId !== user.funcionarioId || item.carregamento.data > new Date())) {
@@ -110,7 +111,7 @@ export async function POST(
     await put(pathname, bytes, { access: "private", contentType: "application/pdf", addRandomSuffix: false });
     await prisma.carregamentoItem.update({
       where: { id: itemId },
-      data: { notaFiscalNome: file.name.replace(/[\\/\r\n"']/g, "_").slice(0, 180), notaFiscalPath: pathname, notaFiscalData: null },
+      data: { notaFiscalNome: file.name.replace(/[\\/\r\n"']/g, "_").slice(0, 180), notaFiscalPath: pathname, notaFiscalDisponivel: true, notaFiscalData: null },
     });
     after(() => publishDataChanged("carregamentos"));
     return NextResponse.json({ ok: true, nome: file.name });
@@ -164,6 +165,7 @@ export async function DELETE(
         notaFiscalNome: null,
         notaFiscalPath: null,
         notaFiscalData: null,
+        notaFiscalDisponivel: false,
       },
     });
 

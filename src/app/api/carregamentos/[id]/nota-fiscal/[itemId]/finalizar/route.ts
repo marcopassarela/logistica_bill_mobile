@@ -122,6 +122,7 @@ export async function POST(
       },
       data: {
         notaFiscalPath: pathname,
+        notaFiscalDisponivel: true,
         notaFiscalNome: nomeArquivo
           .replace(/[\\/\r\n"']/g, "_")
           .trim()

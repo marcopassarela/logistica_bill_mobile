@@ -4,28 +4,28 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(USER)
-  cargoUsuario String?
-  funcionarioId String? @unique
-  funcionario  Funcionario? @relation("FuncionarioUsuario", fields: [funcionarioId], references: [id], onDelete: SetNull)
-  isActive     Boolean  @default(true)
-  theme        String   @default("system") // light | dark | system
-  permissions  Json?
-  lastSeenAt   DateTime?
-  lastLoginAt  DateTime?
-  lastLogoutAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String       @id @default(cuid())
+  username      String       @unique
+  passwordHash  String
+  name          String
+  role          Role         @default(USER)
+  cargoUsuario  String?
+  funcionarioId String?      @unique
+  funcionario   Funcionario? @relation("FuncionarioUsuario", fields: [funcionarioId], references: [id], onDelete: SetNull)
+  isActive      Boolean      @default(true)
+  theme         String       @default("system") // light | dark | system
+  permissions   Json?
+  lastSeenAt    DateTime?
+  lastLoginAt   DateTime?
+  lastLogoutAt  DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   sessions            Session[]
   diarias             Diaria[]                  @relation("DiariaCreatedBy")
@@ -34,7 +34,7 @@ model User {
   manutencoesCriadas  ManutencaoProgramada[]    @relation("ManutencaoCreatedBy")
   lembretes           Lembrete[]
   pushSubscriptions   PushSubscription[]
-  auditLogs            AuditLog[]
+  auditLogs           AuditLog[]
 }
 
 enum Role {
@@ -74,8 +74,8 @@ model Funcionario {
   faltas  Falta[]
 
   carregamentosComoMotorista Carregamento[] @relation("CarregamentoMotorista")
-  carregamentosComoAjudante Carregamento[] @relation("CarregamentoAjudante")
-  usuario User? @relation("FuncionarioUsuario")
+  carregamentosComoAjudante  Carregamento[] @relation("CarregamentoAjudante")
+  usuario                    User?          @relation("FuncionarioUsuario")
 
   @@index([nome])
   @@index([status])
@@ -166,26 +166,29 @@ enum StatusCarregamento {
 }
 
 model CarregamentoItem {
-  id             String                 @id @default(cuid())
-  carregamentoId String
-  carregamento   Carregamento           @relation(fields: [carregamentoId], references: [id], onDelete: Cascade)
-  quantidade     Decimal                @db.Decimal(14, 3)
-  peso           Decimal                @db.Decimal(14, 3)
-  statusItem     StatusItemCarregamento @default(PENDENTE)
-  observacao     String?
-  ordem          Int                    @default(0)
-  descricaoLivre String?
-  ordemServico   String?
-  clienteNome    String?
-  clienteTelefone String?
-  clienteCidade  String?
-  clienteBairro  String?
-  mapaUrl        String?
-  notaFiscalNome String?
-  notaFiscalData Bytes? @db.ByteA
-  notaFiscalPath String?
+  id                   String                 @id @default(cuid())
+  carregamentoId       String
+  carregamento         Carregamento           @relation(fields: [carregamentoId], references: [id], onDelete: Cascade)
+  quantidade           Decimal                @db.Decimal(14, 3)
+  peso                 Decimal                @db.Decimal(14, 3)
+  statusItem           StatusItemCarregamento @default(PENDENTE)
+  observacao           String?
+  ordem                Int                    @default(0)
+  descricaoLivre       String?
+  ordemServico         String?
+  clienteNome          String?
+  clienteTelefone      String?
+  clienteCidade        String?
+  clienteBairro        String?
+  mapaUrl              String?
+  mapaUrl2             String?
+  notaFiscalNome       String?
+  notaFiscalData       Bytes?                 @db.ByteA // legado: será esvaziado após migração para o Blob
+  notaFiscalPath       String?
+  notaFiscalDisponivel Boolean                @default(false)
 
-  @@index([carregamentoId])
+  @@index([carregamentoId, ordem])
+  @@index([carregamentoId, notaFiscalDisponivel])
 }
 
 enum StatusItemCarregamento {
@@ -402,16 +405,16 @@ enum StatusLembrete {
 }
 
 model Lembrete {
-  id        String         @id @default(cuid())
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  descricao String         @db.VarChar(500)
-  dataHora  DateTime
-  status    StatusLembrete @default(PENDENTE)
-  enviadoEm DateTime?
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  descricao     String         @db.VarChar(500)
+  dataHora      DateTime
+  status        StatusLembrete @default(PENDENTE)
+  enviadoEm     DateTime?
   processandoEm DateTime?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([userId, status, dataHora])
   @@index([status, dataHora])

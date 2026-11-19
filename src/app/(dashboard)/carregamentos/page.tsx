@@ -381,14 +381,35 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setMsg({ type: "ok", text: "Nota fiscal removida." });
   }
 
-  async function compartilharNotaFiscal(nomeArquivo: string) {
-    const blob = notaFiscalPdf?.blob;
-    if (!blob) { setPreviewMsg({ type: "err", text: "O PDF ainda não está disponível." }); return; }
+  async function compartilharNotaFiscal(
+    nomeArquivo: string,
+    carregamentoId: string,
+    itemId: string
+  ) {
+    if (!notaFiscalPdf) {
+      setPreviewMsg({ type: "err", text: "O PDF ainda não está disponível." });
+      return;
+    }
     setSharingNota(true);
     setPreviewMsg(null);
     try {
+      // O visualizador usa react-pdf/canvas para exibir a página. Para
+      // compartilhar, sempre buscamos novamente o PDF original da API e
+      // nunca usamos canvas, screenshot ou dados rasterizados.
+      const endpoint = `/api/carregamentos/${encodeURIComponent(carregamentoId)}/nota-fiscal/${encodeURIComponent(itemId)}`;
+      const response = await fetch(endpoint, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Não foi possível obter o PDF original para compartilhar.");
+      }
+      const bytes = await response.arrayBuffer();
+      const cabecalho = new TextDecoder().decode(bytes.slice(0, 5));
+      if (cabecalho !== "%PDF-") {
+        throw new Error("O arquivo recebido não é um PDF válido.");
+      }
+
       const filename = nomeArquivo || "nota-fiscal.pdf";
-      const file = new File([blob], filename, { type: "application/pdf" });
+      const file = new File([bytes], filename, { type: "application/pdf" });
+      const blob = new Blob([bytes], { type: "application/pdf" });
       if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: filename });
         setPreviewMsg({ type: "ok", text: "Compartilhamento aberto com a nota fiscal anexada." });
@@ -1504,7 +1525,7 @@ async function confirmDeleteItem(password: string) {
                 type="button"
                 disabled={sharingNota || loadingNotaFiscal || !notaFiscalPdf}
                 aria-busy={sharingNota}
-                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.nomeArquivo)}
+                onClick={() => void compartilharNotaFiscal(notaFiscalPreview.nomeArquivo, notaFiscalPreview.carregamentoId, notaFiscalPreview.itemId)}
                 className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
               >
                 <Share2 className="h-4 w-4" />

@@ -407,19 +407,18 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         throw new Error("O arquivo recebido não é um PDF válido.");
       }
 
-      const filename = nomeArquivo || "nota-fiscal.pdf";
-      const file = new File([bytes], filename, { type: "application/pdf" });
       const blob = new Blob([bytes], { type: "application/pdf" });
-      if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename });
-        setPreviewMsg({ type: "ok", text: "Compartilhamento aberto com a nota fiscal anexada." });
-        return;
-      }
+      const filename = nomeArquivo || "nota-fiscal.pdf";
+
+      // Não usar navigator.share({ files }) aqui. Alguns previews nativos
+      // de Android/WhatsApp renderizam PDFs válidos com pontilhado, embora
+      // o arquivo original esteja correto. O download preserva os bytes
+      // originais e permite anexar o PDF normalmente no aplicativo desejado.
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setPreviewMsg({ type: "ok", text: "PDF baixado. Agora você pode anexá-lo manualmente no WhatsApp." });
+      setPreviewMsg({ type: "ok", text: "PDF original baixado. Anexe este arquivo no WhatsApp ou no aplicativo desejado." });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setPreviewMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao compartilhar a nota fiscal." });

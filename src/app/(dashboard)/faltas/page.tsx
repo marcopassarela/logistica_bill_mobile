@@ -391,7 +391,7 @@ export default function FaltasPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-stretch sm:self-auto">
                     {falta.atestadoUrl && (
                       <a
                         href={falta.atestadoUrl}

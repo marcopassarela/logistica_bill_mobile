@@ -42,6 +42,11 @@ export function DashboardShell({
   }, []);
 
   useEffect(() => {
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
       finishStartupTransition();
     }, 120);

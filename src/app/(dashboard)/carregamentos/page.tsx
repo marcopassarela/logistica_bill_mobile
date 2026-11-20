@@ -404,7 +404,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       const arquivoUniversal = await criarPdfUniversalParaCompartilhar(bytes, filename);
       if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [arquivoUniversal] })) {
         await navigator.share({ files: [arquivoUniversal], title: filename });
-        setPreviewMsg({ type: "ok", text: "Compartilhamento aberto com o PDF compatível." });
+        setPreviewMsg({ type: "ok", text: "PDF compartilhado com sucesso!" });
         return;
       }
 

@@ -1,11 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: { root: process.cwd() },
   allowedDevOrigins: ["192.168.25.20"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
     ],
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: "https://logisticas-bill-backend.onrender.com/api/:path*",
+        },
+      ],
+    };
   },
   async headers() {
     const securityHeaders = [

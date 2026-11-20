@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/server-auth";
 import { firstAllowedPath } from "@/lib/permissions";
 
 export default async function Home() {
-  const user = await getCurrentUser();
+  const user = await getServerUser();
   if (user) {
     redirect(firstAllowedPath(user.role, user.permissions));
   }

@@ -642,7 +642,7 @@ async function compartilharNotaFiscal() {
       for (const { item, itemId } of arquivos) {
         const arquivo = item.notaFiscalFile as File;
 
-        const pathname = `notas-fiscais/${carregamentoSalvoId}/${itemId}/${gerarId()}.pdf`;
+        const pathname = `notas-fiscais/${carregamentoSalvoId}/${itemId}/${crypto.randomUUID()}.pdf`;
 
         const baseUrl = `/api/carregamentos/${encodeURIComponent(carregamentoSalvoId)}/nota-fiscal/${encodeURIComponent(itemId)}`;
 

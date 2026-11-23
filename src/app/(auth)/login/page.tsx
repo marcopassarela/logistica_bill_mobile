@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Lock, User, CheckCircle2, KeyRound } from "lucide-react";
 import { getOrCreateDeviceKey, signDeviceChallenge } from "@/lib/device-crypto";
+import { MODULE_ACTIONS, PERMISSION_KEYS, PERMISSION_LABELS, type PermissionMap } from "@/lib/permissions";
 
 export default function LoginPage() {
   const router = useRouter();

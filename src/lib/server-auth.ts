@@ -4,6 +4,7 @@ import type { PermissionMap } from "@/lib/permissions";
 
 export type ServerUser = {
   id: string;
+  sessionId: string;
   name: string;
   role: string;
   permissions: PermissionMap | null;

@@ -7,9 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
-import { PERMISSION_KEYS, PERMISSION_LABELS, type PermissionMap } from "@/lib/permissions";
+import { MODULE_ACTIONS, PERMISSION_KEYS, PERMISSION_LABELS, type PermissionMap } from "@/lib/permissions";
 
 type UserRecord = { id: string; username: string; name: string; role: string; cargoUsuario: string | null; funcionarioId: string | null; isActive: boolean; online: boolean; lastSeenAt: string | null; permissions?: PermissionMap | null };
+type VisitorRecord = {
+  id: string;
+  name: string;
+  permissions: PermissionMap;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  online: boolean;
+};
 type Funcionario = { id: string; nome: string; status: string };
 type ActivationKeyRecord = {
   id: string;
@@ -74,6 +84,9 @@ export default function UsuariosPage() {
   const [keyExpiresAt, setKeyExpiresAt] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
   const [keyError, setKeyError] = useState("");
+  const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
+  const [editVisitor, setEditVisitor] = useState<VisitorRecord | null>(null);
+  const [visitorPermissions, setVisitorPermissions] = useState<PermissionMap>({});
 
   const loadActivationKeys = useCallback(async () => {
     setKeyLoading(true);
@@ -99,6 +112,7 @@ export default function UsuariosPage() {
       if (!u.ok) throw new Error(data.error);
       setIsAdmin(data.admin === true);
       setUsers(data.users || []);
+      setVisitors(data.admin === true ? data.visitors || [] : []);
       if (data.admin === true) {
         await loadActivationKeys();
       } else {
@@ -122,6 +136,7 @@ export default function UsuariosPage() {
       const detail = (event as CustomEvent<{ userId: string; online: boolean; lastSeenAt?: string }>).detail;
       if (!detail?.userId) return;
       setUsers((current) => current.map((user) => user.id === detail.userId ? { ...user, online: detail.online, lastSeenAt: detail.lastSeenAt ?? user.lastSeenAt } : user));
+      setVisitors((current) => current.map((visitor) => visitor.id === detail.userId ? { ...visitor, online: detail.online, lastSeenAt: detail.lastSeenAt ?? visitor.lastSeenAt } : visitor));
     };
 
     window.addEventListener("logistica:presence-changed", onPresenceChanged);
@@ -148,6 +163,46 @@ export default function UsuariosPage() {
     setError(""); setMessage("");
   }
 
+  function beginEditVisitor(visitor: VisitorRecord) {
+    setEditVisitor(visitor);
+    setVisitorPermissions({ ...(visitor.permissions || {}) });
+    setError("");
+    setMessage("");
+  }
+
+  async function saveVisitorPermissions(event: React.FormEvent) {
+    event.preventDefault();
+    if (!editVisitor) return;
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editVisitor.id,
+          type: "VISITOR",
+          permissions: visitorPermissions,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível atualizar as permissões do visitante.");
+      }
+
+      setEditVisitor(null);
+      setMessage("Permissões do visitante atualizadas com sucesso.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao atualizar permissões.");
+    } finally {
+      setSaving(false);
+    }
+  }
   async function saveEdit(event: React.FormEvent) {
     event.preventDefault(); if (!editUser) return; setSaving(true); setError(""); setMessage("");
     try {
@@ -340,6 +395,118 @@ export default function UsuariosPage() {
       </CardContent>
     </Card>}
     <Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4" /> Usuários cadastrados</CardTitle><CardDescription className="text-xs">Atualização em tempo real!</CardDescription></CardHeader><CardContent>{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{users.map(user => <div key={user.id} className="rounded-md border p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-muted-foreground">@{user.username} - {user.cargoUsuario || roleLabel[user.role] || user.role}</p></div><span title={user.online ? "Online" : "Offline"} className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${user.online ? "bg-green-500" : "bg-slate-300"}`} /></div><p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">{user.online ? <Wifi className="h-3 w-3 text-green-600" /> : <WifiOff className="h-3 w-3" />}{offlineText(user)}</p>{isAdmin && <div className="mt-2 flex flex-wrap gap-1"><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => beginEdit(user)}><Pencil className="mr-1 h-3 w-3" />Editar perfil</Button><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void toggleActive(user)}>{user.isActive ? "Desativar" : "Ativar"}</Button><Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setDeleteUser(user)}><Trash2 className="mr-1 h-3 w-3" />Excluir</Button></div>}</div>)}</div>}</CardContent></Card>
+    {isAdmin && <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Users className="h-4 w-4" /> Visitantes
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Acessos temporários e permissões dos visitantes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {visitors.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum visitante cadastrado.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {visitors.map((visitor) => {
+              const expired = Boolean(visitor.expiresAt && new Date(visitor.expiresAt) <= new Date());
+              const revoked = Boolean(visitor.revokedAt);
+              const active = !expired && !revoked;
+
+              return (
+                <div key={visitor.id} className="rounded-md border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-semibold">{visitor.name}</p>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+                      revoked ? "bg-red-100 text-red-700" :
+                      expired ? "bg-amber-100 text-amber-700" :
+                      "bg-green-100 text-green-700"
+                    }`}>
+                      {revoked ? "Revogado" : expired ? "Expirado" : "Ativo"}
+                    </span>
+                  </div>
+                  <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    {visitor.online ? <Wifi className="h-3 w-3 text-green-600" /> : <WifiOff className="h-3 w-3" />}
+                    {visitor.online ? "Online" : "Offline"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Último acesso: {visitor.lastSeenAt ? new Date(visitor.lastSeenAt).toLocaleString("pt-BR") : "Nunca acessou"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Validade: {visitor.expiresAt ? new Date(visitor.expiresAt).toLocaleString("pt-BR") : "Sem expiração"}
+                  </p>
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={!active}
+                      onClick={() => beginEditVisitor(visitor)}
+                    >
+                      <Pencil className="mr-1 h-3 w-3" /> Editar permissões
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>}
+    {isAdmin && editVisitor && <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-base">Permissões: {editVisitor.name}</CardTitle>
+          <CardDescription className="text-xs">
+            Configure exatamente quais recursos este visitante poderá acessar.
+          </CardDescription>
+        </div>
+        <Button type="button" variant="ghost" size="icon" onClick={() => setEditVisitor(null)}>
+          <X className="h-4 w-4" />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={saveVisitorPermissions} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {PERMISSION_KEYS.map((key) => (
+              <div key={key} className="rounded-md border p-3">
+                <p className="mb-3 text-sm font-semibold">{PERMISSION_LABELS[key]}</p>
+                <div className="grid gap-2">
+                  {Object.entries(MODULE_ACTIONS[key]).map(([action, label]) => {
+                    const permissionId = `${key}.${action}`;
+                    return (
+                      <label key={permissionId} className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={visitorPermissions[permissionId] === true}
+                          onChange={(event) =>
+                            setVisitorPermissions((current) => ({
+                              ...current,
+                              [permissionId]: event.target.checked,
+                            }))
+                          }
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar permissões
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setEditVisitor(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>}
     {isAdmin && editUser && <Card><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle className="flex items-center gap-2 text-base"><Pencil className="h-4 w-4" /> Editar perfil: {editUser.name}</CardTitle><CardDescription className="text-xs">O administrador pode alterar cargo, tipo de acesso, vínculo, usuário e senha.</CardDescription></div><Button type="button" variant="ghost" size="icon" onClick={() => setEditUser(null)}><X className="h-4 w-4" /></Button></CardHeader><CardContent><form onSubmit={saveEdit} className="grid gap-3 md:grid-cols-3"><div className="space-y-1"><Label className="text-xs">Nome de exibição</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nome de usuário</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nova senha (opcional)</Label><Input type="password" minLength={4} value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} placeholder="Mínimo 4 caracteres" /></div><div className="space-y-1"><Label className="text-xs">Cargo / perfil</Label><Input value={editForm.cargoUsuario} onChange={e => setEditForm({ ...editForm, cargoUsuario: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Tipo de acesso</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}><option value="USER">Usuário</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></div><div className="space-y-1"><Label className="text-xs">Funcionário / motorista</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={editForm.funcionarioId} onChange={e => setEditForm({ ...editForm, funcionarioId: e.target.value })}><option value="">Não vincular</option>{funcionarios.filter(f => f.status === "ATIVO").map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></div><div className="flex gap-2 md:col-span-3"><Button type="submit" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar perfil</Button><Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button></div></form></CardContent></Card>}
     {isAdmin && <Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><UserPlus className="h-4 w-4" /> Cadastrar usuário</CardTitle><CardDescription className="text-xs">A senha deve ter no mínimo 4 caracteres. As permissões de botões são liberadas depois no Painel.</CardDescription></CardHeader><CardContent><form onSubmit={createUser} className="grid gap-3 md:grid-cols-3"><div className="space-y-1"><Label className="text-xs">Nome de exibição</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nome de usuário</Label><Input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Senha</Label><Input type="password" minLength={4} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Cargo / perfil</Label><Input placeholder="Vendedor, Motorista, Eletricista..." value={form.cargoUsuario} onChange={e => setForm({ ...form, cargoUsuario: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Tipo de acesso</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="USER">Usuário</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></div><div className="space-y-1"><Label className="text-xs">Funcionário / motorista</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.funcionarioId} onChange={e => setForm({ ...form, funcionarioId: e.target.value })}><option value="">Não vincular</option>{funcionarios.filter(f => f.status === "ATIVO").map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></div><div className="md:col-span-3"><p className="mb-2 text-xs font-medium">Permissões iniciais de páginas</p><div className="grid grid-cols-2 gap-2 md:grid-cols-4">{PERMISSION_KEYS.map(key => <label key={key} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={permissions[`${key}.visualizar`] === true} onChange={e => setPermissions({ ...permissions, [`${key}.visualizar`]: e.target.checked })} />{PERMISSION_LABELS[key]}</label>)}</div></div><Button type="submit" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Cadastrar usuário</Button></form></CardContent></Card>}
     <AdminPasswordModal open={Boolean(deleteUser)} onOpenChange={open => !open && setDeleteUser(null)} onConfirm={confirmDelete} title="Excluir usuário" description={`Digite a senha de um administrador para excluir ${deleteUser?.name || "este usuário"}.`} />

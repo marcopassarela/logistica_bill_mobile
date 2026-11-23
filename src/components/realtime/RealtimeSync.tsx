@@ -9,11 +9,13 @@ import { canAccess, permissionFromPath, type PermissionMap } from "@/lib/permiss
 let realtimeClient: ReturnType<typeof createClient> | undefined;
 
 interface RealtimeSyncProps {
+  clientId: string;
+  sessionId: string;
   userRole: string;
   userPermissions: PermissionMap | null;
 }
 
-export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
+export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }: RealtimeSyncProps) {
   const router = useRouter();
 
   useEffect(() => {
@@ -49,8 +51,9 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
     const onPresenceChanged = (message: {
       action: string;
       clientId?: string;
+      data?: unknown;
     }) => {
-      const userId = message.clientId;
+      const userId = (message.data as { identityId?: string } | undefined)?.identityId;
       if (!userId) return;
 
       const pending = leaveTimers.get(userId);
@@ -72,7 +75,7 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
         try {
           const members = await presence.get();
           const stillOnline = members.some(
-            (member) => member.clientId === userId
+            (member) => (member.data as { identityId?: string } | undefined)?.identityId === userId
           );
 
           if (!stillOnline) {
@@ -91,7 +94,7 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
         .then(async () => {
           if (document.visibilityState !== "visible" || isPresent) return;
 
-          await presence.enter();
+          await presence.enter({ identityId: clientId });
           isPresent = true;
         })
         .catch((error) => {
@@ -167,7 +170,10 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
 
     channel.subscribe((message) => {
       if (message.name === "auth:invalidate") {
-        window.location.replace("/login");
+        const data = message.data as { clientId?: string };
+        if (data?.clientId === sessionId) {
+          window.location.replace("/login");
+        }
         return;
       }
 
@@ -205,8 +211,9 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
           const members = await presence.get();
 
           members.forEach((member) => {
-            if (member.clientId) {
-              emitPresence(member.clientId, true);
+            const identityId = (member.data as { identityId?: string } | undefined)?.identityId;
+            if (identityId) {
+              emitPresence(identityId, true);
             }
           });
 
@@ -235,7 +242,7 @@ export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
       presence.unsubscribe(onPresenceChanged);
       channel.unsubscribe();
     };
-  }, [router]);
+  }, [router, clientId, sessionId]);
 
   return null;
 }

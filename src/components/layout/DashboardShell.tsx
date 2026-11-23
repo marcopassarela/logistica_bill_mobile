@@ -16,6 +16,8 @@ import { UserAccessProvider } from "./UserAccessContext";
 interface DashboardShellProps {
   children: React.ReactNode;
   userName: string;
+  clientId: string;
+  sessionId: string;
   userRole: string;
   userPermissions: PermissionMap | null;
   funcionarioId: string | null;
@@ -24,6 +26,8 @@ interface DashboardShellProps {
 export function DashboardShell({
   children,
   userName,
+  clientId,
+  sessionId,
   userRole,
   userPermissions,
   funcionarioId,
@@ -98,7 +102,7 @@ export function DashboardShell({
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className="min-h-screen bg-background text-foreground"
     >
-      <RealtimeSync userRole={userRole} userPermissions={userPermissions} />
+      <RealtimeSync clientId={clientId} sessionId={sessionId} userRole={userRole} userPermissions={userPermissions} />
       <Sidebar
         userName={userName}
         userRole={userRole}

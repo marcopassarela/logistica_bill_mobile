@@ -1,0 +1,320 @@
+import { after, NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { publishDataChanged } from "@/lib/realtime";
+import { z } from "zod";
+import { requirePermission } from "@/lib/authorization";
+import { decodePdfDataUrl } from "@/lib/pdf-storage";
+import { put } from "@vercel/blob";
+
+const itemSchema = z.object({
+  quantidade: z.coerce.number().positive(),
+  peso: z.coerce.number().min(0),
+  statusItem: z.enum(["PENDENTE", "CARREGADO", "NAO_CARREGADO"]).default("PENDENTE"),
+  observacao: z.string().optional().nullable(),
+  descricaoLivre: z.string().trim().min(1, "Informe o item/produto.").max(1000),
+  ordemServico: z.string().trim().min(1, "Informe o número da ordem.").max(100),
+  clienteNome: z.string().trim().min(1, "Informe o nome do cliente.").max(160),
+  clienteTelefone: z.string().trim().min(1, "Informe o telefone do cliente.").max(40),
+  clienteCidade: z.string().trim().min(1, "Informe a cidade do cliente.").max(100),
+  clienteBairro: z.string().max(100).optional().nullable(),
+  mapaUrl: z.string().url().max(500).optional().nullable(),
+  mapaUrl2: z.string().url().max(500).optional().nullable(),
+  notaFiscalNome: z.string().max(180).optional().nullable(),
+  notaFiscalData: z.string().max(20_000_000).optional().nullable(),
+}).refine((item) => !item.notaFiscalData || item.notaFiscalData.startsWith("data:application/pdf;base64,"), { message: "A nota fiscal deve ser um PDF válido." });
+
+const createSchema = z.object({
+  caminhaoId: z.string().min(1),
+  data: z.string().min(1),
+  horaProgramada: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("00:00"),
+  origem: z.string().optional().nullable(),
+  destino: z.string().optional().nullable(),
+  observacoes: z.string().optional().nullable(),
+  motoristaId: z.string().optional().nullable(),
+  ajudanteId: z.string().optional().nullable(),
+  status: z
+    .enum(["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA", "CANCELADO", "NAO_CARREGADO"])
+    .default("EM_ANDAMENTO"),
+  itens: z.array(itemSchema).min(1, "Adicione pelo menos um item."),
+});
+
+export async function GET(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const data = searchParams.get("data"); // YYYY-MM-DD
+  const caminhaoId = searchParams.get("caminhaoId");
+
+  const where: Record<string, unknown> = {};
+  if (data) {
+    const start = new Date(`${data}T00:00:00-03:00`);
+    const end = new Date(`${data}T23:59:59.999-03:00`);
+    where.data = { gte: start, lte: end };
+  }
+  if (caminhaoId) where.caminhaoId = caminhaoId;
+  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    where.motoristaId = user.funcionarioId || "__sem_motorista__";
+    const dataAtual = (where.data || {}) as Record<string, Date>;
+    where.data = { ...dataAtual, lte: new Date() };
+  }
+
+  const list = await prisma.carregamento.findMany({
+    where,
+    include: {
+      caminhao: { select: { id: true, placa: true, marca: true, modelo: true, capacidadeKg: true } },
+      motorista: { select: { id: true, nome: true } },
+      ajudante: { select: { id: true, nome: true } },
+      itens: {
+        orderBy: [{ ordem: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          quantidade: true,
+          peso: true,
+          statusItem: true,
+          observacao: true,
+          descricaoLivre: true,
+          ordemServico: true,
+          clienteNome: true,
+          clienteTelefone: true,
+          clienteCidade: true,
+          clienteBairro: true,
+          mapaUrl: true,
+          mapaUrl2: true,
+          notaFiscalNome: true,
+        },
+      },
+    },
+    orderBy: [{ data: "desc" }, { createdAt: "asc" }],
+    take: 100,
+  });
+
+  return NextResponse.json(list);
+}
+
+export async function POST(req: NextRequest) {
+  const permission = await requirePermission("carregamentos.criar");
+  if (permission.response) return permission.response;
+
+  try {
+    const body = await req.json();
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Os dados informados são inválidos.", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const data = parsed.data;
+    let itensCompactados: Array<
+      Omit<(typeof data.itens)[number], "notaFiscalData"> & {
+        notaFiscalData: null;
+      }
+    >;
+    try {
+      // Validar os PDFs antes da transação evita manter blobs no PostgreSQL.
+      itensCompactados = data.itens.map((item) => {
+        if (item.notaFiscalData) decodePdfDataUrl(item.notaFiscalData);
+        return { ...item, notaFiscalData: null };
+      });
+    } catch {
+      return NextResponse.json({ error: "A nota fiscal deve ser um PDF válido." }, { status: 400 });
+    }
+    const pesoTotal = data.itens.reduce(
+      (acc, i) => acc + Number(i.peso),
+      0
+    );
+
+    if (!Number.isFinite(pesoTotal) || pesoTotal < 0) {
+      return NextResponse.json({ error: "Peso carregado inválido.", pesoCarregado: pesoTotal }, { status: 400 });
+    }
+
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      // Revalidar o caminhão dentro da mesma transação.
+      const caminhao = await tx.caminhao.findUnique({
+        where: { id: data.caminhaoId },
+        select: { id: true, placa: true, capacidadeKg: true, status: true },
+      });
+
+      if (!caminhao) {
+        return { error: "CAMINHAO_NAO_ENCONTRADO" as const };
+      }
+
+      if (
+        caminhao.status === "EM_ROTA" ||
+        caminhao.status === "MANUTENCAO"
+      ) {
+        return {
+          error: "CAMINHAO_INDISPONIVEL" as const,
+          placa: caminhao.placa,
+          status: caminhao.status,
+        };
+      }
+
+      const capacidadeAtual = Number(caminhao.capacidadeKg ?? 0);
+
+      if (!Number.isFinite(pesoTotal) || pesoTotal < 0) {
+        return { error: "PESO_INVALIDO" as const };
+      }
+
+
+      const funcionariosSelecionados = [data.motoristaId, data.ajudanteId].filter((id): id is string => id !== undefined && id !== null);
+      if (funcionariosSelecionados.length > 0) {
+        const idsUnicos = [...new Set(funcionariosSelecionados)];
+        const funcionariosAtivos = await tx.funcionario.findMany({ where: { id: { in: idsUnicos }, status: "ATIVO" }, select: { id: true } });
+        if (funcionariosAtivos.length !== idsUnicos.length) return { error: "FUNCIONARIO_INVALIDO" as const };
+      }
+      const created = await tx.carregamento.create({
+        data: {
+          caminhaoId: data.caminhaoId,
+          motoristaId: data.motoristaId ?? null,
+          ajudanteId: data.ajudanteId ?? null,
+          data: new Date(`${data.data}T${data.horaProgramada}:00.000-03:00`),
+          origem: data.origem || null,
+          destino: data.destino || null,
+          observacoes: data.observacoes || null,
+          status: data.status,
+          pesoTotal,
+          itens: {
+            create: itensCompactados.map((i, indice) => ({
+              quantidade: i.quantidade,
+              peso: i.peso,
+              ordem: indice,
+              statusItem: i.statusItem,
+              observacao: i.observacao || null,
+              descricaoLivre: i.descricaoLivre || null,
+              ordemServico: i.ordemServico || null,
+              clienteNome: i.clienteNome || null,
+              clienteTelefone: i.clienteTelefone || null,
+              clienteCidade: i.clienteCidade || null,
+              clienteBairro: i.clienteBairro || null,
+              mapaUrl: i.mapaUrl || null,
+              mapaUrl2: i.mapaUrl2 || null,
+              notaFiscalNome: i.notaFiscalNome || null,
+              notaFiscalDisponivel: false,
+              notaFiscalData: null,
+            })),
+          },
+        },
+        include: {
+          caminhao: { select: { placa: true } },
+          itens: { select: { id: true } },
+        },
+      });
+
+      // Recalcular o status operacional do caminhão.
+      const [carregamentos, rotaAtiva] = await Promise.all([
+        tx.carregamento.findMany({
+          where: {
+            caminhaoId: caminhao.id,
+            status: { in: ["EM_ANDAMENTO", "FINALIZADO", "EM_ROTA"] },
+          },
+          select: { status: true },
+        }),
+        tx.rota.findFirst({
+          where: {
+            caminhaoId: caminhao.id,
+            status: "EM_ANDAMENTO",
+          },
+          select: { id: true },
+        }),
+      ]);
+
+      let novoStatus: "LIBERADO" | "CARREGANDO" | "EM_ROTA";
+
+      if (
+        rotaAtiva ||
+        carregamentos.some((c) => c.status === "EM_ROTA")
+      ) {
+        novoStatus = "EM_ROTA";
+      } else if (carregamentos.some((c) => c.status === "EM_ANDAMENTO")) {
+        novoStatus = "CARREGANDO";
+      } else {
+        novoStatus = "LIBERADO";
+      }
+
+      await tx.caminhao.update({
+        where: { id: caminhao.id },
+        data: { status: novoStatus },
+      });
+
+      return { created, excessoPeso: capacidadeAtual > 0 && pesoTotal > capacidadeAtual ? { placa: caminhao.placa, pesoCarregado: pesoTotal, capacidadeKg: capacidadeAtual } : null };
+    }, { maxWait: 10000, timeout: 30000 });
+
+    if ("error" in resultado) {
+      if (resultado.error === "FUNCIONARIO_INVALIDO") {
+        return NextResponse.json({ error: "Motorista ou ajudante inválido ou inativo." }, { status: 400 });
+      }
+      if (resultado.error === "PESO_INVALIDO") {
+        return NextResponse.json(
+          { error: "Peso carregado inválido." },
+          { status: 400 }
+        );
+      }
+
+      if (resultado.error === "CAMINHAO_NAO_ENCONTRADO") {
+        return NextResponse.json(
+          { error: "Caminhão não encontrado." },
+          { status: 404 }
+        );
+      }
+
+      if (resultado.error === "CAMINHAO_INDISPONIVEL") {
+        return NextResponse.json(
+          {
+            error: `Não é possível criar o carregamento: o caminhão ${resultado.placa} está ${resultado.status === "MANUTENCAO" ? "em manutenção" : "em rota"}.`,
+          },
+          { status: 409 }
+        );
+      }
+
+
+      return NextResponse.json(
+        { error: "Não foi possível criar o carregamento." },
+        { status: 400 }
+      );
+    }
+
+    // Compatibilidade com clientes antigos que ainda enviam o PDF em data URL:
+    // o arquivo é validado acima, enviado ao Blob e nunca incluído na escrita Prisma.
+    for (let indice = 0; indice < resultado.created.itens.length; indice += 1) {
+      const original = data.itens[indice];
+      const criado = resultado.created.itens[indice];
+      if (!original?.notaFiscalData) continue;
+      const bytes = decodePdfDataUrl(original.notaFiscalData);
+      if (!bytes) continue;
+      const pathname = `notas-fiscais/${resultado.created.id}/${criado.id}/${crypto.randomUUID()}.pdf`;
+      await put(pathname, Buffer.from(bytes), { access: "private", contentType: "application/pdf", addRandomSuffix: false });
+      await prisma.carregamentoItem.update({
+        where: { id: criado.id },
+        data: { notaFiscalPath: pathname, notaFiscalDisponivel: true, notaFiscalData: null },
+      });
+    }
+
+    let avisoExcessoPeso: string | null = null;
+    if (resultado.excessoPeso) {
+      const excesso = resultado.excessoPeso;
+      const formatarKg = (valor: number) => valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+      avisoExcessoPeso = "ATENÇÃO: o caminhão " + excesso.placa + " está com " + formatarKg(excesso.pesoCarregado) + " kg carregados, acima da capacidade cadastrada de " + formatarKg(excesso.capacidadeKg) + " kg. Excesso: " + formatarKg(excesso.pesoCarregado - excesso.capacidadeKg) + " kg.";
+      try {
+        const alertaExistente = await prisma.alerta.findFirst({ where: { tipo: "PESO", referencia: resultado.created.id }, select: { id: true } });
+        const exclusao = await prisma.auditLog.findFirst({ where: { action: "ALERTA_EXCLUIDO", entity: "Alerta", entityId: "PESO:" + resultado.created.id }, select: { id: true } });
+        if (!alertaExistente && !exclusao) {
+          await prisma.alerta.create({ data: { tipo: "PESO", titulo: "Excesso de peso no carregamento", mensagem: avisoExcessoPeso, severidade: "CRITICAL", referencia: resultado.created.id } });
+        }
+      } catch (erroAlerta) {
+        console.error("Carregamento salvo, mas não foi possível registrar o alerta de peso:", erroAlerta);
+      }
+    }
+
+    after(() => publishDataChanged("carregamentos", "caminhoes", "alertas"));
+    return NextResponse.json({ ...resultado.created, ...(avisoExcessoPeso && resultado.excessoPeso ? { avisoExcessoPeso, excessoPeso: resultado.excessoPeso } : {}) }, { status: 201 });
+
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Não foi possível criar o carregamento." }, { status: 500 });
+  }
+}

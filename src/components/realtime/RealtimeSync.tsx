@@ -4,18 +4,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@ably/pubsub-device";
-import { canAccess, permissionFromPath, type PermissionMap } from "@/lib/permissions";
 
 let realtimeClient: ReturnType<typeof createClient> | undefined;
 
-interface RealtimeSyncProps {
-  clientId: string;
-  sessionId: string;
-  userRole: string;
-  userPermissions: PermissionMap | null;
-}
-
-export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }: RealtimeSyncProps) {
+export function RealtimeSync() {
   const router = useRouter();
 
   useEffect(() => {
@@ -51,9 +43,8 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
     const onPresenceChanged = (message: {
       action: string;
       clientId?: string;
-      data?: unknown;
     }) => {
-      const userId = (message.data as { identityId?: string } | undefined)?.identityId;
+      const userId = message.clientId;
       if (!userId) return;
 
       const pending = leaveTimers.get(userId);
@@ -75,7 +66,7 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
         try {
           const members = await presence.get();
           const stillOnline = members.some(
-            (member) => (member.data as { identityId?: string } | undefined)?.identityId === userId
+            (member) => member.clientId === userId
           );
 
           if (!stillOnline) {
@@ -94,7 +85,7 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
         .then(async () => {
           if (document.visibilityState !== "visible" || isPresent) return;
 
-          await presence.enter({ identityId: clientId });
+          await presence.enter();
           isPresent = true;
         })
         .catch((error) => {
@@ -170,30 +161,14 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
 
     channel.subscribe((message) => {
       if (message.name === "auth:invalidate") {
-        const data = message.data as { clientId?: string };
-        if (data?.clientId === sessionId) {
-          window.location.replace("/login");
-        }
+        window.location.replace("/login");
         return;
       }
 
       if (message.name !== "data:changed") return;
 
-      const receivedModules =
+      const modules =
         (message.data as { modules?: string[] })?.modules ?? [];
-
-      const modules = receivedModules.filter((module) => {
-        if (module === "usuarios") return true;
-
-        const permission =
-          module === "alertas"
-            ? "dashboard.visualizar"
-            : module === "cargos"
-              ? "funcionarios.visualizar"
-              : permissionFromPath(`/${module}`);
-
-        return permission !== null && canAccess(userRole, userPermissions, permission);
-      });
 
       modules.forEach((module) => pendingModules.add(module));
 
@@ -211,9 +186,8 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
           const members = await presence.get();
 
           members.forEach((member) => {
-            const identityId = (member.data as { identityId?: string } | undefined)?.identityId;
-            if (identityId) {
-              emitPresence(identityId, true);
+            if (member.clientId) {
+              emitPresence(member.clientId, true);
             }
           });
 
@@ -242,7 +216,7 @@ export function RealtimeSync({ clientId, sessionId, userRole, userPermissions }:
       presence.unsubscribe(onPresenceChanged);
       channel.unsubscribe();
     };
-  }, [router, clientId, sessionId]);
+  }, [router]);
 
   return null;
 }

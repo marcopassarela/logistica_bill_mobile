@@ -1,7 +1,6 @@
 "use client";
 
-
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
@@ -9,23 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lock, User, CheckCircle2, KeyRound } from "lucide-react";
-import { getOrCreateDeviceKey, signDeviceChallenge } from "@/lib/device-crypto";
-import { MODULE_ACTIONS, PERMISSION_KEYS, PERMISSION_LABELS, type PermissionMap } from "@/lib/permissions";
+import { Loader2, Lock, User } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showActivation, setShowActivation] = useState(false);
-  const [activationCode, setActivationCode] = useState("");
-  const [activationError, setActivationError] = useState("");
-  const [activationLoading, setActivationLoading] = useState(false);
-  const [activationPhase, setActivationPhase] = useState<"idle" | "validating" | "success">("idle");
-  const [activationBlockedUntil, setActivationBlockedUntil] = useState<number | null>(null);
-  const [activationRemainingSeconds, setActivationRemainingSeconds] = useState(0);
-  const [activationAttempts, setActivationAttempts] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -34,142 +23,7 @@ export default function LoginPage() {
   const [showStartupModal, setShowStartupModal] = useState(false);
   const requestLock = useRef(false);
 
-  async function refreshActivationStatus(silent = false) {
-    try {
-      const response = await fetch("/api/devices/activation-status", {
-        method: "GET",
-        cache: "no-store",
-      });
 
-      const data = await response.json();
-
-      if (!response.ok && response.status !== 429) {
-        throw new Error(data.error || "Falha ao consultar o status.");
-      }
-
-      setActivationAttempts(data.attempts ?? 0);
-      setActivationBlockedUntil(data.blockedUntil ?? null);
-      setActivationRemainingSeconds(
-        data.blockedUntil
-          ? Math.max(0, data.blockedUntil - Math.floor(Date.now() / 1000))
-          : 0
-      );
-    } catch {
-      if (!silent) {
-        setActivationError("Não foi possível consultar o status de ativação.");
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (!showActivation) return;
-    void refreshActivationStatus();
-  }, [showActivation]);
-
-  useEffect(() => {
-    if (!activationBlockedUntil) return;
-
-    const interval = window.setInterval(() => {
-      const remaining = Math.max(
-        0,
-        activationBlockedUntil - Math.floor(Date.now() / 1000)
-      );
-
-      setActivationRemainingSeconds(remaining);
-
-      if (remaining === 0) {
-        window.clearInterval(interval);
-        void refreshActivationStatus();
-      }
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [activationBlockedUntil]);
-
-
-  async function handleActivation() {
-    if (activationLoading || (activationBlockedUntil !== null && activationBlockedUntil > Math.floor(Date.now() / 1000))) return;
-
-    setActivationError("");
-    setActivationLoading(true);
-    setActivationPhase("validating");
-
-    try {
-      const device = await getOrCreateDeviceKey();
-
-      const challengeResponse = await fetch("/api/devices/challenges", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          publicKey: device.publicKey,
-          purpose: "ACTIVATE",
-        }),
-        cache: "no-store",
-      });
-
-      const challengeData = await challengeResponse.json();
-
-      if (!challengeResponse.ok) {
-        throw new Error(challengeData.error || "Não foi possível iniciar a ativação.");
-      }
-
-      const signed = await signDeviceChallenge(challengeData.challenge);
-
-      const response = await fetch("/api/devices/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: activationCode.trim().toUpperCase(),
-          publicKey: signed.publicKey,
-          challenge: challengeData.challenge,
-          signature: signed.signature,
-        }),
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      await refreshActivationStatus(true);
-
-      if (!response.ok) {
-        if (response.status === 429 && data.blockedUntil) {
-          setActivationBlockedUntil(data.blockedUntil);
-          setActivationRemainingSeconds(
-            Math.max(0, data.blockedUntil - Math.floor(Date.now() / 1000))
-          );
-        }
-
-        if (typeof data.attempts === "number") setActivationAttempts(data.attempts);
-        throw new Error(data.error || "Não foi possível ativar este dispositivo.");
-      }
-
-      setActivationPhase("success");
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 1200));
-
-      if (data.identity?.type === "VISITOR") {
-        setIsNavigating(true);
-        router.push("/dashboard");
-        return;
-      }
-
-      setActivationCode("");
-      setShowActivation(false);
-      setActivationPhase("idle");
-
-      if (data.identity?.username) {
-        setUsername(data.identity.username);
-      }
-    } catch (activationFailure) {
-      setActivationPhase("idle");
-      setActivationError(
-        activationFailure instanceof Error
-          ? activationFailure.message
-          : "Erro ao ativar o dispositivo. Tente novamente."
-      );
-    } finally {
-      setActivationLoading(false);
-    }
-  }
   async function checkDatabase(): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 8000);
@@ -216,65 +70,20 @@ export default function LoginPage() {
         30000
       );
 
-      let response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
         signal: loginController.signal,
       });
 
-      let data = await response.json();
-
-      if (
-        response.status === 403 &&
-        data.error === "Ative este dispositivo antes de entrar."
-      ) {
-        const device = await getOrCreateDeviceKey();
-
-        const challengeResponse = await fetch("/api/devices/challenges", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            publicKey: device.publicKey,
-            purpose: "LOGIN",
-          }),
-          signal: loginController.signal,
-        });
-
-        const challengeData = await challengeResponse.json();
-
-        if (!challengeResponse.ok) {
-          if (challengeResponse.status === 401) {
-            setError("Este dispositivo ainda não foi ativado. Use a opção 'Ativar dispositivo'.");
-            return;
-          }
-
-          setError(challengeData.error || "Não foi possível validar o dispositivo.");
-          return;
-        }
-
-        const signed = await signDeviceChallenge(challengeData.challenge);
-
-        response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username,
-            password,
-            publicKey: signed.publicKey,
-            challenge: challengeData.challenge,
-            signature: signed.signature,
-          }),
-          signal: loginController.signal,
-        });
-
-        data = await response.json();
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         setError(data.error || "Credenciais inválidas");
         return;
       }
+
       setIsNavigating(true);
       await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
       router.push("/dashboard");
@@ -341,93 +150,7 @@ export default function LoginPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {showActivation ? (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <KeyRound className="mx-auto mb-2 h-9 w-9 text-primary" />
-                  <h2 className="text-lg font-semibold">Ativar dispositivo</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Informe a chave de ativação fornecida pelo administrador.
-                  </p>
-                </div>
-
-                {activationPhase === "validating" ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-3 py-6"
-                  >
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-sm font-medium">Validando dispositivo...</p>
-                  </motion.div>
-                ) : activationPhase === "success" ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-3 py-6 text-center"
-                  >
-                    <CheckCircle2 className="h-14 w-14 text-green-500" />
-                    <p className="font-semibold text-green-600">
-                      Chave ativada com sucesso!
-                    </p>
-                  </motion.div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="activationCode">Código de ativação</Label>
-                      <Input
-                        id="activationCode"
-                        value={activationCode}
-                        onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
-                        placeholder="LB-XXXX-XXXX-..."
-                        autoComplete="off"
-                        className="login-input-field text-center font-mono tracking-wider"
-                        disabled={activationLoading || (activationBlockedUntil !== null && activationBlockedUntil > Math.floor(Date.now() / 1000))}
-                      />
-                    </div>
-
-                    {activationAttempts > 0 && (
-                      <p className="text-center text-xs text-muted-foreground">
-                        Tentativas inválidas: {activationAttempts} de 5
-                      </p>
-                    )}
-
-                    {activationRemainingSeconds > 0 && (
-                      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
-                        <p className="text-sm font-medium text-destructive">
-                          Muitas tentativas. Aguarde para tentar novamente.
-                        </p>
-                        <p className="mt-1 text-xl font-bold tabular-nums text-destructive">
-                          {String(Math.floor(activationRemainingSeconds / 60)).padStart(2, "0")}:{String(activationRemainingSeconds % 60).padStart(2, "0")}
-                        </p>
-                      </div>
-                    )}
-
-                    {activationError && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center text-sm text-destructive"
-                      >
-                        {activationError}
-                      </motion.p>
-                    )}
-
-                    <Button
-                      type="button"
-                      className="w-full"
-                      size="lg"
-                      onClick={handleActivation}
-                      disabled={!activationCode.trim() || activationLoading || (activationBlockedUntil !== null && activationBlockedUntil > Math.floor(Date.now() / 1000))}
-                    >
-                      {activationLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Ativar dispositivo
-                    </Button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Usuário</Label>
                 <div className="relative">
@@ -472,22 +195,7 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Entrar
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setActivationError("");
-                  setActivationPhase("idle");
-                  setShowActivation(true);
-                }}
-                disabled={loading}
-              >
-                <KeyRound className="mr-2 h-4 w-4" />
-                Ativar dispositivo
-              </Button>
             </form>
-            )}
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-xs text-white/50">

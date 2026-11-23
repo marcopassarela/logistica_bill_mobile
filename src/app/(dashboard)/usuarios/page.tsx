@@ -318,7 +318,7 @@ export default function UsuariosPage() {
             <p className="text-xs text-muted-foreground">Criada: {formatActivationDate(key.createdAt)}</p>
             <p className="text-xs text-muted-foreground">Validade: {formatActivationDate(key.expiresAt)}</p>
             {key.usedAt && <p className="text-xs text-muted-foreground">Utilizada: {formatActivationDate(key.usedAt)}</p>}
-            {(key.status === "PENDING" || key.status === "USED") && (
+            {(key.status === "PENDING" || key.status === "USED" || key.status === "EXPIRED") && (
               <Button
                 type="button"
                 size="sm"

@@ -68,6 +68,7 @@ export default function UsuariosPage() {
   const [activationKeys, setActivationKeys] = useState<ActivationKeyRecord[]>([]);
   const [keyLoading, setKeyLoading] = useState(false);
   const [keySaving, setKeySaving] = useState(false);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [keyTargetType, setKeyTargetType] = useState<"USER" | "VISITOR">("USER");
   const [keyTargetUserId, setKeyTargetUserId] = useState("");
   const [keyExpiresAt, setKeyExpiresAt] = useState("");
@@ -199,6 +200,46 @@ export default function UsuariosPage() {
     }
   }
 
+    async function revokeActivationKey(key: ActivationKeyRecord) {
+    const targetName =
+      key.targetType === "VISITOR"
+        ? "Visitante"
+        : key.targetUser?.name || "Usuário";
+
+    const confirmed = window.confirm(
+      `Deseja realmente remover o acesso de ${targetName}?\n\nO dispositivo autorizado perderá o acesso ao sistema.`
+    );
+
+    if (!confirmed) return;
+
+    setRevokingKeyId(key.id);
+    setKeyError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/devices/activation-keys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyId: key.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível remover o acesso.");
+      }
+
+      setMessage(data.message || "Acesso revogado com sucesso.");
+      await loadActivationKeys();
+    } catch (e) {
+      setKeyError(
+        e instanceof Error ? e.message : "Erro ao remover o acesso."
+      );
+    } finally {
+      setRevokingKeyId(null);
+    }
+  }
+
   async function copyActivationCode() {
     if (!generatedCode) return;
     try {
@@ -277,6 +318,23 @@ export default function UsuariosPage() {
             <p className="text-xs text-muted-foreground">Criada: {formatActivationDate(key.createdAt)}</p>
             <p className="text-xs text-muted-foreground">Validade: {formatActivationDate(key.expiresAt)}</p>
             {key.usedAt && <p className="text-xs text-muted-foreground">Utilizada: {formatActivationDate(key.usedAt)}</p>}
+            {(key.status === "PENDING" || key.status === "USED") && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs text-destructive hover:text-destructive"
+                disabled={revokingKeyId !== null}
+                onClick={() => void revokeActivationKey(key)}
+              >
+                {revokingKeyId === key.id ? (
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-3 w-3" />
+                )}
+                Remover acesso
+              </Button>
+            )}
           </div>)}
         </div>}
       </CardContent>

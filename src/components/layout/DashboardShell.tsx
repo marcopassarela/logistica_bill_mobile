@@ -98,7 +98,7 @@ export function DashboardShell({
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className="min-h-screen bg-background text-foreground"
     >
-      <RealtimeSync />
+      <RealtimeSync userRole={userRole} userPermissions={userPermissions} />
       <Sidebar
         userName={userName}
         userRole={userRole}
@@ -114,8 +114,12 @@ export function DashboardShell({
         }`}
       >
         <header className="sticky top-0 z-20 flex h-14 items-center justify-end gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:px-6">
-          <NotificationBell />
-          <PushNotificationSetup />
+          {userRole !== "VISITOR" && (
+            <>
+              <NotificationBell />
+              <PushNotificationSetup />
+            </>
+          )}
           <ThemeToggle />
         </header>
         <main className="p-4 lg:p-6">

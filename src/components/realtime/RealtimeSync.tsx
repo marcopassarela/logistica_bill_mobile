@@ -4,10 +4,16 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@ably/pubsub-device";
+import { canAccess, permissionFromPath, type PermissionMap } from "@/lib/permissions";
 
 let realtimeClient: ReturnType<typeof createClient> | undefined;
 
-export function RealtimeSync() {
+interface RealtimeSyncProps {
+  userRole: string;
+  userPermissions: PermissionMap | null;
+}
+
+export function RealtimeSync({ userRole, userPermissions }: RealtimeSyncProps) {
   const router = useRouter();
 
   useEffect(() => {
@@ -167,8 +173,21 @@ export function RealtimeSync() {
 
       if (message.name !== "data:changed") return;
 
-      const modules =
+      const receivedModules =
         (message.data as { modules?: string[] })?.modules ?? [];
+
+      const modules = receivedModules.filter((module) => {
+        if (module === "usuarios") return true;
+
+        const permission =
+          module === "alertas"
+            ? "dashboard.visualizar"
+            : module === "cargos"
+              ? "funcionarios.visualizar"
+              : permissionFromPath(`/${module}`);
+
+        return permission !== null && canAccess(userRole, userPermissions, permission);
+      });
 
       modules.forEach((module) => pendingModules.add(module));
 

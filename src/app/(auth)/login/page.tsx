@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lock, User, CheckCircle2, KeyRound, ArrowLeft } from "lucide-react";
+import { Loader2, Lock, User, CheckCircle2, KeyRound } from "lucide-react";
 import { getOrCreateDeviceKey, signDeviceChallenge } from "@/lib/device-crypto";
 
 export default function LoginPage() {
@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showActivation, setShowActivation] = useState(false);
+  const [showActivation, setShowActivation] = useState(true);
   const [activationCode, setActivationCode] = useState("");
   const [activationError, setActivationError] = useState("");
   const [activationLoading, setActivationLoading] = useState(false);
@@ -424,21 +424,6 @@ export default function LoginPage() {
                     </Button>
                   </>
                 )}
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => {
-                    setShowActivation(false);
-                    setActivationError("");
-                    setActivationPhase("idle");
-                  }}
-                  disabled={activationLoading || activationPhase === "success"}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar ao login
-                </Button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">

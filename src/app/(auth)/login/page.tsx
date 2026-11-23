@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showActivation, setShowActivation] = useState(true);
+  const [showActivation, setShowActivation] = useState(false);
   const [activationCode, setActivationCode] = useState("");
   const [activationError, setActivationError] = useState("");
   const [activationLoading, setActivationLoading] = useState(false);

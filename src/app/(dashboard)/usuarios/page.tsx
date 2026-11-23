@@ -310,7 +310,7 @@ export default function UsuariosPage() {
         {keyLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : activationKeys.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma chave foi gerada.</p>
         ) : <div className="grid gap-2 md:grid-cols-2">
-          {activationKeys.map(key => <div key={key.id} className="space-y-2 rounded-md border p-3">
+          {activationKeys.filter(key => key.status !== "REVOKED").map(key => <div key={key.id} className="space-y-2 rounded-md border p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold">{key.targetType === "VISITOR" ? "Visitante" : key.targetUser ? key.targetUser.name + " (@" + key.targetUser.username + ")" : "Usu&aacute;rio"}</p>
               <span className={"rounded-full px-2 py-1 text-[11px] font-medium " + activationStatusClass[key.status]}>{activationStatusLabel[key.status]}</span>

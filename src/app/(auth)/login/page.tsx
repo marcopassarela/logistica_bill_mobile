@@ -23,6 +23,37 @@ export default function LoginPage() {
   const [showStartupModal, setShowStartupModal] = useState(false);
   const requestLock = useRef(false);
 
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotErr, setForgotErr] = useState("");
+
+  async function submitForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotErr("");
+    setForgotMsg("");
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: forgotUsername, email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setForgotErr(data.error || "Não foi possível enviar o e-mail.");
+        return;
+      }
+      setForgotMsg(data.message || "Se os dados estiverem corretos, o e-mail foi enviado.");
+    } catch {
+      setForgotErr("Erro de conexão. Tente novamente.");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
 
   async function checkDatabase(): Promise<boolean> {
     const controller = new AbortController();
@@ -195,6 +226,13 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Entrar
               </Button>
+                <button
+                  type="button"
+                  className="mt-3 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => { setForgotOpen(true); setForgotMsg(""); setForgotErr(""); }}
+                >
+                  Esqueci minha senha
+                </button>
             </form>
           </CardContent>
         </Card>
@@ -323,7 +361,38 @@ export default function LoginPage() {
             )}
           </div>
         </div>
-      )}    </motion.div>
+      )}
+      {forgotOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg border bg-background p-6 text-foreground shadow-lg">
+            <h2 className="text-lg font-semibold">Recuperar senha</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Informe o usuário e o e-mail cadastrados. Enviaremos um link válido por 30 minutos.
+            </p>
+            <form onSubmit={submitForgot} className="mt-4 space-y-3">
+              <div className="space-y-1">
+                <Label>Nome de usuário</Label>
+                <Input value={forgotUsername} onChange={(e) => setForgotUsername(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <Label>E-mail cadastrado</Label>
+                <Input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
+              </div>
+              {forgotErr && <p className="text-sm text-destructive">{forgotErr}</p>}
+              {forgotMsg && <p className="text-sm text-emerald-600">{forgotMsg}</p>}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setForgotOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={forgotLoading}>
+                  {forgotLoading ? "Enviando…" : "Enviar link"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </motion.div>
   );
 }
 

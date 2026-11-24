@@ -188,11 +188,45 @@ export default function ConfiguracoesPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Shield className="h-4 w-4" /> Segurança</CardTitle></CardHeader>
-        <CardContent className="space-y-1 text-sm text-muted-foreground">
-          <p> Senhas armazenadas com Argon2id.</p>
-          <p> Sessões com JWT e cookie HttpOnly.</p>
-          <p> Alterações sensíveis validadas no servidor.</p>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><Palette className="h-4 w-4" /> Layout</CardTitle>
+          <CardDescription>Salve as preferências de aparência neste dispositivo.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              try {
+                localStorage.setItem(
+                  "lb_layout_prefs",
+                  JSON.stringify({ theme: theme || "system", savedAt: new Date().toISOString() }),
+                );
+                setMessage("Layout salvo neste dispositivo.");
+              } catch {
+                setPageError("Não foi possível salvar o layout.");
+              }
+            }}
+          >
+            Salvar layout
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><Shield className="h-4 w-4" /> Privacidade e LGPD</CardTitle>
+          <CardDescription>Informações sobre o tratamento de dados pessoais no sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a
+            href="/lgpd"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Abrir política LGPD
+          </a>
         </CardContent>
       </Card>
       </ScreenAssembly>

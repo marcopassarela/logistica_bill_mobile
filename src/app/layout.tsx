@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { StartupTransitionProvider } from "@/components/layout/StartupTransitionProvider";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -31,6 +32,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <UpdateBanner />
           <StartupTransitionProvider>{children}</StartupTransitionProvider>
         </ThemeProvider>
       </body>

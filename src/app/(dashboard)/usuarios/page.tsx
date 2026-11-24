@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Pencil, Trash2, UserPlus, Users, Wifi, WifiOff, X } from "lucide-react";
+import { KeyRound, Loader2, Pencil, Trash2, UserPlus, Users, Wifi, WifiOff, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,11 +9,58 @@ import { Button } from "@/components/ui/button";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import { PERMISSION_KEYS, PERMISSION_LABELS, type PermissionMap } from "@/lib/permissions";
 
-type UserRecord = { id: string; username: string; name: string; role: string; cargoUsuario: string | null; funcionarioId: string | null; isActive: boolean; online: boolean; lastSeenAt: string | null; permissions?: PermissionMap | null };
+type UserRecord = {
+  id: string;
+  username: string;
+  name: string;
+  email?: string | null;
+  role: string;
+  cargoUsuario: string | null;
+  funcionarioId: string | null;
+  isActive: boolean;
+  online: boolean;
+  lastSeenAt: string | null;
+  permissions?: PermissionMap | null;
+};
+
 type Funcionario = { id: string; nome: string; status: string };
-type EditForm = { username: string; name: string; password: string; cargoUsuario: string; funcionarioId: string; role: string };
-const emptyForm: EditForm = { username: "", name: "", password: "", cargoUsuario: "", funcionarioId: "", role: "USER" };
-const roleLabel: Record<string, string> = { ADMIN: "Administrador", MANAGER: "Gestor", USER: "Usuário" };
+
+type EditForm = {
+  username: string;
+  name: string;
+  email: string;
+  password: string;
+  cargoUsuario: string;
+  funcionarioId: string;
+  role: string;
+};
+
+type ActivationKey = {
+  id: string;
+  code: string;
+  label: string | null;
+  neverExpires: boolean;
+  expiresAt: string | null;
+  usedAt: string | null;
+  isActive: boolean;
+  usedByUser?: { username: string; name: string } | null;
+};
+
+const emptyForm: EditForm = {
+  username: "",
+  name: "",
+  email: "",
+  password: "",
+  cargoUsuario: "",
+  funcionarioId: "",
+  role: "USER",
+};
+
+const roleLabel: Record<string, string> = {
+  ADMIN: "Administrador",
+  MANAGER: "Gestor",
+  USER: "Usuário",
+};
 
 function offlineText(user: UserRecord) {
   if (user.online) return "Online agora";
@@ -22,7 +69,6 @@ function offlineText(user: UserRecord) {
   const date = lastSeen.toLocaleDateString("pt-BR");
   const today = new Date().toLocaleDateString("pt-BR");
   const time = lastSeen.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
   if (date === today) return `Visto por último hoje às ${time}`;
   return `Visto por último em ${date} às ${time}`;
 }
@@ -31,7 +77,7 @@ export default function UsuariosPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm, password: "" });
+  const [form, setForm] = useState({ ...emptyForm });
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>(emptyForm);
   const [permissions, setPermissions] = useState<PermissionMap>({});
@@ -41,88 +87,558 @@ export default function UsuariosPage() {
   const [message, setMessage] = useState("");
   const [deleteUser, setDeleteUser] = useState<UserRecord | null>(null);
 
+  const [keys, setKeys] = useState<ActivationKey[]>([]);
+  const [keyLabel, setKeyLabel] = useState("");
+  const [keyNeverExpires, setKeyNeverExpires] = useState(false);
+  const [keyLoading, setKeyLoading] = useState(false);
+
+  const loadKeys = useCallback(async () => {
+    try {
+      const res = await fetch("/api/activation-keys");
+      if (res.ok) setKeys(await res.json());
+    } catch {
+      /* silencioso */
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [u, f] = await Promise.all([fetch("/api/users", { cache: "no-store" }), fetch("/api/funcionarios", { cache: "no-store" })]);
-      const data = await u.json();
-      if (!u.ok) throw new Error(data.error);
-      setIsAdmin(data.admin === true);
-      setUsers(data.users || []);
-      if (f.ok) setFuncionarios(await f.json());
+      const [uRes, fRes] = await Promise.all([
+        fetch("/api/users"),
+        fetch("/api/funcionarios"),
+      ]);
+      const uData = await uRes.json();
+      if (!uRes.ok) throw new Error(uData.error || "Não foi possível carregar os usuários.");
+      setIsAdmin(uData.admin === true);
+      setUsers(uData.users || []);
+      if (fRes.ok) {
+        const fData = await fRes.json();
+        setFuncionarios(Array.isArray(fData) ? fData : fData.funcionarios || []);
+      }
+      if (uData.admin === true) await loadKeys();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar usuários.");
+      setError(e instanceof Error ? e.message : "Erro ao carregar.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadKeys]);
 
   useEffect(() => {
     void load();
-    const onDataChanged = (event: Event) => {
-      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
-      if (modules.includes("usuarios")) void load();
-    };
-    const onPresenceChanged = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId: string; online: boolean; lastSeenAt?: string }>).detail;
-      if (!detail?.userId) return;
-      setUsers((current) => current.map((user) => user.id === detail.userId ? { ...user, online: detail.online, lastSeenAt: detail.lastSeenAt ?? user.lastSeenAt } : user));
-    };
-
-    window.addEventListener("logistica:presence-changed", onPresenceChanged);
-    window.addEventListener("logistica:data-changed", onDataChanged);
-    return () => {
-      window.removeEventListener("logistica:presence-changed", onPresenceChanged);
-      window.removeEventListener("logistica:data-changed", onDataChanged);
-    };
   }, [load]);
 
-  async function createUser(event: React.FormEvent) {
-    event.preventDefault(); setSaving(true); setError(""); setMessage("");
+  async function createKey() {
+    setKeyLoading(true);
+    setError("");
     try {
-      const r = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, cargoUsuario: form.cargoUsuario || null, funcionarioId: form.funcionarioId || null, permissions }) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Não foi possível cadastrar.");
-      setForm({ ...emptyForm, password: "" }); setPermissions({}); setMessage("Usuário cadastrado com sucesso."); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Erro ao cadastrar."); } finally { setSaving(false); }
+      const res = await fetch("/api/activation-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: keyLabel.trim() || null,
+          neverExpires: keyNeverExpires,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha ao gerar chave.");
+      setKeyLabel("");
+      setKeyNeverExpires(false);
+      setMessage("Chave de ativação gerada.");
+      await loadKeys();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao gerar chave.");
+    } finally {
+      setKeyLoading(false);
+    }
   }
 
-  function beginEdit(user: UserRecord) {
+  async function deleteKey(id: string) {
+    const res = await fetch("/api/activation-keys", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Não foi possível excluir a chave.");
+      return;
+    }
+    setMessage("Chave excluída.");
+    await loadKeys();
+  }
+
+  async function onCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          email: form.email.trim().toLowerCase(),
+          funcionarioId: form.funcionarioId || null,
+          permissions,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha no cadastro.");
+      setForm({ ...emptyForm });
+      setPermissions({});
+      setMessage("Usuário cadastrado com sucesso.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao cadastrar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(user: UserRecord) {
     setEditUser(user);
-    setEditForm({ username: user.username, name: user.name, password: "", cargoUsuario: user.cargoUsuario || "", funcionarioId: user.funcionarioId || "", role: user.role });
-    setError(""); setMessage("");
+    setEditForm({
+      username: user.username,
+      name: user.name,
+      email: user.email || "",
+      password: "",
+      cargoUsuario: user.cargoUsuario || "",
+      funcionarioId: user.funcionarioId || "",
+      role: user.role,
+    });
+    setPermissions(user.permissions || {});
+    setError("");
+    setMessage("");
   }
 
-  async function saveEdit(event: React.FormEvent) {
-    event.preventDefault(); if (!editUser) return; setSaving(true); setError(""); setMessage("");
+  async function onEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editUser) return;
+    setSaving(true);
+    setError("");
     try {
-      const payload = { id: editUser.id, ...editForm, password: editForm.password || undefined, cargoUsuario: editForm.cargoUsuario || null, funcionarioId: editForm.funcionarioId || null };
-      const r = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Não foi possível atualizar o perfil.");
-      setEditUser(null); setMessage("Perfil atualizado com sucesso. O usuário deverá entrar novamente se o acesso foi alterado."); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Erro ao atualizar perfil."); } finally { setSaving(false); }
+      const body: Record<string, unknown> = {
+        id: editUser.id,
+        username: editForm.username,
+        name: editForm.name,
+        email: editForm.email.trim().toLowerCase() || null,
+        cargoUsuario: editForm.cargoUsuario,
+        funcionarioId: editForm.funcionarioId || null,
+        role: editForm.role,
+        permissions,
+      };
+      if (editForm.password) body.password = editForm.password;
+      const res = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha ao atualizar.");
+      setEditUser(null);
+      setMessage("Usuário atualizado.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  async function toggleActive(user: UserRecord) {
-    const r = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: user.id, isActive: !user.isActive }) });
-    const d = await r.json(); if (!r.ok) setError(d.error || "Não foi possível alterar o status.");
-  }
-
-  async function confirmDelete(password: string) {
+  async function confirmDelete(adminPassword: string) {
     if (!deleteUser) return false;
-    const r = await fetch("/api/users", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteUser.id, adminPassword: password }) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Não foi possível excluir.");
-    setDeleteUser(null); setMessage("Usuário excluído com sucesso."); return true;
+    const res = await fetch("/api/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: deleteUser.id, adminPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Não foi possível excluir.");
+    setDeleteUser(null);
+    setMessage("Usuário excluído.");
+    await load();
+    return true;
   }
 
-  return <div className="space-y-5">
-    <div><h1 className="text-2xl font-bold tracking-tight">Usuários</h1><p className="text-muted-foreground">Gerencie perfis, cargos, permissões e usuários do sistema.</p></div>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}{message && <p role="status" className="text-sm text-green-600">{message}</p>}
-    <Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4" /> Usuários cadastrados</CardTitle><CardDescription className="text-xs">Atualização em tempo real!</CardDescription></CardHeader><CardContent>{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{users.map(user => <div key={user.id} className="rounded-md border p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-muted-foreground">@{user.username} - {user.cargoUsuario || roleLabel[user.role] || user.role}</p></div><span title={user.online ? "Online" : "Offline"} className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${user.online ? "bg-green-500" : "bg-slate-300"}`} /></div><p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">{user.online ? <Wifi className="h-3 w-3 text-green-600" /> : <WifiOff className="h-3 w-3" />}{offlineText(user)}</p>{isAdmin && <div className="mt-2 flex flex-wrap gap-1"><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => beginEdit(user)}><Pencil className="mr-1 h-3 w-3" />Editar perfil</Button><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void toggleActive(user)}>{user.isActive ? "Desativar" : "Ativar"}</Button><Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setDeleteUser(user)}><Trash2 className="mr-1 h-3 w-3" />Excluir</Button></div>}</div>)}</div>}</CardContent></Card>
-    {isAdmin && editUser && <Card><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle className="flex items-center gap-2 text-base"><Pencil className="h-4 w-4" /> Editar perfil: {editUser.name}</CardTitle><CardDescription className="text-xs">O administrador pode alterar cargo, tipo de acesso, vínculo, usuário e senha.</CardDescription></div><Button type="button" variant="ghost" size="icon" onClick={() => setEditUser(null)}><X className="h-4 w-4" /></Button></CardHeader><CardContent><form onSubmit={saveEdit} className="grid gap-3 md:grid-cols-3"><div className="space-y-1"><Label className="text-xs">Nome de exibição</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nome de usuário</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nova senha (opcional)</Label><Input type="password" minLength={4} value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} placeholder="Mínimo 4 caracteres" /></div><div className="space-y-1"><Label className="text-xs">Cargo / perfil</Label><Input value={editForm.cargoUsuario} onChange={e => setEditForm({ ...editForm, cargoUsuario: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Tipo de acesso</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}><option value="USER">Usuário</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></div><div className="space-y-1"><Label className="text-xs">Funcionário / motorista</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={editForm.funcionarioId} onChange={e => setEditForm({ ...editForm, funcionarioId: e.target.value })}><option value="">Não vincular</option>{funcionarios.filter(f => f.status === "ATIVO").map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></div><div className="flex gap-2 md:col-span-3"><Button type="submit" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar perfil</Button><Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button></div></form></CardContent></Card>}
-    {isAdmin && <Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><UserPlus className="h-4 w-4" /> Cadastrar usuário</CardTitle><CardDescription className="text-xs">A senha deve ter no mínimo 4 caracteres. As permissões de botões são liberadas depois no Painel.</CardDescription></CardHeader><CardContent><form onSubmit={createUser} className="grid gap-3 md:grid-cols-3"><div className="space-y-1"><Label className="text-xs">Nome de exibição</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Nome de usuário</Label><Input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Senha</Label><Input type="password" minLength={4} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Cargo / perfil</Label><Input placeholder="Vendedor, Motorista, Eletricista..." value={form.cargoUsuario} onChange={e => setForm({ ...form, cargoUsuario: e.target.value })} required /></div><div className="space-y-1"><Label className="text-xs">Tipo de acesso</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="USER">Usuário</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></div><div className="space-y-1"><Label className="text-xs">Funcionário / motorista</Label><select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.funcionarioId} onChange={e => setForm({ ...form, funcionarioId: e.target.value })}><option value="">Não vincular</option>{funcionarios.filter(f => f.status === "ATIVO").map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></div><div className="md:col-span-3"><p className="mb-2 text-xs font-medium">Permissões iniciais de páginas</p><div className="grid grid-cols-2 gap-2 md:grid-cols-4">{PERMISSION_KEYS.map(key => <label key={key} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={permissions[`${key}.visualizar`] === true} onChange={e => setPermissions({ ...permissions, [`${key}.visualizar`]: e.target.checked })} />{PERMISSION_LABELS[key]}</label>)}</div></div><Button type="submit" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Cadastrar usuário</Button></form></CardContent></Card>}
-    <AdminPasswordModal open={Boolean(deleteUser)} onOpenChange={open => !open && setDeleteUser(null)} onConfirm={confirmDelete} title="Excluir usuário" description={`Digite a senha de um administrador para excluir ${deleteUser?.name || "este usuário"}.`} />
-  </div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Usuários</h1>
+        <p className="text-sm text-muted-foreground">
+          Gestão de contas, permissões e chaves de ativação.
+        </p>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {message && <p className="text-sm text-emerald-600">{message}</p>}
+
+      {/* Card: Chaves de ativação */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4" />
+              Chaves de ativação
+            </CardTitle>
+            <CardDescription>
+              Gere chaves para ativação do sistema. Marque &quot;Não expira&quot; para validade indeterminada
+              (só sai do sistema se for excluída).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Rótulo (opcional)</Label>
+                <Input
+                  value={keyLabel}
+                  onChange={(e) => setKeyLabel(e.target.value)}
+                  placeholder="Ex.: Unidade SP"
+                  className="w-48"
+                />
+              </div>
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={keyNeverExpires}
+                  onChange={(e) => setKeyNeverExpires(e.target.checked)}
+                />
+                Não expira
+              </label>
+              <Button type="button" onClick={createKey} disabled={keyLoading}>
+                {keyLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Gerar chave
+              </Button>
+            </div>
+            {keys.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma chave gerada.</p>
+            ) : (
+              <ul className="space-y-2">
+                {keys.map((k) => (
+                  <li
+                    key={k.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"
+                  >
+                    <div>
+                      <code className="font-mono text-xs">{k.code}</code>
+                      <p className="text-xs text-muted-foreground">
+                        {k.label ? `${k.label} · ` : ""}
+                        {k.neverExpires
+                          ? "Não expira"
+                          : k.expiresAt
+                            ? `Expira em ${new Date(k.expiresAt).toLocaleDateString("pt-BR")}`
+                            : "—"}
+                        {k.usedAt
+                          ? ` · Utilizada${k.usedByUser ? ` por ${k.usedByUser.username}` : ""}`
+                          : " · Disponível"}
+                      </p>
+                    </div>
+                    <Button type="button" size="sm" variant="destructive" onClick={() => deleteKey(k.id)}>
+                      Excluir
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card: Usuários cadastrados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="h-4 w-4" />
+            Usuários cadastrados
+          </CardTitle>
+          <CardDescription>{users.length} conta(s) no sistema.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  {user.online ? (
+                    <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  <p className="font-medium">
+                    {user.name}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      @{user.username}
+                    </span>
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {roleLabel[user.role] || user.role}
+                  {user.email ? ` · ${user.email}` : ""}
+                  {user.cargoUsuario ? ` · ${user.cargoUsuario}` : ""}
+                  {" · "}
+                  {offlineText(user)}
+                  {!user.isActive ? " · Inativo" : ""}
+                </p>
+              </div>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button type="button" size="icon" variant="outline" onClick={() => startEdit(user)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    onClick={() => setDeleteUser(user)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Card: Editar */}
+      {editUser && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Editar usuário</CardTitle>
+            <Button type="button" size="icon" variant="ghost" onClick={() => setEditUser(null)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onEdit} className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome de exibição</Label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Nome de usuário</Label>
+                <Input
+                  value={editForm.username}
+                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">E-mail</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Nova senha (opcional)</Label>
+                <Input
+                  type="password"
+                  minLength={4}
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cargo / perfil</Label>
+                <Input
+                  value={editForm.cargoUsuario}
+                  onChange={(e) => setEditForm({ ...editForm, cargoUsuario: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo de acesso</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                >
+                  <option value="USER">Usuário</option>
+                  <option value="MANAGER">Gestor</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Funcionário / motorista</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={editForm.funcionarioId}
+                  onChange={(e) => setEditForm({ ...editForm, funcionarioId: e.target.value })}
+                >
+                  <option value="">Não vincular</option>
+                  {funcionarios
+                    .filter((f) => f.status === "ATIVO")
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nome}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="md:col-span-3">
+                <p className="mb-2 text-xs font-medium">Permissões de páginas</p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {PERMISSION_KEYS.map((key) => (
+                    <label key={key} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={permissions[`${key}.visualizar`] === true}
+                        onChange={(e) =>
+                          setPermissions({ ...permissions, [`${key}.visualizar`]: e.target.checked })
+                        }
+                      />
+                      {PERMISSION_LABELS[key]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salvar alterações
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card: Cadastrar usuário */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserPlus className="h-4 w-4" />
+              Cadastrar usuário
+            </CardTitle>
+            <CardDescription>
+              O e-mail é obrigatório para recuperação de senha.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onCreate} className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome de exibição</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Nome de usuário</Label>
+                <Input
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">E-mail</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                  placeholder="usuario@empresa.com"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Senha</Label>
+                <Input
+                  type="password"
+                  minLength={4}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cargo / perfil</Label>
+                <Input
+                  placeholder="Vendedor, Motorista..."
+                  value={form.cargoUsuario}
+                  onChange={(e) => setForm({ ...form, cargoUsuario: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo de acesso</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                >
+                  <option value="USER">Usuário</option>
+                  <option value="MANAGER">Gestor</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Funcionário / motorista</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={form.funcionarioId}
+                  onChange={(e) => setForm({ ...form, funcionarioId: e.target.value })}
+                >
+                  <option value="">Não vincular</option>
+                  {funcionarios
+                    .filter((f) => f.status === "ATIVO")
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nome}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="md:col-span-3">
+                <p className="mb-2 text-xs font-medium">Permissões iniciais de páginas</p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {PERMISSION_KEYS.map((key) => (
+                    <label key={key} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={permissions[`${key}.visualizar`] === true}
+                        onChange={(e) =>
+                          setPermissions({ ...permissions, [`${key}.visualizar`]: e.target.checked })
+                        }
+                      />
+                      {PERMISSION_LABELS[key]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cadastrar usuário
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <AdminPasswordModal
+        open={Boolean(deleteUser)}
+        onOpenChange={(open) => !open && setDeleteUser(null)}
+        onConfirm={confirmDelete}
+        title="Excluir usuário"
+        description={`Digite a senha de um administrador para excluir ${deleteUser?.name || "este usuário"}.`}
+      />
+    </div>
+  );
 }

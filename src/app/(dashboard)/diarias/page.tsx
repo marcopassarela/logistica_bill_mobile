@@ -56,9 +56,9 @@ export default function DiariasPage() {
     setLoading(true);
     try {
       const [dRes, fRes, cRes] = await Promise.all([
-        fetch("/api/diarias", { cache: "no-store" }),
-        fetch("/api/funcionarios", { cache: "no-store" }),
-        fetch("/api/caminhoes", { cache: "no-store" }),
+        fetch("/api/diarias"),
+        fetch("/api/funcionarios"),
+        fetch("/api/caminhoes"),
       ]);
 
       if (!dRes.ok) throw new Error(await readError(dRes, "Não foi possível carregar as diárias."));
@@ -127,27 +127,58 @@ export default function DiariasPage() {
     setError("");
     setNotice("");
 
+    const funcionario = funcionarios.find((f) => f.id === form.funcionarioId);
+    const caminhao = caminhoes.find((c) => c.id === form.caminhaoId);
+    const tempId = editingId || `temp-${Date.now()}`;
+    const prevEditing = editingId;
+    const prevForm = { ...form };
+
+    const optimistic: Diaria = {
+      id: tempId,
+      funcionarioId: form.funcionarioId,
+      caminhaoId: form.caminhaoId || null,
+      data: form.data,
+      valor: Number(form.valor),
+      observacao: form.observacao.trim() || null,
+      funcionario: { id: form.funcionarioId, nome: funcionario?.nome || "…" },
+      caminhao: form.caminhaoId ? { id: form.caminhaoId, placa: caminhao?.placa || "…" } : null,
+    };
+
+    if (prevEditing) {
+      setDiarias((list) => list.map((d) => (d.id === prevEditing ? optimistic : d)));
+    } else {
+      setDiarias((list) => [optimistic, ...list]);
+    }
+    setEditingId(null);
+    setForm({ ...emptyForm, data: new Date().toLocaleDateString("en-CA") });
+
     try {
       const response = await fetch("/api/diarias", {
-        method: editingId ? "PATCH" : "POST",
+        method: prevEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(editingId ? { id: editingId } : {}),
-          funcionarioId: form.funcionarioId,
-          caminhaoId: form.caminhaoId || null,
-          data: form.data,
-          valor: Number(form.valor),
-          observacao: form.observacao.trim() || null,
+          ...(prevEditing ? { id: prevEditing } : {}),
+          funcionarioId: prevForm.funcionarioId,
+          caminhaoId: prevForm.caminhaoId || null,
+          data: prevForm.data,
+          valor: Number(prevForm.valor),
+          observacao: prevForm.observacao.trim() || null,
         }),
       });
 
       if (!response.ok) throw new Error(await readError(response, "Não foi possível salvar a diária."));
 
-      setNotice(editingId ? "Diária atualizada com sucesso." : "Diária registrada com sucesso.");
-      setEditingId(null);
-      setForm({ ...emptyForm, data: new Date().toLocaleDateString("en-CA") });
-      await loadData();
+      const saved = await response.json();
+      setDiarias((list) =>
+        list.map((d) => (d.id === tempId || d.id === prevEditing ? { ...optimistic, ...saved } : d)),
+      );
+      setNotice(prevEditing ? "Diária atualizada com sucesso." : "Diária registrada com sucesso.");
     } catch (e) {
+      if (prevEditing) {
+        await loadData();
+      } else {
+        setDiarias((list) => list.filter((d) => d.id !== tempId));
+      }
       setError(e instanceof Error ? e.message : "Erro ao salvar a diária.");
     } finally {
       setSaving(false);
@@ -167,10 +198,10 @@ export default function DiariasPage() {
       throw new Error(await readError(response, "Não foi possível excluir a diária."));
     }
 
+    setDiarias((list) => list.filter((d) => d.id !== deleteId));
     setDeleteId(null);
     setNotice("Diária excluída com sucesso.");
     setError("");
-    await loadData();
     return true;
   }
 

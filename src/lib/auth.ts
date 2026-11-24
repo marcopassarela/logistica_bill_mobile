@@ -1,7 +1,13 @@
 import * as argon2 from "argon2";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
+
+// O frontend usa o backend Render quando BACKEND_API_URL está configurada.
+// O Prisma é carregado sob demanda para não tentar abrir Aiven/PostgreSQL na Vercel.
+async function getLocalPrisma() {
+  const { prisma } = await import("./prisma");
+  return prisma;
+}
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "change-me-in-production-min-32-chars!!"
@@ -31,6 +37,7 @@ export async function verifyPassword(
 }
 
 export async function createSession(userId: string, permissions: unknown = {}, role = "USER") {
+  const prisma = await getLocalPrisma();
   const token = crypto.randomUUID() + crypto.randomUUID();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DAYS);
@@ -87,6 +94,7 @@ export async function destroySession() {
       const { payload } = await jwtVerify(jwt, JWT_SECRET);
       const sid = payload.sid as string;
       if (sid) {
+        const prisma = await getLocalPrisma();
         const session = await prisma.session.findUnique({ where: { token: sid }, select: { userId: true } });
         await prisma.session.deleteMany({ where: { token: sid } });
         if (session) await prisma.user.update({ where: { id: session.userId }, data: { lastLogoutAt: new Date(), lastSeenAt: new Date() } });
@@ -121,6 +129,7 @@ export async function getCurrentUser() {
     const { payload } = await jwtVerify(jwt, JWT_SECRET);
     const userId = payload.sub as string;
     const sid = payload.sid as string;
+    const prisma = await getLocalPrisma();
 
     const session = await prisma.session.findUnique({
       where: { token: sid },
@@ -171,6 +180,7 @@ export async function requireAdmin() {
 }
 
 export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const prisma = await getLocalPrisma();
   const admin = await prisma.user.findFirst({
     where: { role: "ADMIN", isActive: true },
   });

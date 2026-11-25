@@ -3,12 +3,13 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { getOrCreateDeviceKey, signDeviceChallenge } from "@/lib/device-crypto";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lock, User } from "lucide-react";
+import { Loader2, Lock, User, KeyRound, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,6 +30,12 @@ export default function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMsg, setForgotMsg] = useState("");
   const [forgotErr, setForgotErr] = useState("");
+
+  const [activationOpen, setActivationOpen] = useState(false);
+  const [activationCode, setActivationCode] = useState("");
+  const [activationLoading, setActivationLoading] = useState(false);
+  const [activationError, setActivationError] = useState("");
+  const [activationSuccess, setActivationSuccess] = useState(false);
 
   async function submitForgot(e: React.FormEvent) {
     e.preventDefault();
@@ -55,6 +62,75 @@ export default function LoginPage() {
   }
 
 
+
+  async function activateDevice(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (activationLoading) return;
+
+    setActivationError("");
+    setActivationSuccess(false);
+    setActivationLoading(true);
+
+    try {
+      const code = activationCode.trim().toUpperCase();
+
+      if (!/^LB-(?:[A-F0-9]{4}-){9}[A-F0-9]{4}$/.test(code)) {
+        throw new Error("Informe uma chave de ativação válida.");
+      }
+
+      const device = await getOrCreateDeviceKey();
+
+      const challengeResponse = await fetch("/api/devices/challenges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: device.publicKey,
+          purpose: "ACTIVATE",
+        }),
+        cache: "no-store",
+      });
+
+      const challengeData = await challengeResponse.json();
+
+      if (!challengeResponse.ok || !challengeData.challenge) {
+        throw new Error(challengeData.error || "Não foi possível iniciar a validação do dispositivo.");
+      }
+
+      const signed = await signDeviceChallenge(challengeData.challenge);
+
+      const response = await fetch("/api/devices/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          publicKey: signed.publicKey,
+          challenge: challengeData.challenge,
+          signature: signed.signature,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível ativar este dispositivo.");
+      }
+
+      setActivationSuccess(true);
+      setActivationCode("");
+
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
+
+      setActivationOpen(false);
+      setActivationSuccess(false);
+    } catch (err) {
+      setActivationError(
+        err instanceof Error ? err.message : "Erro ao ativar o dispositivo."
+      );
+    } finally {
+      setActivationLoading(false);
+    }
+  }
   async function checkDatabase(): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 8000);
@@ -101,10 +177,46 @@ export default function LoginPage() {
         30000
       );
 
+      const loginPayload: {
+        username: string;
+        password: string;
+        publicKey?: string;
+        challenge?: string;
+        signature?: string;
+      } = { username, password };
+
+      try {
+        const device = await getOrCreateDeviceKey();
+
+        const challengeResponse = await fetch("/api/devices/challenges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            publicKey: device.publicKey,
+            purpose: "LOGIN",
+          }),
+          cache: "no-store",
+          signal: loginController.signal,
+        });
+
+        const challengeData = await challengeResponse.json();
+
+        if (challengeResponse.ok && challengeData.challenge) {
+          const signed = await signDeviceChallenge(challengeData.challenge);
+
+          loginPayload.publicKey = signed.publicKey;
+          loginPayload.challenge = challengeData.challenge;
+          loginPayload.signature = signed.signature;
+        }
+      } catch {
+        // Administradores podem entrar sem autorização de dispositivo.
+        // Usuários comuns serão recusados pelo backend se não estiverem autorizados.
+      }
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(loginPayload),
         signal: loginController.signal,
       });
 
@@ -226,6 +338,18 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Entrar
               </Button>
+                <button
+                  type="button"
+                  className="mt-3 flex w-full items-center justify-center gap-2 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setActivationOpen(true);
+                    setActivationError("");
+                    setActivationSuccess(false);
+                  }}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Ativar dispositivo
+                </button>
                 <button
                   type="button"
                   className="mt-3 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
@@ -360,6 +484,92 @@ export default function LoginPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+      {activationOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md rounded-xl border bg-background p-6 text-foreground shadow-2xl"
+          >
+            {activationSuccess ? (
+              <div className="flex flex-col items-center py-6 text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 14 }}
+                  className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"
+                >
+                  <ShieldCheck className="h-10 w-10" />
+                </motion.div>
+                <h2 className="text-xl font-semibold text-emerald-600">
+                  Chave ativada com sucesso!
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Este dispositivo foi autorizado para sua conta.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">Ativar dispositivo</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Informe a chave fornecida pelo administrador.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={activateDevice} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="activation-code">Chave de ativação</Label>
+                    <Input
+                      id="activation-code"
+                      value={activationCode}
+                      onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                      placeholder="LB-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+                      autoComplete="off"
+                      required
+                      disabled={activationLoading}
+                      className="font-mono tracking-wider"
+                    />
+                  </div>
+
+                  {activationError && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {activationError}
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={activationLoading}
+                      onClick={() => setActivationOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={activationLoading || !activationCode.trim()}
+                    >
+                      {activationLoading && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {activationLoading ? "Validando..." : "Ativar"}
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
+          </motion.div>
         </div>
       )}
       {forgotOpen && (

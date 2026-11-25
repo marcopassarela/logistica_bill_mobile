@@ -288,7 +288,7 @@ export function NotificationBell() {
         }}
         aria-label={`Notificações: ${naoLidos} não lidas`}
         aria-expanded={aberto}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground  hover:bg-accent hover:text-foreground"
       >
         <Bell className="h-4 w-4" />
 
@@ -354,7 +354,7 @@ export function NotificationBell() {
                       onClick={() => abrirAlerta(alerta)}
                       disabled={carregando || excluindoId === alerta.id}
                       aria-label={`Abrir notificação: ${alerta.titulo}`}
-                      className={`relative z-10 flex w-full touch-pan-y gap-3 bg-background px-4 py-3 text-left transition-transform duration-200 disabled:opacity-60 ${
+                      className={`relative z-10 flex w-full touch-pan-y gap-3 bg-background px-4 py-3 text-left   disabled:opacity-60 ${
                         deslizado ? "-translate-x-[76px]" : "translate-x-0"
                       } ${alerta.lido ? "opacity-65" : "bg-accent/30"}`}
                     >
@@ -387,7 +387,7 @@ export function NotificationBell() {
                       onClick={() => excluirAlerta(alerta)}
                       disabled={excluindoId !== null}
                       aria-label={`Excluir notificação: ${alerta.titulo}`}
-                      className={`absolute right-0 top-0 flex h-full w-[76px] items-center justify-center bg-red-600 text-white transition-opacity disabled:opacity-50 ${
+                      className={`absolute right-0 top-0 flex h-full w-[76px] items-center justify-center bg-red-600 text-white  disabled:opacity-50 ${
                         deslizado ? "opacity-100" : "opacity-0"
                       }`}
                     >

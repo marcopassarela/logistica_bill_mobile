@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageTransition } from "./PageTransition";
@@ -92,12 +91,8 @@ export function DashboardShell({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen bg-background text-foreground"
-    >
+    <div className="min-h-screen bg-background text-foreground">
+
       <RealtimeSync />
       <Sidebar
         userName={userName}
@@ -109,7 +104,7 @@ export function DashboardShell({
       />
 
       <div
-        className={`min-h-screen transition-[padding] duration-200 ease-in-out ${
+        className={`min-h-screen  ${
           collapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
         }`}
       >
@@ -124,6 +119,7 @@ export function DashboardShell({
           </UserAccessProvider>
         </main>
       </div>
-    </motion.div>
+    </div>
+
   );
 }

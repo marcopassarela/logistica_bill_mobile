@@ -176,7 +176,7 @@ export default function DashboardCharts({
                 key={item.name}
                 onClick={() => onStatusClick(item.status)}
                 aria-label={`Filtrar caminhões: ${item.name}`}
-                className="flex min-w-0 items-center justify-between gap-2 rounded-md text-left text-xs transition-colors hover:bg-muted/60"
+                className="flex min-w-0 items-center justify-between gap-2 rounded-md text-left text-xs  hover:bg-muted/60"
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span

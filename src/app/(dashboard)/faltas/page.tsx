@@ -333,7 +333,7 @@ export default function FaltasPage() {
               <div className="flex gap-2">
                 <Button className="flex-1" type="submit" disabled={saving || loading || activeEmployees.length === 0}>
                   {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 " />
                   ) : editingId ? (
                     <Pencil className="mr-2 h-4 w-4" />
                   ) : (

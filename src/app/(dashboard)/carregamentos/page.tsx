@@ -4,7 +4,6 @@ import { NotaFiscalPdfViewer } from "@/components/NotaFiscalPdfViewer";
 import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 import { uploadPresigned } from "@vercel/blob/client";
@@ -894,7 +893,7 @@ async function confirmDeleteItem(password: string) {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "" : ""}`} />
           Atualizar
         </Button>
       </div>
@@ -999,7 +998,7 @@ async function confirmDeleteItem(password: string) {
                   <>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full transition-all ${
+                        className={`h-full  ${
                           percentual > 100 ? "bg-red-600" : percentual > 90 ? "bg-amber-500" : "bg-green-500"
                         }`}
                         style={{ width: `${Math.min(percentual, 100)}%` }}
@@ -1114,7 +1113,7 @@ async function confirmDeleteItem(password: string) {
                             onClick={() => void removerNotaFiscal(item.key)}
                             aria-label="Remover nota fiscal"
                             title="Remover nota fiscal"
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground  hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -1145,7 +1144,7 @@ async function confirmDeleteItem(password: string) {
               )}
 
               <Button type="submit" className="w-full" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <Loader2 className="mr-2 h-4 w-4 " />}
                 <PackageCheck className="mr-2 h-4 w-4" />
                 {editingId ? "Salvar alterações" : "Salvar no banco"}
               </Button>
@@ -1190,12 +1189,7 @@ async function confirmDeleteItem(password: string) {
             ) : (
               <div className="space-y-4">
                 {listaFiltrada.map((c, i) => (
-                  <motion.div
-                    key={c.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="rounded-xl border p-3 space-y-2 sm:p-4"
+                  <div key={c.id} className="rounded-xl border p-3 space-y-2 sm:p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -1223,7 +1217,7 @@ async function confirmDeleteItem(password: string) {
                         <span className="text-muted-foreground">{c.itens.filter((item) => item.statusItem === "CARREGADO").length}/{c.itens.length} paradas carregadas</span>
                       </div>
                       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${c.itens.length ? (c.itens.filter((item) => item.statusItem === "CARREGADO").length / c.itens.length) * 100 : 0}%` }} />
+                        <div className="h-full rounded-full bg-emerald-500 " style={{ width: `${c.itens.length ? (c.itens.filter((item) => item.statusItem === "CARREGADO").length / c.itens.length) * 100 : 0}%` }} />
                       </div>
                     </div>
 
@@ -1401,7 +1395,7 @@ async function confirmDeleteItem(password: string) {
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>}
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}

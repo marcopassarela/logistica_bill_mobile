@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { getOrCreateDeviceKey, signDeviceChallenge } from "@/lib/device-crypto";
 
 import { Button } from "@/components/ui/button";
@@ -257,12 +256,8 @@ export default function LoginPage() {
     await performLogin();
   }
   return (
-    <motion.div initial={false} animate={{ opacity: isNavigating ? 0 : 1 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md"
+    <div className="light flex min-h-screen items-center justify-center bg-gradient-to-br from-[#02040a] via-[#10264a] to-[#02040a] p-4">
+      <div className="w-full max-w-md"
       >
         <Card className="border-0 shadow-2xl">
           <CardHeader className="space-y-4 text-center">
@@ -326,16 +321,13 @@ export default function LoginPage() {
                 </div>
               </div>
               {error && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-sm text-destructive text-center"
+                <p className="text-sm text-destructive text-center"
                 >
                   {error}
-                </motion.p>
+                </p>
               )}
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading && <Loader2 className="mr-2 h-4 w-4 " />}
                 Entrar
               </Button>
                 <button
@@ -363,7 +355,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs text-white/50">
           © {new Date().getFullYear()} Logísticas Bill — Todos os direitos reservados
         </p>
-      </motion.div>
+      </div>
       {(showStartupModal || slowConnection) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4"
@@ -488,21 +480,14 @@ export default function LoginPage() {
       )}
       {activationOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-md rounded-xl border bg-background p-6 text-foreground shadow-2xl"
+          <div className="w-full max-w-md rounded-xl border bg-background p-6 text-foreground shadow-2xl"
           >
             {activationSuccess ? (
               <div className="flex flex-col items-center py-6 text-center">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 14 }}
-                  className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"
                 >
                   <ShieldCheck className="h-10 w-10" />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold text-emerald-600">
                   Chave ativada com sucesso!
                 </h2>
@@ -561,7 +546,7 @@ export default function LoginPage() {
                       disabled={activationLoading || !activationCode.trim()}
                     >
                       {activationLoading && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 " />
                       )}
                       {activationLoading ? "Validando..." : "Ativar"}
                     </Button>
@@ -569,7 +554,7 @@ export default function LoginPage() {
                 </form>
               </>
             )}
-          </motion.div>
+          </div>
         </div>
       )}
       {forgotOpen && (
@@ -602,7 +587,7 @@ export default function LoginPage() {
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 

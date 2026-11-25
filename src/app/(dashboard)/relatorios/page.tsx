@@ -518,7 +518,7 @@ export default function RelatoriosPage() {
                       setGerado(false);
                       setError("");
                     }}
-                    className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                    className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm  ${
                       tipo === t.id
                         ? "border-primary bg-primary/10 font-semibold"
                         : "hover:bg-muted"

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -184,7 +184,7 @@ export function PushNotificationSetup() {
           onClick={dismissModal}
           disabled={loading}
           aria-label="Fechar"
-          className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent"
+          className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground  hover:bg-accent"
         >
           <X className="h-4 w-4" />
         </button>
@@ -213,10 +213,10 @@ export function PushNotificationSetup() {
             type="button"
             onClick={activateNotifications}
             disabled={loading}
-            className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground  hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 " />
             ) : (
               <BellRing className="h-4 w-4" />
             )}
@@ -227,7 +227,7 @@ export function PushNotificationSetup() {
             type="button"
             onClick={dismissModal}
             disabled={loading}
-            className="mt-3 h-9 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            className="mt-3 h-9 text-sm text-muted-foreground  hover:text-foreground disabled:opacity-50"
           >
             Agora não
           </button>

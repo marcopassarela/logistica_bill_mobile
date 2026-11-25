@@ -105,7 +105,7 @@
     #60a5fa 345deg,
     transparent 360deg
   );
-  animation: border-continuous 2.8s linear infinite;
+  background: #2563eb;
 }
 
 .input-animated-border::after {
@@ -132,15 +132,6 @@
   box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
 }
 
-@keyframes border-continuous {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Borda fixa dos campos de login */
 input.login-input-field,
@@ -163,33 +154,5 @@ input.login-input-field:focus-visible {
   [role="button"]:focus:not(:focus-visible) {
     outline: none !important;
     box-shadow: none !important;
-  }
-}
-
-
-/* SCREEN_ASSEMBLY_CSS_ANIMATION */
-.screen-assembly-item {
-  animation-name: screen-assembly-enter;
-  animation-duration: 620ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  animation-fill-mode: both;
-  transform-origin: center bottom;
-}
-
-@keyframes screen-assembly-enter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 24px, 0) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .screen-assembly-item {
-    animation: none;
   }
 }

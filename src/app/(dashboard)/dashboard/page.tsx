@@ -23,8 +23,8 @@ const DashboardCharts = dynamic(
         aria-busy="true"
         className="grid items-stretch gap-6 lg:grid-cols-3"
       >
-        <div className="min-h-[340px] animate-pulse rounded-xl bg-muted lg:col-span-2" />
-        <div className="min-h-[340px] animate-pulse rounded-xl bg-muted" />
+        <div className="min-h-[340px]  rounded-xl bg-muted lg:col-span-2" />
+        <div className="min-h-[340px]  rounded-xl bg-muted" />
       </div>
     ),
   }
@@ -178,7 +178,7 @@ export default function DashboardPage() {
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? "" : ""}`} />
           Atualizar
         </button>
       </div></ScreenAssembly>
@@ -200,7 +200,7 @@ export default function DashboardPage() {
             {stats.map((stat) => {
               const Icon = stat.icon;
               const card = (
-                <Card className="h-full transition-all duration-200 hover:border-primary/40 hover:shadow-md">
+                <Card className="h-full   hover:border-primary/40 hover:shadow-md">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-foreground/80">{stat.title}</CardTitle>
                     <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.iconBg}`}><Icon className={`h-5 w-5 ${stat.color}`} /></span>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-3">
                     {data.recentes.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3 text-sm transition-colors hover:bg-muted/40">
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3 text-sm  hover:bg-muted/40">
                         <div className="min-w-0">
                           <p className="font-medium">{item.placa}</p>
                           <div className="mt-1 space-y-1 text-foreground/80">{item.itens.length ? item.itens.map((itemCarga, index) => (<p key={`${item.id}-${index}`}>{itemCarga.nome}<span className="text-muted-foreground"> • {numberFormat.format(itemCarga.pesoKg)} kg</span></p>)) : <p className="text-muted-foreground">Sem item informado</p>}</div><p className="mt-1 font-medium">Total: {numberFormat.format(item.pesoToneladas)} t</p>

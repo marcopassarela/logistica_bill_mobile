@@ -1086,7 +1086,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => load()} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "" : ""}`} />
           {refreshing ? "Atualizando..." : "Atualizar"}
         </Button>
       </div>
@@ -1232,7 +1232,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
           onClick={() => doSearch(idx)}
           disabled={searching && searchIdx === idx}>
           {searching && searchIdx === idx
-            ? <Loader2 className="h-4 w-4 animate-spin" />
+            ? <Loader2 className="h-4 w-4 " />
             : <Search className="h-4 w-4" />}
         </Button>
       </div>
@@ -1285,7 +1285,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                           onClick={() => setPastasAbertas((prev) => ({ ...prev, [pasta]: !aberta }))}
                           aria-expanded={aberta}
                         >
-                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${aberta ? "" : "-rotate-90"}`} />
+                          <ChevronDown className={`h-4 w-4 shrink-0  ${aberta ? "" : "-rotate-90"}`} />
                           <span aria-hidden="true">📁</span>
                           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{pasta}</span>
                           <Badge variant="secondary">{itens.length}</Badge>
@@ -1362,14 +1362,14 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                 disabled={routing || saving}
               >
                 {routing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 " />
                 ) : (
                   <Route className="mr-2 h-4 w-4" />
                 )}
                 Otimizar melhor rota
               </Button>
               <Button type="button" onClick={salvarRota} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                {saving ? <Loader2 className="mr-2 h-4 w-4 " /> : <MapPin className="mr-2 h-4 w-4" />}
                 Salvar rota no banco
               </Button>
             </div>
@@ -1418,7 +1418,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                 rotas.map((r) => (
                   <div
                     key={r.id}
-                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm cursor-pointer transition-colors ${
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm cursor-pointer  ${
                       selectedRotaId === r.id ? "border-primary bg-primary/5" : "hover:bg-muted/40"
                     }`}
                     onClick={() => verRotaSalva(r)}
@@ -1444,7 +1444,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                         {r.pontos.slice(1).map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${p.concluido ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30" : "border-transparent bg-muted/40"}`}
+                            className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5  ${p.concluido ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30" : "border-transparent bg-muted/40"}`}
                           >
                             <span className={`min-w-0 truncate text-xs ${
                               p.concluido ? "text-muted-foreground line-through" : ""
@@ -1574,7 +1574,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                 onClick={confirmarSalvarFavorito}
                 disabled={favoritoSalvando || !favoritoNome.trim() || (favoritoPasta === "__nova__" && !novaPasta.trim())}
               >
-                {favoritoSalvando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
+                {favoritoSalvando ? <Loader2 className="mr-2 h-4 w-4 " /> : <Star className="mr-2 h-4 w-4" />}
                 Salvar favorito
               </Button>
             </div>

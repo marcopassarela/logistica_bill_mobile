@@ -1,8 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   Map,
@@ -146,7 +145,7 @@ export function Sidebar({
                 title={isCollapsed && !isMobile ? item.label : undefined}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex min-h-10 items-center rounded-lg text-sm font-medium transition-colors",
+                  "flex min-h-10 items-center rounded-lg text-sm font-medium ",
                   isCollapsed
                     ? "justify-center px-2"
                     : "gap-3 px-3",
@@ -214,19 +213,15 @@ export function Sidebar({
         />
       )}
 
-      <motion.aside
-        initial={false}
-        animate={{ x: mobileOpen ? 0 : "-100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-sidebar text-sidebar-foreground shadow-xl lg:hidden"
+      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-sidebar text-sidebar-foreground shadow-xl lg:hidden"
         aria-label="Menu móvel"
       >
         {renderContent(false, true)}
-      </motion.aside>
+      </aside>
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out lg:flex",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar text-sidebar-foreground ]  ease-in-out lg:flex",
           collapsed ? "w-[4.5rem]" : "w-64"
         )}
         aria-label="Menu principal"

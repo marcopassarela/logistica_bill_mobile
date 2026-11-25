@@ -81,7 +81,7 @@ function ResetForm() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8  text-muted-foreground" />
       </div>
     );
   }
@@ -141,7 +141,7 @@ function ResetForm() {
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <Loader2 className="mr-2 h-4 w-4 " />}
                 Salvar nova senha
               </Button>
             </form>
@@ -157,7 +157,7 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="h-8 w-8  text-muted-foreground" />
         </div>
       }
     >

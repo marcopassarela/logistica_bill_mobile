@@ -77,6 +77,36 @@ export default function DiariasPage() {
     }
   }, []);
 
+  const refreshDiarias = useCallback(async () => {
+    try {
+      const response = await fetch("/api/diarias", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(await readError(response, "Não foi possível atualizar as diárias."));
+      }
+      setDiarias(await response.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao atualizar as diárias.");
+    }
+  }, []);
+
+  const refreshReferences = useCallback(async () => {
+    try {
+      const [fRes, cRes] = await Promise.all([
+        fetch("/api/funcionarios", { cache: "no-store" }),
+        fetch("/api/caminhoes", { cache: "no-store" }),
+      ]);
+
+      if (!fRes.ok) throw new Error(await readError(fRes, "Não foi possível atualizar os funcionários."));
+      if (!cRes.ok) throw new Error(await readError(cRes, "Não foi possível atualizar os caminhões."));
+
+      const [f, c] = await Promise.all([fRes.json(), cRes.json()]);
+      setFuncionarios(f);
+      setCaminhoes(c);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao atualizar os dados de referência.");
+    }
+  }, []);
+
   useEffect(() => {
     void loadData();
   }, [loadData]);
@@ -84,18 +114,20 @@ export default function DiariasPage() {
   useEffect(() => {
     function onDataChanged(event: Event) {
       const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
-      if (
-        modules?.some((module) =>
-          ["diarias", "funcionarios", "caminhoes"].includes(module)
-        )
-      ) {
-        void loadData();
+
+      if (modules.includes("diarias")) {
+        void refreshDiarias();
+        return;
+      }
+
+      if (modules.includes("funcionarios") || modules.includes("caminhoes")) {
+        void refreshReferences();
       }
     }
 
     window.addEventListener("logistica:data-changed", onDataChanged);
     return () => window.removeEventListener("logistica:data-changed", onDataChanged);
-  }, [loadData]);
+  }, [refreshDiarias, refreshReferences]);
 
   function changeField(field: keyof typeof emptyForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -220,7 +252,7 @@ export default function DiariasPage() {
     setDeleteAllOpen(false);
     setNotice(`${result.count} diária(s) excluída(s) com sucesso.`);
     setError("");
-    await loadData();
+    setDiarias([]);
     return true;
   }
 
@@ -304,7 +336,7 @@ export default function DiariasPage() {
 
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1" disabled={saving || loading}>
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> :
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 " /> :
                     editingId ? <Pencil className="mr-2 h-4 w-4" /> : <CalendarDays className="mr-2 h-4 w-4" />}
                   {saving ? "Salvando..." : editingId ? "Salvar alterações" : "Salvar Diária"}
                 </Button>

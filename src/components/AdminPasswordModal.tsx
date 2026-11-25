@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import {
@@ -80,7 +80,7 @@ export function AdminPasswordModal({
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
             <Button type="submit" variant="destructive" disabled={loading || !password}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Loader2 className="mr-2 h-4 w-4 " />}
               Confirmar
             </Button>
           </div>

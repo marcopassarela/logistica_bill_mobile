@@ -90,6 +90,11 @@ export default function UsuariosPage() {
   const [keys, setKeys] = useState<ActivationKey[]>([]);
   const [selectedTargetUserId, setSelectedTargetUserId] = useState("");
   const [keyNeverExpires, setKeyNeverExpires] = useState(false);
+  const [keyExpiresAt, setKeyExpiresAt] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().slice(0, 10);
+  });
   const [keyLoading, setKeyLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
 
@@ -102,8 +107,8 @@ export default function UsuariosPage() {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError("");
     try {
       const [uRes, fRes] = await Promise.all([
@@ -122,7 +127,7 @@ export default function UsuariosPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar.");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [loadKeys]);
 
@@ -148,6 +153,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           targetUserId: selectedTargetUserId,
           neverExpires: keyNeverExpires,
+          expiresAt: keyNeverExpires ? null : keyExpiresAt,
         }),
       });
 
@@ -155,9 +161,18 @@ export default function UsuariosPage() {
       if (!res.ok) throw new Error(data.error || "Falha ao gerar chave.");
 
       setGeneratedCode(data.code || "");
+      setKeys((current) => [
+        {
+          ...data.key,
+          usedAt: null,
+          closedAt: null,
+          closedReason: null,
+          status: "PENDING" as const,
+        },
+        ...current,
+      ]);
       setKeyNeverExpires(false);
       setMessage(data.message || "Chave de ativação gerada.");
-      await loadKeys();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao gerar chave.");
     } finally {
@@ -178,10 +193,11 @@ export default function UsuariosPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Não foi possível revogar a chave.");
 
-      setMessage("Chave revogada.");
-      await loadKeys();
+      setKeys((current) => current.filter((key) => key.id !== id));
+      setMessage("Chave revogada e removida.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao revogar chave.");
+      await loadKeys();
     }
   }
 
@@ -206,7 +222,7 @@ export default function UsuariosPage() {
       setForm({ ...emptyForm });
       setPermissions({});
       setMessage("Usuário cadastrado com sucesso.");
-      await load();
+      void load(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao cadastrar.");
     } finally {
@@ -256,7 +272,7 @@ export default function UsuariosPage() {
       if (!res.ok) throw new Error(data.error || "Falha ao atualizar.");
       setEditUser(null);
       setMessage("Usuário atualizado.");
-      await load();
+      void load(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar.");
     } finally {
@@ -275,7 +291,7 @@ export default function UsuariosPage() {
     if (!res.ok) throw new Error(data.error || "Não foi possível excluir.");
     setDeleteUser(null);
     setMessage("Usuário excluído.");
-    await load();
+    void load(false);
     return true;
   }
 
@@ -332,6 +348,18 @@ export default function UsuariosPage() {
                 </select>
               </div>
 
+              {!keyNeverExpires && (
+                <div className="min-w-48 flex-1 space-y-1">
+                  <Label className="text-xs">Data de expiração</Label>
+                  <Input
+                    type="date"
+                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    value={keyExpiresAt}
+                    onChange={(e) => setKeyExpiresAt(e.target.value)}
+                  />
+                </div>
+              )}
+
               <label className="flex items-center gap-2 pb-2 text-sm">
                 <input
                   type="checkbox"
@@ -355,7 +383,13 @@ export default function UsuariosPage() {
               <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
                 <p className="text-sm font-medium">Código gerado — copie agora</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="break-all font-mono text-sm">{generatedCode}</code>
+                  <Input
+                    aria-label="Código de ativação gerado"
+                    readOnly
+                    value={generatedCode}
+                    className="min-w-0 flex-1 font-mono text-sm"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                   <Button
                     type="button"
                     size="sm"
@@ -427,55 +461,49 @@ export default function UsuariosPage() {
           </CardTitle>
           <CardDescription>{users.length} conta(s) no sistema.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {user.online ? (
-                    <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-                  ) : (
-                    <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                  <p className="font-medium">
-                    {user.name}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      @{user.username}
-                    </span>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {users.map((user) => (
+              <div key={user.id} className="flex min-w-0 flex-col justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {user.online ? (
+                      <Wifi className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <WifiOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <p className="truncate font-medium">{user.name}</p>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
+                  <p className="text-xs font-medium">
+                    {roleLabel[user.role] || user.role}
+                    {user.cargoUsuario ? ` · ${user.cargoUsuario}` : ""}
                   </p>
+                  <p className="text-xs text-muted-foreground">{offlineText(user)}</p>
+                  {!user.isActive && (
+                    <p className="text-xs text-destructive">Inativo</p>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {roleLabel[user.role] || user.role}
-                  {user.email ? ` · ${user.email}` : ""}
-                  {user.cargoUsuario ? ` · ${user.cargoUsuario}` : ""}
-                  {" · "}
-                  {offlineText(user)}
-                  {!user.isActive ? " · Inativo" : ""}
-                </p>
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <Button type="button" size="icon" variant="outline" onClick={() => startEdit(user)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      onClick={() => setDeleteUser(user)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
-              {isAdmin && (
-                <div className="flex gap-2">
-                  <Button type="button" size="icon" variant="outline" onClick={() => startEdit(user)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="destructive"
-                    onClick={() => setDeleteUser(user)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </CardContent>
       </Card>
-
       {/* Card: Editar */}
       {editUser && (
         <Card>

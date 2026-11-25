@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Loader2, Pencil, Trash2, UserPlus, Users, Wifi, WifiOff, X } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, Pencil, Trash2, UserPlus, Users, Wifi, WifiOff, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,8 +93,10 @@ export default function UsuariosPage() {
   const [keyExpiresAt, setKeyExpiresAt] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 30);
-    return date.toISOString().slice(0, 10);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    return date.toISOString().slice(0, 16);
   });
+  const [codeCopied, setCodeCopied] = useState(false);
   const [keyLoading, setKeyLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
 
@@ -141,6 +143,11 @@ export default function UsuariosPage() {
       return;
     }
 
+    if (!keyNeverExpires && (!keyExpiresAt || new Date(keyExpiresAt).getTime() <= Date.now())) {
+      setError("Selecione uma data e hora futuras para a expiração.");
+      return;
+    }
+
     setKeyLoading(true);
     setError("");
     setMessage("");
@@ -153,7 +160,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           targetUserId: selectedTargetUserId,
           neverExpires: keyNeverExpires,
-          expiresAt: keyNeverExpires ? null : keyExpiresAt,
+          expiresAt: keyNeverExpires ? null : new Date(keyExpiresAt).toISOString(),
         }),
       });
 
@@ -161,6 +168,7 @@ export default function UsuariosPage() {
       if (!res.ok) throw new Error(data.error || "Falha ao gerar chave.");
 
       setGeneratedCode(data.code || "");
+      setCodeCopied(false);
       setKeys((current) => [
         {
           ...data.key,
@@ -177,6 +185,17 @@ export default function UsuariosPage() {
       setError(e instanceof Error ? e.message : "Erro ao gerar chave.");
     } finally {
       setKeyLoading(false);
+    }
+  }
+
+  async function copyGeneratedCode() {
+    if (!generatedCode) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+      setCodeCopied(true);
+    } catch {
+      setError("Não foi possível copiar o código. Selecione o campo e copie manualmente.");
     }
   }
 
@@ -315,142 +334,110 @@ export default function UsuariosPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {message && <p className="text-sm text-emerald-600">{message}</p>}
 
-      {/* Card: Chaves de ativação */}
+      {/* Card: Gerar chave de ativação */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <KeyRound className="h-4 w-4" />
-              Chaves de ativação
-            </CardTitle>
-            <CardDescription>
-              Gere uma chave exclusiva para vincular um dispositivo à conta de um usuário ativo.
-              O código completo será exibido somente uma vez.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-64 flex-1 space-y-1">
-                <Label className="text-xs">Usuário que receberá a chave</Label>
-                <select
-                  value={selectedTargetUserId}
-                  onChange={(e) => setSelectedTargetUserId(e.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Selecione um usuário</option>
-                  {users
-                    .filter((user) => user.isActive && user.role !== "ADMIN")
-                    .map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} (@{user.username})
-                      </option>
-                    ))}
-                </select>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="h-4 w-4" />
+                Gerar chave de ativação
+              </CardTitle>
+              <CardDescription>
+                Escolha o usuário, defina a validade e gere uma chave exclusiva para ativar um dispositivo.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>Usuário que receberá a chave</Label>
+                  <select
+                    value={selectedTargetUserId}
+                    onChange={(e) => setSelectedTargetUserId(e.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Selecione um usuário</option>
+                    {users
+                      .filter((user) => user.isActive && user.role !== "ADMIN")
+                      .map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} (@{user.username})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {!keyNeverExpires && (
+                  <div className="space-y-1">
+                    <Label>Data e hora de expiracao</Label>
+                    <Input
+                      type="datetime-local"
+                      min={(() => {
+                        const now = new Date();
+                        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                        return now.toISOString().slice(0, 16);
+                      })()}
+                      value={keyExpiresAt}
+                      onChange={(e) => setKeyExpiresAt(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
-              {!keyNeverExpires && (
-                <div className="min-w-48 flex-1 space-y-1">
-                  <Label className="text-xs">Data de expiração</Label>
-                  <Input
-                    type="date"
-                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                    value={keyExpiresAt}
-                    onChange={(e) => setKeyExpiresAt(e.target.value)}
-                  />
-                </div>
-              )}
-
-              <label className="flex items-center gap-2 pb-2 text-sm">
+              <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={keyNeverExpires}
                   onChange={(e) => setKeyNeverExpires(e.target.checked)}
                 />
-                Não expira
+                Esta chave não expira
               </label>
 
               <Button
                 type="button"
                 onClick={createKey}
                 disabled={keyLoading || !selectedTargetUserId}
+                className="w-full sm:w-auto"
               >
                 {keyLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Gerar chave
+                Gerar chave de ativação
               </Button>
-            </div>
 
-            {generatedCode && (
-              <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
-                <p className="text-sm font-medium">Código gerado — copie agora</p>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="space-y-2 rounded-lg border p-3">
+                <Label>Código de ativação</Label>
+                <div className="flex items-center gap-2">
                   <Input
                     aria-label="Código de ativação gerado"
                     readOnly
                     value={generatedCode}
+                    placeholder="O código aparecerá aqui após a geração"
                     className="min-w-0 flex-1 font-mono text-sm"
                     onFocus={(e) => e.currentTarget.select()}
                   />
                   <Button
                     type="button"
-                    size="sm"
+                    size="icon"
                     variant="outline"
-                    onClick={() => void navigator.clipboard.writeText(generatedCode)}
+                    onClick={copyGeneratedCode}
+                    disabled={!generatedCode}
+                    aria-label={codeCopied ? "Codigo copiado" : "Copiar código"}
+                    title={codeCopied ? "Copiado!" : "Copiar código"}
                   >
-                    Copiar código
+                    {codeCopied
+                      ? <Check className="h-4 w-4" />
+                      : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Por segurança, esse código não poderá ser consultado novamente.
+                  O código completo é exibido após a geração. Copie e compartilhe com o usuário.
                 </p>
               </div>
-            )}
+            </CardContent>
+          </Card>
 
-            {keys.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma chave gerada.</p>
-            ) : (
-              <ul className="space-y-2">
-                {keys.map((k) => (
-                  <li
-                    key={k.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {k.targetUser?.name || "Usuário não identificado"}
-                        {k.targetUser?.username ? ` (@${k.targetUser.username})` : ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Criada em {new Date(k.createdAt).toLocaleDateString("pt-BR")}
-                        {" · "}
-                        {k.expiresAt
-                          ? `Expira em ${new Date(k.expiresAt).toLocaleDateString("pt-BR")}`
-                          : "Não expira"}
-                        {" · "}
-                        {{
-                          PENDING: "Pendente",
-                          USED: "Utilizada",
-                          EXPIRED: "Expirada",
-                          REVOKED: "Revogada",
-                        }[k.status]}
-                      </p>
-                    </div>
 
-                    {k.status === "PENDING" && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteKey(k.id)}
-                      >
-                        Revogar
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        </>
       )}
       {/* Card: Usuários cadastrados */}
       <Card>

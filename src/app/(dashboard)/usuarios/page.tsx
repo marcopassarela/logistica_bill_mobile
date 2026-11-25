@@ -99,6 +99,7 @@ export default function UsuariosPage() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [keyLoading, setKeyLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [generatedKeyId, setGeneratedKeyId] = useState('');
 
   const loadKeys = useCallback(async () => {
     try {
@@ -152,6 +153,7 @@ export default function UsuariosPage() {
     setError("");
     setMessage("");
     setGeneratedCode("");
+    setGeneratedKeyId('');
 
     try {
       const res = await fetch("/api/activation-keys", {
@@ -168,6 +170,7 @@ export default function UsuariosPage() {
       if (!res.ok) throw new Error(data.error || "Falha ao gerar chave.");
 
       setGeneratedCode(data.code || "");
+      setGeneratedKeyId(data.key.id);
       setCodeCopied(false);
       setKeys((current) => [
         {
@@ -404,35 +407,63 @@ export default function UsuariosPage() {
                 Gerar chave de ativação
               </Button>
 
-              <div className="space-y-2 rounded-lg border p-3">
-                <Label>Código de ativação</Label>
+
+            </CardContent>
+          </Card>
+          {generatedCode && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Chave gerada</CardTitle>
+                <CardDescription>Copie o código e compartilhe com o usuário.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Input
-                    aria-label="Código de ativação gerado"
-                    readOnly
-                    value={generatedCode}
-                    placeholder="O código aparecerá aqui após a geração"
-                    className="min-w-0 flex-1 font-mono text-sm"
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={copyGeneratedCode}
-                    disabled={!generatedCode}
-                    aria-label={codeCopied ? "Codigo copiado" : "Copiar código"}
-                    title={codeCopied ? "Copiado!" : "Copiar código"}
-                  >
-                    {codeCopied
-                      ? <Check className="h-4 w-4" />
-                      : <Copy className="h-4 w-4" />}
+                  <Input readOnly value={generatedCode} className="min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
+                  <Button type="button" size="icon" variant="outline" onClick={copyGeneratedCode}>
+                    {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  O código completo é exibido após a geração. Copie e compartilhe com o usuário.
-                </p>
-              </div>
+                {(() => {
+                  const item = keys.find((key) => key.id === generatedKeyId);
+                  if (!item) return null;
+                  return (
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <p>Usuário: {item.targetUser?.name || item.targetUser?.username || "Não identificado"}</p>
+                      <p>Criada em: {new Date(item.createdAt).toLocaleString("pt-BR")}</p>
+                      <p>Validade: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("pt-BR") : "Não expira"}</p>
+                      <p>Status: Não ativado</p>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="h-4 w-4" />
+                Histórico de chaves de ativação
+              </CardTitle>
+              <CardDescription>Acompanhe as chaves pendentes e utilizadas.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {keys.filter((key) => key.status !== "REVOKED").length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma chave registrada.</p>
+              ) : keys.filter((key) => key.status !== "REVOKED").map((key) => (
+                <div key={key.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 space-y-1 text-sm">
+                    <p className="font-medium">{key.targetUser?.name || "Usuário não identificado"} {key.targetUser?.username ? `(@${key.targetUser.username})` : ""}</p>
+                    <p className="text-muted-foreground">Criada em: {new Date(key.createdAt).toLocaleString("pt-BR")}</p>
+                    <p className="text-muted-foreground">Validade: {key.expiresAt ? new Date(key.expiresAt).toLocaleString("pt-BR") : "Não expira"}</p>
+                    <p>Status: {key.status === "USED" ? <span className="text-emerald-600">Ativado</span> : key.status === "PENDING" ? <span className="text-amber-600">Não ativado</span> : <span className="text-muted-foreground">Expirada</span>}</p>
+                    {key.usedAt && <p className="text-muted-foreground">Ativada em: {new Date(key.usedAt).toLocaleString("pt-BR")}</p>}
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => deleteKey(key.id)}>
+                    <Trash2 className="mr-2 h-4 w-4" />Remover
+                  </Button>
+                </div>
+              ))}
             </CardContent>
           </Card>
 

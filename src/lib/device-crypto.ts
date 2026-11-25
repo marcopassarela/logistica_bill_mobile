@@ -91,6 +91,15 @@ export async function getOrCreateDeviceKey(): Promise<{
     throw new Error("Este navegador n�o oferece suporte � seguran�a do dispositivo.");
   }
 
+  // Solicita proteção contra limpeza automática dos dados do site.
+  try {
+    if (navigator.storage?.persist) {
+      await navigator.storage.persist();
+    }
+  } catch {
+    // O navegador pode não oferecer ou conceder essa proteção.
+  }
+
   const stored = await readStoredKey();
 
   if (stored) {
@@ -102,6 +111,17 @@ export async function getOrCreateDeviceKey(): Promise<{
       (stored.privateKey.algorithm as EcKeyAlgorithm).namedCurve !== "P-256"
     ) {
       throw new Error("A chave de seguran�a armazenada � inv�lida.");
+    }
+
+    // Confirma que a chave privada persistida continua utilizável.
+    const testSignature = await crypto.subtle.sign(
+      { name: "ECDSA", hash: "SHA-256" },
+      stored.privateKey,
+      crypto.getRandomValues(new Uint8Array(32)),
+    );
+
+    if (testSignature.byteLength === 0) {
+      throw new Error("Assinatura da chave armazenada inválida.");
     }
 
     return {

@@ -138,6 +138,25 @@ export default function UsuariosPage() {
     void load();
   }, [load]);
 
+  // Atualiza o histórico quando outra pessoa ativa uma chave.
+  useEffect(() => {
+    const refreshKeys = () => {
+      if (document.visibilityState === "visible") {
+        void loadKeys();
+      }
+    };
+
+    window.addEventListener("focus", refreshKeys);
+    document.addEventListener("visibilitychange", refreshKeys);
+    const timer = window.setInterval(refreshKeys, 15000);
+
+    return () => {
+      window.removeEventListener("focus", refreshKeys);
+      document.removeEventListener("visibilitychange", refreshKeys);
+      window.clearInterval(timer);
+    };
+  }, [loadKeys]);
+
   async function createKey() {
     if (!selectedTargetUserId) {
       setError("Selecione o usuário que receberá a chave.");
@@ -431,7 +450,7 @@ export default function UsuariosPage() {
                       <p>Usuário: {item.targetUser?.name || item.targetUser?.username || "Não identificado"}</p>
                       <p>Criada em: {new Date(item.createdAt).toLocaleString("pt-BR")}</p>
                       <p>Validade: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("pt-BR") : "Não expira"}</p>
-                      <p>Status: Não ativado</p>
+                      <p>Status: {item.status === "USED" ? <span className="font-medium text-emerald-600">Ativada</span> : item.status === "PENDING" ? <span className="font-medium text-amber-600">Não ativado</span> : <span className="text-muted-foreground">{item.status === "REVOKED" ? "Revogada" : "Expirada"}</span>}</p>
                     </div>
                   );
                 })()}

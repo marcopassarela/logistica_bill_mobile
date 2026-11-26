@@ -163,6 +163,7 @@ export default function CarregamentosPage() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
   const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
+  const pendingMutationIds = useRef(new Set<string>());
   const carregamentosEmAtualizacao = useRef(new Set<string>());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -279,9 +280,29 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
   }, [loadLista]);
   useEffect(() => {
     const onDataChanged = (event: Event) => {
-      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      const detail = (event as CustomEvent<{
+        modules?: string[];
+        mutationIds?: string[];
+        hasUntrackedChanges?: boolean;
+      }>).detail;
+
+      const modules = detail?.modules ?? [];
+      const mutationIds = detail?.mutationIds ?? [];
+      const ownIds = mutationIds.filter((id) => pendingMutationIds.current.has(id));
+
+      ownIds.forEach((id) => pendingMutationIds.current.delete(id));
+
+      const onlyOwnChanges =
+        ownIds.length > 0 &&
+        !detail?.hasUntrackedChanges &&
+        mutationIds.every((id) => ownIds.includes(id));
+
+      if (onlyOwnChanges) return;
+
       if (modules.includes("carregamentos")) void loadLista();
-      if (modules.some((module) => ["caminhoes", "funcionarios"].includes(module))) void loadBase();
+      if (modules.some((module) => ["caminhoes", "funcionarios"].includes(module))) {
+        void loadBase();
+      }
     };
 
     window.addEventListener("logistica:data-changed", onDataChanged);
@@ -748,9 +769,15 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     );
 
     try {
+      const mutationId = crypto.randomUUID();
+      pendingMutationIds.current.add(mutationId);
+      if (pendingMutationIds.current.size > 30) {
+        const oldest = pendingMutationIds.current.values().next().value;
+        if (oldest) pendingMutationIds.current.delete(oldest);
+      }
       const res = await fetch(`/api/carregamentos/${carregId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Mutation-Id": mutationId },
         body: JSON.stringify({
           itemStatus: { itemId, statusItem: novo },
         }),
@@ -799,9 +826,15 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     );
 
     try {
+      const mutationId = crypto.randomUUID();
+      pendingMutationIds.current.add(mutationId);
+      if (pendingMutationIds.current.size > 30) {
+        const oldest = pendingMutationIds.current.values().next().value;
+        if (oldest) pendingMutationIds.current.delete(oldest);
+      }
       const res = await fetch(`/api/carregamentos/${carregId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Mutation-Id": mutationId },
         body: JSON.stringify({ status: novoStatus }),
       });
 

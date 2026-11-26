@@ -2,7 +2,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
-import { publishDataChanged } from "@/lib/realtime";
+import { publishDataChanged, publishDataChangedWithId } from "@/lib/realtime";
 import { canAccess } from "@/lib/permissions";
 import { del } from "@vercel/blob";
 import { z } from "zod";
@@ -193,6 +193,10 @@ export async function PATCH(
   }
 
   try {
+    const mutationIdHeader = req.headers.get("x-mutation-id");
+    const mutationId = mutationIdHeader && /^[a-zA-Z0-9-]{1,80}$/.test(mutationIdHeader)
+      ? mutationIdHeader
+      : null;
     const { id } = await params;
     const body: unknown = await req.json();
 
@@ -310,7 +314,9 @@ export async function PATCH(
         };
       });
 
-      after(() => publishDataChanged("carregamentos", "caminhoes", "alertas"));
+      after(() => mutationId
+        ? publishDataChangedWithId(mutationId, "carregamentos", "caminhoes", "alertas")
+        : publishDataChanged("carregamentos", "caminhoes", "alertas"));
 
       return NextResponse.json(resultado);
     }
@@ -347,7 +353,9 @@ export async function PATCH(
         await atualizarStatusCaminhao(tx, atual.caminhaoId);
       });
 
-      after(() => publishDataChanged("carregamentos", "caminhoes", "alertas"));
+      after(() => mutationId
+        ? publishDataChangedWithId(mutationId, "carregamentos", "caminhoes", "alertas")
+        : publishDataChanged("carregamentos", "caminhoes", "alertas"));
 
       return NextResponse.json({ ok: true });
     }

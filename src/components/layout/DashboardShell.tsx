@@ -104,7 +104,7 @@ export function DashboardShell({
       />
 
       <div
-        className={`min-h-screen  ${
+        className={`min-h-screen transition-[padding-left] duration-200 ease-in-out ${
           collapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
         }`}
       >

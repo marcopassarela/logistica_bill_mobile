@@ -163,6 +163,8 @@ export default function CarregamentosPage() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
   const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
+  const listaAbortRef = useRef<AbortController | null>(null);
+  const listaRequestRef = useRef(0);
   const pendingMutationIds = useRef(new Set<string>());
   const carregamentosEmAtualizacao = useRef(new Set<string>());
   const [loading, setLoading] = useState(true);
@@ -258,15 +260,26 @@ const [itemDeleteTarget, setItemDeleteTarget] = useState<{
   }, []);
 
   const loadLista = useCallback(async () => {
+    listaAbortRef.current?.abort();
+    const controller = new AbortController();
+    listaAbortRef.current = controller;
+    const requestId = ++listaRequestRef.current;
     setLoading(true);
     try {
       const q = filtroData ? `?data=${filtroData}` : "";
-      const res = await fetch(`/api/carregamentos${q}`);
-      if (res.ok) setLista(await res.json());
+      const res = await fetch(`/api/carregamentos${q}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (res.ok && requestId === listaRequestRef.current) {
+        setLista(await res.json());
+      }
     } catch {
-      /* ignore */
+      if (!controller.signal.aborted) {
+        /* Mantém os dados atuais em caso de falha transitória. */
+      }
     } finally {
-      setLoading(false);
+      if (requestId === listaRequestRef.current) setLoading(false);
     }
   }, [filtroData]);
 useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean(funcionarioId));
@@ -748,10 +761,11 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       return;
     }
 
-    if (carregamentosEmAtualizacao.current.has(carregId)) return;
+    const pendingKey = `${carregId}:item:${itemId}`;
+    if (carregamentosEmAtualizacao.current.has(pendingKey)) return;
 
-    carregamentosEmAtualizacao.current.add(carregId);
-    setCarregamentosPendentes((prev) => new Set(prev).add(carregId));
+    carregamentosEmAtualizacao.current.add(pendingKey);
+    setCarregamentosPendentes((prev) => new Set(prev).add(pendingKey));
 
 
     setLista((prev) =>
@@ -805,10 +819,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
 
       alert("Erro de conexao ao atualizar o item. A alteracao visual foi revertida.");
     } finally {
-      carregamentosEmAtualizacao.current.delete(carregId);
+      carregamentosEmAtualizacao.current.delete(pendingKey);
       setCarregamentosPendentes((prev) => {
         const next = new Set(prev);
-        next.delete(carregId);
+        next.delete(pendingKey);
         return next;
       });
     }
@@ -816,10 +830,11 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
 
   async function setCarregStatus(carregId: string, novoStatus: string) {
     const carreg = lista.find((c) => c.id === carregId);
-    if (!carreg || carregamentosEmAtualizacao.current.has(carregId)) return;
+    const pendingKey = `${carregId}:status`;
+    if (!carreg || carregamentosEmAtualizacao.current.has(pendingKey)) return;
 
-    carregamentosEmAtualizacao.current.add(carregId);
-    setCarregamentosPendentes((prev) => new Set(prev).add(carregId));
+    carregamentosEmAtualizacao.current.add(pendingKey);
+    setCarregamentosPendentes((prev) => new Set(prev).add(pendingKey));
 
     setLista((prev) =>
       prev.map((c) => c.id === carregId ? { ...c, status: novoStatus } : c)
@@ -856,10 +871,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
 
       alert("Erro de conexao ao atualizar o carregamento. A alteracao visual foi revertida.");
     } finally {
-      carregamentosEmAtualizacao.current.delete(carregId);
+      carregamentosEmAtualizacao.current.delete(pendingKey);
       setCarregamentosPendentes((prev) => {
         const next = new Set(prev);
-        next.delete(carregId);
+        next.delete(pendingKey);
         return next;
       });
     }
@@ -1341,7 +1356,7 @@ async function confirmDeleteItem(password: string) {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "CARREGADO" ? "h-7 text-xs border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white" : "h-7 text-xs border-green-600/50 text-green-700 hover:bg-green-50 dark:border-green-500/50 dark:text-green-400 dark:hover:bg-green-950"}
-                              disabled={carregamentosPendentes.has(c.id)}
+                              disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "CARREGADO")}
                               title="Marcar como carregado"
                             >
@@ -1353,7 +1368,7 @@ async function confirmDeleteItem(password: string) {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "NAO_CARREGADO" ? "h-7 text-xs border-red-600 bg-red-600 text-white hover:bg-red-700 hover:text-white" : "h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"}
-                              disabled={carregamentosPendentes.has(c.id)}
+                              disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "NAO_CARREGADO")}
                               title="Marcar como não carregou"
                             >
@@ -1365,7 +1380,7 @@ async function confirmDeleteItem(password: string) {
                               size="sm"
                               variant="outline"
                               className={it.statusItem === "PENDENTE" ? "h-7 text-xs border-amber-600 bg-amber-500 text-white hover:bg-amber-600 hover:text-white" : "h-7 text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950"}
-                              disabled={carregamentosPendentes.has(c.id)}
+                              disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "PENDENTE")}
                             >
                               <Clock className="mr-1 h-3 w-3" />
@@ -1378,7 +1393,7 @@ async function confirmDeleteItem(password: string) {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"
-                                disabled={carregamentosPendentes.has(c.id)}
+                                disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                                 onClick={() => setItemDeleteTarget({
                                   carregamentoId: c.id,
                                   itemId: it.id,
@@ -1399,20 +1414,20 @@ async function confirmDeleteItem(password: string) {
                         size="sm"
                         variant="outline"
                         className="h-8 text-xs"
-                                                 disabled={carregamentosPendentes.has(c.id)}
+                                                 disabled={carregamentosPendentes.has(`${c.id}:status`)}
                          onClick={() => startEdit(c)}
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
                       </Button>}
                       {podeAlterarStatus && <>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(`${c.id}:status`)} onClick={() => setCarregStatus(c.id, "EM_ANDAMENTO")}>
                         Em andamento
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(`${c.id}:status`)} onClick={() => setCarregStatus(c.id, "FINALIZADO")}>
                         Liberado
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(c.id)} onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={carregamentosPendentes.has(`${c.id}:status`)} onClick={() => setCarregStatus(c.id, "EM_ROTA")}>
                         Em rota
                       </Button>
                       </>}

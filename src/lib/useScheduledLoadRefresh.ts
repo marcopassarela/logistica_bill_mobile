@@ -66,8 +66,20 @@ export function useScheduledLoadRefresh(
     };
 
     const handleDataChanged = (event: Event) => {
-      const changedModules =
-        (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      const detail = (event as CustomEvent<{
+        modules?: string[];
+        mutationIds?: string[];
+        hasUntrackedChanges?: boolean;
+      }>).detail;
+      const changedModules = detail?.modules ?? [];
+
+      // A própria tela já aplicou a alteração de forma otimista. Evita
+      // consultar novamente a próxima liberação no mesmo ciclo.
+      if (
+        !detail?.hasUntrackedChanges &&
+        Array.isArray(detail?.mutationIds) &&
+        detail.mutationIds.length > 0
+      ) return;
 
       if (changedModules.some((module) => modules.has(module))) {
         void scheduleNext();

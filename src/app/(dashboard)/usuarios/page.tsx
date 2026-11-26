@@ -429,7 +429,7 @@ export default function UsuariosPage() {
 
             </CardContent>
           </Card>
-          {generatedCode && (
+          {(
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Chave gerada</CardTitle>
@@ -437,8 +437,8 @@ export default function UsuariosPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Input readOnly value={generatedCode} className="min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
-                  <Button type="button" size="icon" variant="outline" onClick={copyGeneratedCode}>
+                  <Input readOnly value={generatedCode} placeholder="A chave aparecerá aqui após a geração" className="min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
+                  <Button type="button" size="icon" variant="outline" onClick={copyGeneratedCode} disabled={!generatedCode}>
                     {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>

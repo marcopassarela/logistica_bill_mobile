@@ -83,7 +83,7 @@ export default function LgpdPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-16">
       <div className="flex items-center gap-3">
-        <Shield className="h-8 w-8 text-primary" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10"><Shield className="h-7 w-7 text-blue-600 dark:text-blue-400" /></div>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Privacidade e LGPD</h1>
           <p className="text-sm text-muted-foreground">

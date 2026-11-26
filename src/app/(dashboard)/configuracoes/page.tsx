@@ -223,8 +223,9 @@ export default function ConfiguracoesPage() {
             href="/lgpd"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-2 rounded-md border border-blue-600/30 bg-blue-600/10 px-3 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-600/15 dark:text-blue-300"
           >
+            <Shield className="h-4 w-4 shrink-0" />
             Abrir política LGPD
           </a>
         </CardContent>

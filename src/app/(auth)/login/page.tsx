@@ -69,6 +69,8 @@ export default function LoginPage() {
 
     setActivationError("");
     setActivationSuccess(false);
+    const verificationStartedAt = Date.now();
+
     setActivationLoading(true);
 
     try {
@@ -113,6 +115,15 @@ export default function LoginPage() {
 
       if (!response.ok) {
         throw new Error(data.error || "Não foi possível ativar este dispositivo.");
+      }
+
+      const elapsed = Date.now() - verificationStartedAt;
+      const remaining = Math.max(0, 2000 - elapsed);
+
+      if (remaining > 0) {
+        await new Promise<void>((resolve) =>
+          window.setTimeout(resolve, remaining)
+        );
       }
 
       setActivationSuccess(true);
@@ -327,12 +338,12 @@ export default function LoginPage() {
                 </p>
               )}
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 " />}
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Entrar
               </Button>
                 <button
                   type="button"
-                  className="mt-3 flex w-full items-center justify-center gap-2 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  className="mt-3 flex w-full items-center justify-center gap-2 text-center text-sm font-semibold text-blue-700 underline-offset-4 hover:text-blue-800 hover:underline dark:text-blue-300"
                   onClick={() => {
                     setActivationOpen(true);
                     setActivationError("");
@@ -484,9 +495,9 @@ export default function LoginPage() {
           >
             {activationSuccess ? (
               <div className="flex flex-col items-center py-6 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 motion-safe:animate-pulse"
                 >
-                  <ShieldCheck className="h-10 w-10" />
+                  <ShieldCheck className="h-10 w-10 motion-safe:animate-bounce" />
                 </div>
                 <h2 className="text-xl font-semibold text-emerald-600">
                   Chave ativada com sucesso!
@@ -498,7 +509,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300">
                     <KeyRound className="h-5 w-5" />
                   </div>
                   <div>
@@ -546,9 +557,9 @@ export default function LoginPage() {
                       disabled={activationLoading || !activationCode.trim()}
                     >
                       {activationLoading && (
-                        <Loader2 className="mr-2 h-4 w-4 " />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      {activationLoading ? "Validando..." : "Ativar"}
+                      {activationLoading ? "Verificando chave..." : "Ativar"}
                     </Button>
                   </div>
                 </form>

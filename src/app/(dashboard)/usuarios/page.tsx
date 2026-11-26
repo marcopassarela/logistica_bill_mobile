@@ -432,7 +432,7 @@ export default function UsuariosPage() {
                   <p className="text-sm text-muted-foreground">Copie o código e compartilhe com o usuário.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Input readOnly value={generatedCode} placeholder="A chave aparecerá aqui após a geração" className="min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
+                  <Input readOnly value={generatedCode} placeholder="Chave de acesso!" className="min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
                   <Button type="button" size="icon" variant="outline" onClick={copyGeneratedCode} disabled={!generatedCode}>
                     {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>

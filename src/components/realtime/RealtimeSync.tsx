@@ -172,6 +172,16 @@ export function RealtimeSync() {
         return;
       }
 
+      if (message.name === "auth:device-revoked") {
+        void fetch("/api/auth/heartbeat", {
+          method: "POST",
+          cache: "no-store",
+        }).then((response) => {
+          if (response.status === 401) window.location.replace("/login");
+        }).catch(() => {});
+        return;
+      }
+
       if (message.name !== "data:changed") return;
 
       const data = message.data as {

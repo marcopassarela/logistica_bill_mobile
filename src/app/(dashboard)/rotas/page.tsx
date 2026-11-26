@@ -1086,7 +1086,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => load()} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "" : ""}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Atualizando..." : "Atualizar"}
         </Button>
       </div>
@@ -1232,7 +1232,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
           onClick={() => doSearch(idx)}
           disabled={searching && searchIdx === idx}>
           {searching && searchIdx === idx
-            ? <Loader2 className="h-4 w-4 " />
+            ? <Loader2 className="h-4 w-4 animate-spin" />
             : <Search className="h-4 w-4" />}
         </Button>
       </div>
@@ -1362,14 +1362,14 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                 disabled={routing || saving}
               >
                 {routing ? (
-                  <Loader2 className="mr-2 h-4 w-4 " />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Route className="mr-2 h-4 w-4" />
                 )}
                 Otimizar melhor rota
               </Button>
               <Button type="button" onClick={salvarRota} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 " /> : <MapPin className="mr-2 h-4 w-4" />}
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
                 Salvar rota no banco
               </Button>
             </div>
@@ -1574,7 +1574,7 @@ useScheduledLoadRefresh(refreshRotasProgramadas, ["carregamentos"], role === "US
                 onClick={confirmarSalvarFavorito}
                 disabled={favoritoSalvando || !favoritoNome.trim() || (favoritoPasta === "__nova__" && !novaPasta.trim())}
               >
-                {favoritoSalvando ? <Loader2 className="mr-2 h-4 w-4 " /> : <Star className="mr-2 h-4 w-4" />}
+                {favoritoSalvando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
                 Salvar favorito
               </Button>
             </div>

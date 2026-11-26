@@ -233,7 +233,7 @@ const [itemDeleteTarget, setItemDeleteTarget] = useState<{
   );
 
   const pesoTotal = useMemo(
-    () => itens.reduce((acc, i) => acc + (parseFloat(i.peso) || 0), 0),
+    () => itens.reduce((acc, i) => acc + ((parseFloat(i.quantidade) || 0) * (parseFloat(i.peso) || 0)), 0),
     [itens]
   );
 
@@ -893,7 +893,7 @@ async function confirmDeleteItem(password: string) {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { loadLista(); loadBase(); }}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "" : ""}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
@@ -1144,7 +1144,7 @@ async function confirmDeleteItem(password: string) {
               )}
 
               <Button type="submit" className="w-full" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 " />}
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <PackageCheck className="mr-2 h-4 w-4" />
                 {editingId ? "Salvar alterações" : "Salvar no banco"}
               </Button>
@@ -1221,7 +1221,7 @@ async function confirmDeleteItem(password: string) {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="divide-y divide-border/60">
                       {c.itens.map((it, idx) => (
                         <div
                           key={it.id}
@@ -1237,7 +1237,7 @@ async function confirmDeleteItem(password: string) {
                               {it.clienteBairro && <p className="text-xs text-muted-foreground">Bairro: {it.clienteBairro}</p>}
                               {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
                               {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
-                              <p className="text-xs text-muted-foreground">Peso: {num(it.peso).toLocaleString("pt-BR")} kg</p>
+                              <p className="text-xs text-muted-foreground">Quantidade: {num(it.quantidade).toLocaleString("pt-BR")} · Peso unitário: {num(it.peso).toLocaleString("pt-BR")} kg · Total da parada: {(num(it.quantidade) * num(it.peso)).toLocaleString("pt-BR")} kg</p>
 
                               {it.notaFiscalNome && (
                                 <button

@@ -3,7 +3,7 @@
 import { ScreenAssembly } from "@/components/layout/ScreenAssembly";
 import { RecordListSkeleton } from "@/components/layout/PageSkeletons";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Plus, Pencil, Trash2, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ export default function DiariasPage() {
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const pendingMutationIds = useRef(new Set<string>());
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [filterFuncionarioId, setFilterFuncionarioId] = useState("");
@@ -113,9 +114,25 @@ export default function DiariasPage() {
 
   useEffect(() => {
     function onDataChanged(event: Event) {
-      const modules = (event as CustomEvent<{ modules?: string[] }>).detail?.modules ?? [];
+      const detail = (event as CustomEvent<{
+        modules?: string[];
+        mutationIds?: string[];
+        hasUntrackedChanges?: boolean;
+      }>).detail;
+
+      const modules = detail?.modules ?? [];
+      const mutationIds = detail?.mutationIds ?? [];
+      const ownIds = mutationIds.filter((id) => pendingMutationIds.current.has(id));
+
+      ownIds.forEach((id) => pendingMutationIds.current.delete(id));
+
+      const onlyOwnChanges =
+        ownIds.length > 0 &&
+        !detail?.hasUntrackedChanges &&
+        mutationIds.every((id) => ownIds.includes(id));
 
       if (modules.includes("diarias")) {
+        if (onlyOwnChanges) return;
         void refreshDiarias();
         return;
       }
@@ -185,11 +202,20 @@ export default function DiariasPage() {
     setForm({ ...emptyForm, data: new Date().toLocaleDateString("en-CA") });
 
     try {
+      const mutationId = crypto.randomUUID();
+      pendingMutationIds.current.add(mutationId);
+
+      if (pendingMutationIds.current.size > 30) {
+        const oldest = pendingMutationIds.current.values().next().value;
+        if (oldest) pendingMutationIds.current.delete(oldest);
+      }
+
       const response = await fetch("/api/diarias", {
         method: prevEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...(prevEditing ? { id: prevEditing } : {}),
+          mutationId,
           funcionarioId: prevForm.funcionarioId,
           caminhaoId: prevForm.caminhaoId || null,
           data: prevForm.data,
@@ -336,7 +362,7 @@ export default function DiariasPage() {
 
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1" disabled={saving || loading}>
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 " /> :
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> :
                     editingId ? <Pencil className="mr-2 h-4 w-4" /> : <CalendarDays className="mr-2 h-4 w-4" />}
                   {saving ? "Salvando..." : editingId ? "Salvar alterações" : "Salvar Diária"}
                 </Button>

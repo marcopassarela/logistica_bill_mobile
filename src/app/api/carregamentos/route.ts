@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "A nota fiscal deve ser um PDF válido." }, { status: 400 });
     }
     const pesoTotal = data.itens.reduce(
-      (acc, i) => acc + Number(i.peso),
+      (acc, i) => acc + (Number(i.quantidade) * Number(i.peso)),
       0
     );
 

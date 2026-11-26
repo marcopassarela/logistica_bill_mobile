@@ -20,6 +20,8 @@ export function RealtimeSync() {
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const pendingModules = new Set<string>();
+    const pendingMutationIds = new Set<string>();
+    let hasUntrackedDataChanges = false;
     const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
     let isPresent = false;
     let presenceQueue = Promise.resolve();
@@ -130,7 +132,12 @@ export function RealtimeSync() {
       if (pendingModules.size === 0) return;
 
       const modules = Array.from(pendingModules);
+      const mutationIds = Array.from(pendingMutationIds);
+      const hasUntrackedChanges = hasUntrackedDataChanges;
+
       pendingModules.clear();
+      pendingMutationIds.clear();
+      hasUntrackedDataChanges = false;
 
       const refreshAccess = modules.includes("usuarios");
 
@@ -154,7 +161,7 @@ export function RealtimeSync() {
 
       window.dispatchEvent(
         new CustomEvent("logistica:data-changed", {
-          detail: { modules },
+          detail: { modules, mutationIds, hasUntrackedChanges },
         })
       );
     };
@@ -167,10 +174,19 @@ export function RealtimeSync() {
 
       if (message.name !== "data:changed") return;
 
-      const modules =
-        (message.data as { modules?: string[] })?.modules ?? [];
+      const data = message.data as {
+        modules?: string[];
+        mutationId?: string;
+      };
 
+      const modules = data?.modules ?? [];
       modules.forEach((module) => pendingModules.add(module));
+
+      if (typeof data?.mutationId === "string") {
+        pendingMutationIds.add(data.mutationId);
+      } else {
+        hasUntrackedDataChanges = true;
+      }
 
       if (timer) clearTimeout(timer);
       timer = setTimeout(flushChanges, 200);

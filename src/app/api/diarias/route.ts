@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, verifyAdminPassword } from "@/lib/auth";
 import { diariaSchema } from "@/lib/validations";
 import { z } from "zod";
-import { publishDataChanged } from "@/lib/realtime";
+import { publishDataChanged, publishDataChangedWithId } from "@/lib/realtime";
 
 function prismaError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error
@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = normalize(await req.json());
+    const mutationId =
+      typeof body.mutationId === "string" && /^[a-zA-Z0-9-]{1,80}$/.test(body.mutationId)
+        ? body.mutationId
+        : undefined;
+    delete body.mutationId;
     const parsed = diariaSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -94,7 +99,11 @@ export async function POST(req: NextRequest) {
       include: includeRelations,
     });
 
-    after(() => publishDataChanged("diarias", "funcionarios", "caminhoes"));
+    after(() =>
+      mutationId
+        ? publishDataChangedWithId(mutationId, "diarias", "funcionarios", "caminhoes")
+        : publishDataChanged("diarias", "funcionarios", "caminhoes")
+    );
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     const code = prismaError(error);
@@ -122,6 +131,11 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = normalize(await req.json());
+    const mutationId =
+      typeof body.mutationId === "string" && /^[a-zA-Z0-9-]{1,80}$/.test(body.mutationId)
+        ? body.mutationId
+        : undefined;
+    delete body.mutationId;
     const id = typeof body.id === "string" ? body.id.trim() : "";
 
     if (!id) {
@@ -147,7 +161,11 @@ export async function PATCH(req: NextRequest) {
       include: includeRelations,
     });
 
-    after(() => publishDataChanged("diarias", "funcionarios", "caminhoes"));
+    after(() =>
+      mutationId
+        ? publishDataChangedWithId(mutationId, "diarias", "funcionarios", "caminhoes")
+        : publishDataChanged("diarias", "funcionarios", "caminhoes")
+    );
     return NextResponse.json(updated);
   } catch (error) {
     const code = prismaError(error);

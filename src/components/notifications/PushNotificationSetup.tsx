@@ -216,7 +216,7 @@ export function PushNotificationSetup() {
             className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground  hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 " />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <BellRing className="h-4 w-4" />
             )}

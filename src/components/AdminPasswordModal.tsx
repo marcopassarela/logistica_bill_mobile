@@ -80,7 +80,7 @@ export function AdminPasswordModal({
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
             <Button type="submit" variant="destructive" disabled={loading || !password}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 " />}
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar
             </Button>
           </div>

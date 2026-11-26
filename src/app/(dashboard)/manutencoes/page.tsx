@@ -208,7 +208,7 @@ export default function ManutencoesPage() {
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>

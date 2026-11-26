@@ -39,6 +39,10 @@ export function publishDataChanged(...modules: string[]) {
   return publish("data:changed", { modules });
 }
 
+export function publishDataChangedWithId(mutationId: string, ...modules: string[]) {
+  return publish("data:changed", { modules, mutationId });
+}
+
 export function publishAuthInvalidated() {
   return publish("auth:invalidate", {
     reason: "password_changed",

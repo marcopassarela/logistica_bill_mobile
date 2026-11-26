@@ -339,7 +339,7 @@ export default function UsuariosPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-8 w-8  text-muted-foreground" />
+        <Loader2 className="h-8 w-8  text-muted-foreground animate-spin" />
       </div>
     );
   }
@@ -422,7 +422,7 @@ export default function UsuariosPage() {
                 disabled={keyLoading || !selectedTargetUserId}
                 className="w-full sm:w-auto"
               >
-                {keyLoading && <Loader2 className="mr-2 h-4 w-4 " />}
+                {keyLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Gerar chave de ativação
               </Button>
 
@@ -639,7 +639,7 @@ export default function UsuariosPage() {
                 </div>
               </div>
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 " />}
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar alterações
               </Button>
             </form>
@@ -753,7 +753,7 @@ export default function UsuariosPage() {
                 </div>
               </div>
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 " />}
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Cadastrar usuário
               </Button>
             </form>

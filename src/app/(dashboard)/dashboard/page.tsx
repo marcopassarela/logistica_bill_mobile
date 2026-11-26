@@ -178,7 +178,7 @@ export default function DashboardPage() {
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </button>
       </div></ScreenAssembly>

@@ -279,11 +279,11 @@ export async function PATCH(
             carregamentoId: id,
             statusItem: "CARREGADO",
           },
-          select: { peso: true },
+          select: { quantidade: true, peso: true },
         });
 
         const pesoCarregado = itens.reduce(
-          (total, itemAtual) => total + Number(itemAtual.peso),
+          (total, itemAtual) => total + (Number(itemAtual.quantidade) * Number(itemAtual.peso)),
           0
         );
 
@@ -434,7 +434,7 @@ export async function PATCH(
     }
 
     const pesoTotal = data.itens.reduce(
-      (total, item) => total + item.peso,
+      (total, item) => total + (item.quantidade * item.peso),
       0
     );
 

@@ -90,6 +90,7 @@ type Carregamento = {
     quantidade: number | string;
     peso: number | string;
       statusItem: string;
+      entregue: boolean;
       observacao: string | null;
       descricaoLivre?: string | null;
       ordemServico?: string | null;
@@ -828,6 +829,88 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     }
   }
 
+
+async function toggleEntrega(carregId: string, itemId: string, entregue: boolean) {
+  const carreg = lista.find((c) => c.id === carregId);
+  const itemAnterior = carreg?.itens.find((item) => item.id === itemId);
+
+  if (!carreg || !itemAnterior) {
+    alert("Carregamento ou item não encontrado. Atualize a página.");
+    return;
+  }
+
+  const pendingKey = `${carregId}:entrega:${itemId}`;
+  if (carregamentosEmAtualizacao.current.has(pendingKey)) return;
+
+  const restaurarItem = () => {
+    setLista((prev) =>
+      prev.map((c) =>
+        c.id !== carregId
+          ? c
+          : {
+              ...c,
+              itens: c.itens.map((item) =>
+                item.id === itemId
+                  ? { ...item, entregue: itemAnterior.entregue }
+                  : item
+              ),
+            }
+      )
+    );
+  };
+
+  carregamentosEmAtualizacao.current.add(pendingKey);
+  setCarregamentosPendentes((prev) => new Set(prev).add(pendingKey));
+
+  setLista((prev) =>
+    prev.map((c) =>
+      c.id !== carregId
+        ? c
+        : {
+            ...c,
+            itens: c.itens.map((item) =>
+              item.id === itemId ? { ...item, entregue } : item
+            ),
+          }
+    )
+  );
+
+  try {
+    const mutationId = crypto.randomUUID();
+    pendingMutationIds.current.add(mutationId);
+
+    const res = await fetch(`/api/carregamentos/${carregId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Mutation-Id": mutationId,
+      },
+      body: JSON.stringify({
+        entregaStatus: { itemId, entregue },
+      }),
+    });
+
+    const resultado = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      restaurarItem();
+      alert(resultado.error || `Não foi possível atualizar a entrega (HTTP ${res.status}).`);
+    }
+  } catch (erro) {
+    console.error("Erro ao atualizar entrega:", erro);
+    restaurarItem();
+    alert("Erro de conexão ao confirmar a entrega. A alteração visual foi revertida.");
+  } finally {
+    carregamentosEmAtualizacao.current.delete(pendingKey);
+    setCarregamentosPendentes((prev) => {
+      const next = new Set(prev);
+      next.delete(pendingKey);
+      return next;
+    });
+  }
+}
+
+
   async function setCarregStatus(carregId: string, novoStatus: string) {
     const carreg = lista.find((c) => c.id === carregId);
     const pendingKey = `${carregId}:status`;
@@ -1269,6 +1352,23 @@ async function confirmDeleteItem(password: string) {
                       </div>
                     </div>
 
+                    <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-medium">Progresso de entrega</span>
+                        <span className="text-muted-foreground">
+                          {c.itens.filter((item) => item.entregue).length}/{c.itens.length} paradas entregues
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                          style={{
+                            width: `${c.itens.length ? (c.itens.filter((item) => item.entregue).length / c.itens.length) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="divide-y divide-border/60">
                       {c.itens.map((it, idx) => (
                         <div
@@ -1385,6 +1485,20 @@ async function confirmDeleteItem(password: string) {
                             >
                               <Clock className="mr-1 h-3 w-3" />
                               Pendente
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className={it.entregue
+                                ? "h-8 min-w-[116px] text-xs border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
+                                : "h-8 min-w-[116px] text-xs border-emerald-600/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950"}
+                              disabled={carregamentosPendentes.has(`${c.id}:entrega:${it.id}`)}
+                              onClick={() => toggleEntrega(c.id, it.id, !it.entregue)}
+                              title={it.entregue ? "Desfazer confirmação de entrega" : "Confirmar entrega"}
+                            >
+                              <PackageCheck className="mr-1 h-3.5 w-3.5" />
+                              {it.entregue ? "Entregue" : "Marcar entregue"}
                             </Button>
                             </>}
                             {podeExcluirItem && (

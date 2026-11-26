@@ -205,15 +205,16 @@ export function Sidebar({
         <Menu className="h-5 w-5" />
       </Button>
 
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ease-in-out lg:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden={!mobileOpen}
+      />
 
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-sidebar text-sidebar-foreground shadow-xl lg:hidden"
+      <aside className={cn("fixed inset-y-0 left-0 z-50 w-64 border-r bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 ease-in-out lg:hidden", mobileOpen ? "translate-x-0" : "-translate-x-full")}
         aria-label="Menu móvel"
       >
         {renderContent(false, true)}
@@ -221,7 +222,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar text-sidebar-foreground ]  ease-in-out lg:flex",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out lg:flex",
           collapsed ? "w-[4.5rem]" : "w-64"
         )}
         aria-label="Menu principal"

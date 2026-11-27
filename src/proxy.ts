@@ -4,7 +4,7 @@ import { canAccess, firstAllowedPath, permissionFromPath } from "@/lib/permissio
 
 const COOKIE_NAME = "lb_session";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const basePermission = permissionFromPath(pathname.replace(/^\/api\//, "/"));
   if (!basePermission || pathname === "/api/auth/login" || pathname === "/api/auth/logout" || pathname === "/api/auth/heartbeat" || pathname === "/api/health/database" || pathname === "/api/users") return NextResponse.next();

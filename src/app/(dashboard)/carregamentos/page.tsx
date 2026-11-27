@@ -69,6 +69,7 @@ type ItemForm = {
   observacao: string;
   notaFiscalNome: string;
   notaFiscalData: string;
+  adicionais: { key: string; descricao: string }[];
   notaFiscalFile?: File;
 };
 
@@ -102,6 +103,7 @@ type Carregamento = {
       mapaUrl2?: string | null;
       notaFiscalNome?: string | null;
       notaFiscalData?: string | null;
+      adicionais?: { id: string; descricao: string; ordem: number }[];
   }[];
 };
 
@@ -228,7 +230,7 @@ const [itemDeleteTarget, setItemDeleteTarget] = useState<{
   const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADO" | "EM_ROTA" | "CANCELADO" | "NAO_CARREGADO">("EM_ANDAMENTO");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemForm[]>([
-    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+    { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "", adicionais: [] },
   ]);
 
   const caminhaoSel = useMemo(
@@ -327,6 +329,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setItens((prev) => [
       {
         key: crypto.randomUUID(),
+        adicionais: [],
         descricaoLivre: "",
         ordemServico: "",
         clienteNome: "",
@@ -366,6 +369,58 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         const next = { ...i, ...patch };
         return next;
       })
+    );
+  }
+
+  function addAdicional(itemKey: string) {
+    setItens((prev) =>
+      prev.map((item) =>
+        item.key !== itemKey
+          ? item
+          : {
+              ...item,
+              adicionais: [
+                ...item.adicionais,
+                { key: crypto.randomUUID(), descricao: "" },
+              ],
+            }
+      )
+    );
+  }
+
+  function updateAdicional(
+    itemKey: string,
+    adicionalKey: string,
+    descricao: string
+  ) {
+    setItens((prev) =>
+      prev.map((item) =>
+        item.key !== itemKey
+          ? item
+          : {
+              ...item,
+              adicionais: item.adicionais.map((adicional) =>
+                adicional.key === adicionalKey
+                  ? { ...adicional, descricao }
+                  : adicional
+              ),
+            }
+      )
+    );
+  }
+
+  function removeAdicional(itemKey: string, adicionalKey: string) {
+    setItens((prev) =>
+      prev.map((item) =>
+        item.key !== itemKey
+          ? item
+          : {
+              ...item,
+              adicionais: item.adicionais.filter(
+                (adicional) => adicional.key !== adicionalKey
+              ),
+            }
+      )
     );
   }
 
@@ -495,6 +550,10 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         peso: String(num(item.peso)),
         statusItem: item.statusItem as ItemForm["statusItem"],
         observacao: item.observacao ?? "",
+        adicionais: (item.adicionais ?? []).map((adicional) => ({
+          key: crypto.randomUUID(),
+          descricao: adicional.descricao,
+        })),
       }))
     );
     setMsg(null);
@@ -568,7 +627,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
     setStatus("EM_ANDAMENTO");
     setObservacoes("");
     setItens([
-      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+      { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "", adicionais: [] },
     ]);
     setMsg(null);
   }
@@ -618,6 +677,12 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
         peso: parseFloat(item.peso) || 0,
         statusItem: item.statusItem,
         observacao: item.observacao || null,
+        adicionais: item.adicionais
+          .filter((adicional) => adicional.descricao.trim())
+          .map((adicional, ordem) => ({
+            descricao: adicional.descricao.trim(),
+            ordem,
+          })),
       }));
 
       const res = await fetch(
@@ -745,7 +810,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
       setStatus("EM_ANDAMENTO");
       setObservacoes("");
       setItens([
-        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "" },
+        { key: crypto.randomUUID(), descricaoLivre: "", ordemServico: "", clienteNome: "", clienteTelefone: "", clienteCidade: "", clienteBairro: "", mapaUrl: "", mapaUrl2: "", quantidade: "", peso: "", statusItem: "PENDENTE", observacao: "", notaFiscalNome: "", notaFiscalData: "", adicionais: [] },
       ]);
 
       await loadLista();
@@ -1010,7 +1075,12 @@ async function confirmDeleteItem(password: string) {
       c.caminhao.placa.toLowerCase().includes(q) ||
       (c.origem || "").toLowerCase().includes(q) ||
       (c.destino || "").toLowerCase().includes(q) ||
-      c.itens.some((i) => (i.descricaoLivre || "").toLowerCase().includes(q))
+      c.itens.some((i) =>
+        (i.descricaoLivre || "").toLowerCase().includes(q) ||
+        i.adicionais?.some((adicional) =>
+          adicional.descricao.toLowerCase().includes(q)
+        )
+      )
     );
   }), [lista, busca]);
 
@@ -1171,6 +1241,49 @@ async function confirmDeleteItem(password: string) {
                       </div>
                     </div>
                     <Input value={item.descricaoLivre} onChange={(e) => updateItem(item.key, { descricaoLivre: e.target.value })} placeholder="Descrição da carga (ex.: 1 Mono 1cx 7m ae)" required />
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => addAdicional(item.key)}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Adicionar adicional
+                      </Button>
+
+                      {item.adicionais.map((adicional, adicionalIdx) => (
+                        <div
+                          key={adicional.key}
+                          className="flex items-center gap-2 rounded-md border border-dashed p-2"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              (Adicional) {adicionalIdx + 1}
+                            </Label>
+                            <Input
+                              value={adicional.descricao}
+                              onChange={(e) =>
+                                updateAdicional(item.key, adicional.key, e.target.value)
+                              }
+                              placeholder="Descricao do adicional"
+                              maxLength={1000}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="mt-5 h-8 w-8 shrink-0 text-destructive"
+                            onClick={() => removeAdicional(item.key, adicional.key)}
+                            title="Remover adicional"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                     {podeVerCliente && <div className="grid grid-cols-2 gap-2">
                       <Input value={item.ordemServico} onChange={(e) => updateItem(item.key, { ordemServico: e.target.value })} placeholder="Nº da ordem de serviço *" required />
                       <Input value={item.clienteNome} onChange={(e) => updateItem(item.key, { clienteNome: e.target.value })} placeholder="Nome do cliente *" required />
@@ -1288,7 +1401,7 @@ async function confirmDeleteItem(password: string) {
           </CardContent>
         </Card>}
 
-        {/* LISTA / PRÉ-VISUALIZAÇÃO */}
+        {/* LISTA / PRÃ‰-VISUALIZAÃ‡ÃƒO */}
         <Card className="lg:col-span-3">
           <CardHeader className="space-y-3">
             <CardTitle className="text-base">Carregamentos do dia</CardTitle>
@@ -1342,15 +1455,6 @@ async function confirmDeleteItem(password: string) {
                       </div>
                     </div>
 
-                    <div className="rounded-lg border bg-primary/5 px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="font-medium">Progresso da carga</span>
-                        <span className="text-muted-foreground">{c.itens.filter((item) => item.statusItem === "CARREGADO").length}/{c.itens.length} paradas carregadas</span>
-                      </div>
-                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-emerald-500 " style={{ width: `${c.itens.length ? (c.itens.filter((item) => item.statusItem === "CARREGADO").length / c.itens.length) * 100 : 0}%` }} />
-                      </div>
-                    </div>
 
                     <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
                       <div className="flex items-center justify-between gap-3 text-xs">
@@ -1377,7 +1481,20 @@ async function confirmDeleteItem(password: string) {
                         >
 
                           <div className="min-w-0">
-                            <div className="mb-1 flex items-center gap-2"><span className="inline-flex rounded-md border border-primary bg-primary px-2 py-1 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium">{it.descricaoLivre || "Carga"}</p>
+                            <div className="mb-1 flex items-center gap-2"><span className="inline-flex rounded-md border border-primary bg-primary px-2 py-1 text-sm font-bold tracking-wider text-primary-foreground">PARADA {String(idx + 1).padStart(2, "0")}</span></div><p className="font-medium text-black dark:text-white">{it.descricaoLivre || "Carga"}</p>
+                            {it.adicionais?.map((adicional) => (
+                              <p
+                                key={adicional.id}
+                                className="mb-2 text-sm"
+                              >
+                                <span className="font-medium text-black dark:text-white">
+                                  {adicional.descricao}
+                                </span>{" "}
+                                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  (Adicional)
+                                </span>
+                              </p>
+                            ))}
 
                             {podeVerCliente && <>
                               {it.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {it.clienteNome}</p>}
@@ -1385,7 +1502,11 @@ async function confirmDeleteItem(password: string) {
                               {it.clienteBairro && <p className="text-xs text-muted-foreground">Bairro: {it.clienteBairro}</p>}
                               {it.ordemServico && <p className="text-xs text-muted-foreground">OS: {it.ordemServico}</p>}
                               {it.observacao?.trim() && <p className="text-xs text-muted-foreground">Observação: {it.observacao}</p>}
-                              <p className="text-xs text-muted-foreground">Quantidade: {num(it.quantidade).toLocaleString("pt-BR")} · Peso unitário: {num(it.peso).toLocaleString("pt-BR")} kg · Total da parada: {(num(it.quantidade) * num(it.peso)).toLocaleString("pt-BR")} kg</p>
+                              <div className="text-xs text-muted-foreground leading-tight">
+                                <p>Quantidade: {num(it.quantidade).toLocaleString("pt-BR")}</p>
+                                <p>Peso unitário: {num(it.peso).toLocaleString("pt-BR")} kg</p>
+                                <p className="font-semibold text-foreground">Total da parada: {(num(it.quantidade) * num(it.peso)).toLocaleString("pt-BR")} kg</p>
+                              </div>
 
                               {it.notaFiscalNome && (
                                 <button
@@ -1449,13 +1570,13 @@ async function confirmDeleteItem(password: string) {
                             </>}
                           </div>
 
-                          {(podeAlterarStatus || podeExcluirItem) && <div className="flex flex-wrap items-center justify-end gap-1">
+                          {(podeAlterarStatus || podeExcluirItem) && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
 {podeAlterarStatus && <>
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              className={it.statusItem === "CARREGADO" ? "h-7 text-xs border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white" : "h-7 text-xs border-green-600/50 text-green-700 hover:bg-green-50 dark:border-green-500/50 dark:text-green-400 dark:hover:bg-green-950"}
+                              className={it.statusItem === "CARREGADO" ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white" : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-green-600/50 text-green-700 hover:bg-green-50 dark:border-green-500/50 dark:text-green-400 dark:hover:bg-green-950"}
                               disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "CARREGADO")}
                               title="Marcar como carregado"
@@ -1467,7 +1588,7 @@ async function confirmDeleteItem(password: string) {
                               type="button"
                               size="sm"
                               variant="outline"
-                              className={it.statusItem === "NAO_CARREGADO" ? "h-7 text-xs border-red-600 bg-red-600 text-white hover:bg-red-700 hover:text-white" : "h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"}
+                              className={it.statusItem === "NAO_CARREGADO" ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-red-600 bg-red-600 text-white hover:bg-red-700 hover:text-white" : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"}
                               disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "NAO_CARREGADO")}
                               title="Marcar como não carregou"
@@ -1479,7 +1600,7 @@ async function confirmDeleteItem(password: string) {
                               type="button"
                               size="sm"
                               variant="outline"
-                              className={it.statusItem === "PENDENTE" ? "h-7 text-xs border-amber-600 bg-amber-500 text-white hover:bg-amber-600 hover:text-white" : "h-7 text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950"}
+                              className={it.statusItem === "PENDENTE" ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-amber-600 bg-amber-500 text-white hover:bg-amber-600 hover:text-white" : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950"}
                               disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                               onClick={() => toggleItemStatus(c.id, it.id, "PENDENTE")}
                             >
@@ -1491,8 +1612,8 @@ async function confirmDeleteItem(password: string) {
                               size="sm"
                               variant="outline"
                               className={it.entregue
-                                ? "h-8 min-w-[116px] text-xs border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
-                                : "h-8 min-w-[116px] text-xs border-emerald-600/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950"}
+                                ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
+                                : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950"}
                               disabled={carregamentosPendentes.has(`${c.id}:entrega:${it.id}`)}
                               onClick={() => toggleEntrega(c.id, it.id, !it.entregue)}
                               title={it.entregue ? "Desfazer confirmação de entrega" : "Confirmar entrega"}
@@ -1506,7 +1627,7 @@ async function confirmDeleteItem(password: string) {
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"
+                                className="h-9 col-span-2 sm:col-span-4 sm:justify-self-end sm:w-auto text-xs border-red-600/50 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-400 dark:hover:bg-red-950"
                                 disabled={carregamentosPendentes.has(`${c.id}:item:${it.id}`)}
                                 onClick={() => setItemDeleteTarget({
                                   carregamentoId: c.id,

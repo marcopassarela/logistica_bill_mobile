@@ -12,6 +12,9 @@ import {
   Search,
   Trash2,
   X,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -82,6 +85,11 @@ export default function EntregasConcluidasPage() {
   const [observacao, setObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<string | null>(null);
+  const [zoomFoto, setZoomFoto] = useState(1);
+
+  useEffect(() => {
+    setZoomFoto(1);
+  }, [selecionada?.id]);
 
   const carregarEntregas = useCallback(async () => {
     setCarregando(true);
@@ -504,11 +512,36 @@ export default function EntregasConcluidasPage() {
                 <p className="mb-2 text-xs text-muted-foreground">Fotografia do comprovante</p>
 
                 {selecionada.entregaFotoPath ? (
-                  <img
-                    src={`/api/entregas/${encodeURIComponent(selecionada.id)}/foto`}
-                    alt="Fotografia do comprovante de entrega"
-                    className="mx-auto max-h-[55vh] w-auto max-w-full rounded-lg border object-contain"
-                  />
+                  <div>
+                    <div className="mb-3 flex items-center justify-center gap-2">
+                      <Button type="button" size="icon" variant="outline"
+                        onClick={() => setZoomFoto((v) => Math.max(1, v - 0.25))}
+                        disabled={zoomFoto <= 1} title="Diminuir zoom">
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <span className="min-w-16 text-center text-xs text-muted-foreground">
+                        {Math.round(zoomFoto * 100)}%
+                      </span>
+                      <Button type="button" size="icon" variant="outline"
+                        onClick={() => setZoomFoto((v) => Math.min(3, v + 0.25))}
+                        disabled={zoomFoto >= 3} title="Aumentar zoom">
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="icon" variant="outline"
+                        onClick={() => setZoomFoto(1)}
+                        disabled={zoomFoto === 1} title="Restaurar zoom">
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="max-h-[65vh] overflow-auto rounded-lg border bg-black/5 p-2">
+                      <img
+                        src={`/api/entregas/${encodeURIComponent(selecionada.id)}/foto`}
+                        alt="Fotografia do comprovante de entrega"
+                        className="mx-auto h-auto max-h-[65vh] w-auto max-w-full object-contain"
+                        style={{ zoom: zoomFoto }}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                     A fotografia expirou após sete dias. O histórico da entrega foi preservado.

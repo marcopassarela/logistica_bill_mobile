@@ -35,7 +35,7 @@ type Props = {
   onSuccess: (itemId: string) => void;
 };
 
-const MAX_BYTES = 350 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024;
 
 export function ConfirmarEntregaModal({
   open,
@@ -129,8 +129,8 @@ export function ConfirmarEntregaModal({
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1200 },
-          height: { ideal: 1600 },
+          width: { ideal: 1920 },
+          height: { ideal: 2560 },
           aspectRatio: { ideal: 0.75 },
         },
       });
@@ -204,8 +204,8 @@ export function ConfirmarEntregaModal({
       }
 
       const maiorLadoOriginal = Math.max(larguraFonte, alturaFonte);
-      const resolucoes = [1600, 1400, 1200, 1000, 900, 800, 700, 600, 500, 400, 320];
-      const qualidades = [0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.35, 0.30, 0.25, 0.20, 0.15, 0.12];
+      const resolucoes = [2560, 2400, 2200, 2000, 1800, 1600, 1400, 1200];
+      const qualidades = [0.92, 0.88, 0.84, 0.80, 0.76, 0.72, 0.68, 0.64];
 
       let fotoFinal: Blob | null = null;
 
@@ -245,7 +245,7 @@ export function ConfirmarEntregaModal({
 
       if (!fotoFinal || fotoFinal.size > MAX_BYTES) {
         throw new Error(
-          "Não foi possível reduzir a fotografia para 350 KB. Tente capturar novamente."
+          "Não foi possível reduzir a fotografia para 2 MB. Tente capturar novamente."
         );
       }
 

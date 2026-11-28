@@ -137,10 +137,6 @@ export function ConfirmarEntregaModal({
 
       streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
 
       setCameraAtiva(true);
     } catch (error) {
@@ -153,22 +149,42 @@ export function ConfirmarEntregaModal({
     }
   }
 
-  function gerarWebP(
+  async function gerarWebP(
     canvas: HTMLCanvasElement,
     qualidade: number
   ): Promise<Blob> {
-    return new Promise((resolve, reject) => {
+    const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
+        (resultado) => {
+          if (resultado) resolve(resultado);
           else reject(new Error("Não foi possível processar a fotografia."));
         },
         "image/webp",
         qualidade
       );
     });
-  }
 
+    const assinatura = new Uint8Array(
+      await blob.slice(0, 12).arrayBuffer()
+    );
+
+    const valido =
+      blob.type.toLowerCase() === "image/webp" &&
+      assinatura[0] === 0x52 &&
+      assinatura[1] === 0x49 &&
+      assinatura[2] === 0x46 &&
+      assinatura[3] === 0x46 &&
+      assinatura[8] === 0x57 &&
+      assinatura[9] === 0x45 &&
+      assinatura[10] === 0x42 &&
+      assinatura[11] === 0x50;
+
+    if (!valido) {
+      throw new Error("O navegador não gerou uma imagem WebP válida. Atualize o navegador ou tente outro dispositivo.");
+    }
+
+    return blob;
+  }
   async function capturarFoto() {
     const video = videoRef.current;
 
@@ -188,11 +204,21 @@ export function ConfirmarEntregaModal({
         throw new Error("Não foi possível processar a imagem.");
       }
 
-      const maiorLadoOriginal = Math.max(
-        video.videoWidth,
-        video.videoHeight
-      );
+      const proporcaoAlvo = 3 / 4;
+      let sx = 0;
+      let sy = 0;
+      let larguraFonte = video.videoWidth;
+      let alturaFonte = video.videoHeight;
 
+      if (video.videoWidth / video.videoHeight > proporcaoAlvo) {
+        larguraFonte = video.videoHeight * proporcaoAlvo;
+        sx = (video.videoWidth - larguraFonte) / 2;
+      } else {
+        alturaFonte = video.videoWidth / proporcaoAlvo;
+        sy = (video.videoHeight - alturaFonte) / 2;
+      }
+
+      const maiorLadoOriginal = Math.max(larguraFonte, alturaFonte);
       const resolucoes = [1600, 1400, 1200, 1000, 900, 800, 700, 600, 500, 400, 320];
       const qualidades = [0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.35, 0.30, 0.25, 0.20, 0.15, 0.12];
 
@@ -204,11 +230,21 @@ export function ConfirmarEntregaModal({
           limiteResolucao / maiorLadoOriginal
         );
 
-        canvas.width = Math.round(video.videoWidth * proporcao);
-        canvas.height = Math.round(video.videoHeight * proporcao);
+        canvas.width = Math.round(larguraFonte * proporcao);
+        canvas.height = Math.round(alturaFonte * proporcao);
 
         context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        context.drawImage(
+          video,
+          sx,
+          sy,
+          larguraFonte,
+          alturaFonte,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
 
         for (const qualidade of qualidades) {
           const blob = await gerarWebP(canvas, qualidade);
@@ -304,7 +340,52 @@ export function ConfirmarEntregaModal({
       className="fixed inset-0 z-[10001] flex min-h-dvh items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm"
       onClick={onClose}
     >
-      <section
+      {cameraAtiva ? (
+        <div
+          className="fixed inset-0 z-[10002] flex flex-col bg-black text-white"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="flex items-center justify-between px-5 py-4">
+            <span className="font-semibold">Fotografar entrega</span>
+            <button
+              type="button"
+              onClick={pararCamera}
+              aria-label="Fechar câmera"
+              className="rounded-full bg-white/15 p-3"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </header>
+
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <footer className="flex flex-col items-center gap-3 px-5 pb-8 pt-5">
+            <p className="text-center text-sm text-white/80">
+              Enquadre o comprovante e toque para fotografar
+            </p>
+            <Button
+              type="button"
+              disabled={carregando}
+              onClick={() => void capturarFoto()}
+              className="h-16 w-16 rounded-full border-4 border-white bg-white text-black hover:bg-gray-200"
+            >
+              {carregando ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <Camera className="h-7 w-7" />
+              )}
+            </Button>
+          </footer>
+        </div>
+      ) : (      <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-confirmar-entrega"
@@ -497,6 +578,7 @@ export function ConfirmarEntregaModal({
           </Button>
         </div>
       </section>
+      )}
     </div>
   );
 }

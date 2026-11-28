@@ -149,7 +149,7 @@ export function ConfirmarEntregaModal({
     }
   }
 
-  async function gerarWebP(
+  async function gerarJPEG(
     canvas: HTMLCanvasElement,
     qualidade: number
   ): Promise<Blob> {
@@ -159,28 +159,13 @@ export function ConfirmarEntregaModal({
           if (resultado) resolve(resultado);
           else reject(new Error("Não foi possível processar a fotografia."));
         },
-        "image/webp",
+        "image/jpeg",
         qualidade
       );
     });
 
-    const assinatura = new Uint8Array(
-      await blob.slice(0, 12).arrayBuffer()
-    );
-
-    const valido =
-      blob.type.toLowerCase() === "image/webp" &&
-      assinatura[0] === 0x52 &&
-      assinatura[1] === 0x49 &&
-      assinatura[2] === 0x46 &&
-      assinatura[3] === 0x46 &&
-      assinatura[8] === 0x57 &&
-      assinatura[9] === 0x45 &&
-      assinatura[10] === 0x42 &&
-      assinatura[11] === 0x50;
-
-    if (!valido) {
-      throw new Error("O navegador não gerou uma imagem WebP válida. Atualize o navegador ou tente outro dispositivo.");
+    if (blob.type.toLowerCase() !== "image/jpeg") {
+      throw new Error("Não foi possível gerar a fotografia em JPEG neste dispositivo.");
     }
 
     return blob;
@@ -247,7 +232,7 @@ export function ConfirmarEntregaModal({
         );
 
         for (const qualidade of qualidades) {
-          const blob = await gerarWebP(canvas, qualidade);
+          const blob = await gerarJPEG(canvas, qualidade);
 
           if (blob.size <= MAX_BYTES) {
             fotoFinal = blob;
@@ -290,7 +275,7 @@ export function ConfirmarEntregaModal({
       const formData = new FormData();
       formData.append(
         "file",
-        new File([foto], "comprovante.webp", { type: "image/webp" })
+        new File([foto], "comprovante.jpg", { type: "image/jpeg" })
       );
       formData.append("observacao", observacao.trim());
 

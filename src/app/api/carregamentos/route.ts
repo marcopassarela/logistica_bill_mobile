@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
           quantidade: true,
           peso: true,
           statusItem: true,
+          entregue: true,
           observacao: true,
           descricaoLivre: true,
           ordemServico: true,

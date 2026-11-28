@@ -172,6 +172,7 @@ model CarregamentoItem {
   quantidade           Decimal                @db.Decimal(14, 3)
   peso                 Decimal                @db.Decimal(14, 3)
   statusItem           StatusItemCarregamento @default(PENDENTE)
+  entregue             Boolean                @default(false)
   observacao           String?
   ordem                Int                    @default(0)
   descricaoLivre       String?

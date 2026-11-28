@@ -113,6 +113,7 @@ async function obterCarregamento(id: string) {
           quantidade: true,
           peso: true,
           statusItem: true,
+          entregue: true,
           observacao: true,
           descricaoLivre: true,
           ordemServico: true,
@@ -231,6 +232,58 @@ export async function PATCH(
       );
     }
 
+    // Confirmacao individual de entrega, com permissao independente.
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "entregaStatus" in body
+    ) {
+      if (!canAccess(user.role, user.permissions, "carregamentos.marcarEntregue")) {
+        return NextResponse.json(
+          { error: "Voce nao tem permissao para confirmar entregas." },
+          { status: 403 }
+        );
+      }
+
+      const entregaStatusBody = z.object({
+        entregaStatus: z.object({
+          itemId: z.string().min(1),
+          entregue: z.boolean(),
+        }),
+      }).safeParse(body);
+
+      if (!entregaStatusBody.success) {
+        return NextResponse.json(
+          { error: "Dados da confirmacao de entrega invalidos." },
+          { status: 400 }
+        );
+      }
+
+      const { itemId, entregue } = entregaStatusBody.data.entregaStatus;
+
+      const item = await prisma.carregamentoItem.findFirst({
+        where: { id: itemId, carregamentoId: id },
+        select: { id: true },
+      });
+
+      if (!item) {
+        return NextResponse.json(
+          { error: "Item nao encontrado neste carregamento." },
+          { status: 404 }
+        );
+      }
+
+      await prisma.carregamentoItem.update({
+        where: { id: itemId },
+        data: { entregue },
+      });
+
+      after(() => mutationId
+        ? publishDataChangedWithId(mutationId, "carregamentos")
+        : publishDataChanged("carregamentos"));
+
+      return NextResponse.json({ success: true, entregue });
+    }
     // Atualização individual do status de um item.
     if (
       typeof body === "object" &&
@@ -533,6 +586,7 @@ export async function PATCH(
               quantidade: true,
               peso: true,
               statusItem: true,
+              entregue: true,
               observacao: true,
               descricaoLivre: true,
               ordemServico: true,

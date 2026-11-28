@@ -1,6 +1,7 @@
 "use client";
 
 import { NotaFiscalPdfViewer } from "@/components/NotaFiscalPdfViewer";
+import { ConfirmarEntregaModal } from "@/components/entregas/ConfirmarEntregaModal";
 import { useScheduledLoadRefresh } from "@/lib/useScheduledLoadRefresh";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -160,11 +161,13 @@ export default function CarregamentosPage() {
   const podeExcluir = can("carregamentos.excluir");
   const podeExcluirItem = can("carregamentos.excluirItem");
   const podeAlterarStatus = can("carregamentos.alterarStatus");
+  const podeMarcarEntregue = can("carregamentos.marcarEntregue");
   const podeVerCliente = can("carregamentos.detalhesCliente");
   const podeRotaCompleta = can("carregamentos.rotaCompleta");
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [lista, setLista] = useState<Carregamento[]>([]);
+  const [entregaTarget, setEntregaTarget] = useState<{ carregamento: Carregamento; item: Carregamento["itens"][number] } | null>(null);
   const [carregamentosPendentes, setCarregamentosPendentes] = useState<Set<string>>(new Set());
   const listaAbortRef = useRef<AbortController | null>(null);
   const listaRequestRef = useRef(0);
@@ -895,88 +898,7 @@ useScheduledLoadRefresh(loadLista, ["carregamentos"], role === "USER" && Boolean
   }
 
 
-async function toggleEntrega(carregId: string, itemId: string, entregue: boolean) {
-  const carreg = lista.find((c) => c.id === carregId);
-  const itemAnterior = carreg?.itens.find((item) => item.id === itemId);
-
-  if (!carreg || !itemAnterior) {
-    alert("Carregamento ou item não encontrado. Atualize a página.");
-    return;
-  }
-
-  const pendingKey = `${carregId}:entrega:${itemId}`;
-  if (carregamentosEmAtualizacao.current.has(pendingKey)) return;
-
-  const restaurarItem = () => {
-    setLista((prev) =>
-      prev.map((c) =>
-        c.id !== carregId
-          ? c
-          : {
-              ...c,
-              itens: c.itens.map((item) =>
-                item.id === itemId
-                  ? { ...item, entregue: itemAnterior.entregue }
-                  : item
-              ),
-            }
-      )
-    );
-  };
-
-  carregamentosEmAtualizacao.current.add(pendingKey);
-  setCarregamentosPendentes((prev) => new Set(prev).add(pendingKey));
-
-  setLista((prev) =>
-    prev.map((c) =>
-      c.id !== carregId
-        ? c
-        : {
-            ...c,
-            itens: c.itens.map((item) =>
-              item.id === itemId ? { ...item, entregue } : item
-            ),
-          }
-    )
-  );
-
-  try {
-    const mutationId = crypto.randomUUID();
-    pendingMutationIds.current.add(mutationId);
-
-    const res = await fetch(`/api/carregamentos/${carregId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Mutation-Id": mutationId,
-      },
-      body: JSON.stringify({
-        entregaStatus: { itemId, entregue },
-      }),
-    });
-
-    const resultado = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      restaurarItem();
-      alert(resultado.error || `Não foi possível atualizar a entrega (HTTP ${res.status}).`);
-    }
-  } catch (erro) {
-    console.error("Erro ao atualizar entrega:", erro);
-    restaurarItem();
-    alert("Erro de conexão ao confirmar a entrega. A alteração visual foi revertida.");
-  } finally {
-    carregamentosEmAtualizacao.current.delete(pendingKey);
-    setCarregamentosPendentes((prev) => {
-      const next = new Set(prev);
-      next.delete(pendingKey);
-      return next;
-    });
-  }
-}
-
-
-  async function setCarregStatus(carregId: string, novoStatus: string) {
+async function setCarregStatus(carregId: string, novoStatus: string) {
     const carreg = lista.find((c) => c.id === carregId);
     const pendingKey = `${carregId}:status`;
     if (!carreg || carregamentosEmAtualizacao.current.has(pendingKey)) return;
@@ -1217,6 +1139,7 @@ async function confirmDeleteItem(password: string) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Itens da carga *</Label>
+
                   <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={editingId ? !podeEditar : !podeCriar}>
                     <Plus className="mr-1 h-3.5 w-3.5" /> Item
                   </Button>
@@ -1570,7 +1493,7 @@ async function confirmDeleteItem(password: string) {
                             </>}
                           </div>
 
-                          {(podeAlterarStatus || podeExcluirItem) && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {(podeAlterarStatus || podeMarcarEntregue || podeExcluirItem) && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
 {podeAlterarStatus && <>
                             <Button
                               type="button"
@@ -1607,22 +1530,23 @@ async function confirmDeleteItem(password: string) {
                               <Clock className="mr-1 h-3 w-3" />
                               Pendente
                             </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className={it.entregue
-                                ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
-                                : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950"}
-                              disabled={carregamentosPendentes.has(`${c.id}:entrega:${it.id}`)}
-                              onClick={() => toggleEntrega(c.id, it.id, !it.entregue)}
-                              title={it.entregue ? "Desfazer confirmação de entrega" : "Confirmar entrega"}
-                            >
-                              <PackageCheck className="mr-1 h-3.5 w-3.5" />
-                              {it.entregue ? "Entregue" : "Marcar entregue"}
-                            </Button>
-                            </>}
-                            {podeExcluirItem && (
+                                                        </>}
+                            {podeMarcarEntregue && (<Button
+  type="button"
+  size="sm"
+  variant="outline"
+  className={it.entregue
+    ? "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600 bg-emerald-600 text-white"
+    : "h-9 w-full justify-center whitespace-nowrap px-2 text-xs border-emerald-600/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950"}
+  disabled={it.entregue}
+  onClick={() => setEntregaTarget({ carregamento: c, item: it })}
+  title={it.entregue ? "Entrega concluída" : "Finalizar entrega com fotografia"}
+>
+  <PackageCheck className="mr-1 h-3.5 w-3.5" />
+  {it.entregue ? "Entregue" : "Finalizar entrega"}
+</Button>
+                            )}
+{podeExcluirItem && (
                               <Button
                                 type="button"
                                 size="sm"
@@ -1844,7 +1768,21 @@ async function confirmDeleteItem(password: string) {
         </div>
       ), document.body)}
 
-      <AdminPasswordModal
+      <ConfirmarEntregaModal
+  open={Boolean(entregaTarget)}
+  item={entregaTarget?.item ?? null}
+  carregamento={entregaTarget?.carregamento ?? null}
+  onClose={() => setEntregaTarget(null)}
+  onSuccess={(itemId) => {
+    setLista((prev) => prev.map((c) => ({
+      ...c,
+      itens: c.itens.map((item) =>
+        item.id === itemId ? { ...item, entregue: true } : item
+      ),
+    })));
+  }}
+/>
+<AdminPasswordModal
         open={deleteOpen}
         onOpenChange={(open) => {
           setDeleteOpen(open);

@@ -6,7 +6,7 @@ export type PermissionMap = Record<string, boolean>;
 
 export const MODULE_ACTIONS: Record<PermissionKey, Record<string, string>> = {
   dashboard: { visualizar: "Visualizar" },
-  carregamentos: { visualizar: "Visualizar", criar: "Criar carga", editar: "Editar carga", excluir: "Excluir carga", excluirItem: "Excluir item", alterarStatus: "Carregar / Não / Pendente", detalhesCliente: "Ver dados do cliente", rotaCompleta: "Rota completa" },
+  carregamentos: { visualizar: "Visualizar", criar: "Criar carga", editar: "Editar carga", excluir: "Excluir carga", excluirItem: "Excluir item", alterarStatus: "Carregar / Não / Pendente", marcarEntregue: "Marcar entregue", detalhesCliente: "Ver dados do cliente", rotaCompleta: "Rota completa" },
   programacoes: { visualizar: "Visualizar", criar: "Criar", editar: "Editar", excluir: "Excluir" },
   rotas: { visualizar: "Visualizar", criar: "Criar rota", editar: "Editar rota", excluir: "Excluir rota" },
   caminhoes: { visualizar: "Visualizar", criar: "Cadastrar", editar: "Editar", excluir: "Excluir" },

@@ -87,6 +87,34 @@ export function ConfirmarEntregaModal({
     return () => URL.revokeObjectURL(preview);
   }, [preview]);
 
+  useEffect(() => {
+    if (!cameraAtiva) return;
+
+    const video = videoRef.current;
+    const stream = streamRef.current;
+
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+
+    const iniciarReproducao = () => {
+      video.play().catch(() => {
+        setErro("Nao foi possivel iniciar a imagem da camera. Tente novamente.");
+      });
+    };
+
+    video.onloadedmetadata = iniciarReproducao;
+
+    if (video.readyState >= 1) {
+      iniciarReproducao();
+    }
+
+    return () => {
+      video.onloadedmetadata = null;
+      video.pause();
+      video.srcObject = null;
+    };
+  }, [cameraAtiva]);
   async function ativarCamera() {
     setErro("");
 
@@ -101,8 +129,9 @@ export function ConfirmarEntregaModal({
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1600 },
-          height: { ideal: 1200 },
+          width: { ideal: 1200 },
+          height: { ideal: 1600 },
+          aspectRatio: { ideal: 0.75 },
         },
       });
 
@@ -390,7 +419,7 @@ export function ConfirmarEntregaModal({
                       autoPlay
                       muted
                       playsInline
-                      className="max-h-80 w-full rounded-xl bg-black object-contain"
+                      className="mx-auto aspect-[3/4] max-h-[65vh] w-full rounded-xl bg-black object-cover"
                     />
                     <Button
                       type="button"

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -153,34 +153,54 @@ export function ConfirmarEntregaModal({
 
     try {
       const canvas = document.createElement("canvas");
-      const proporcao = Math.min(
-        1,
-        1600 / Math.max(video.videoWidth, video.videoHeight)
-      );
-
-      canvas.width = Math.round(video.videoWidth * proporcao);
-      canvas.height = Math.round(video.videoHeight * proporcao);
-
       const context = canvas.getContext("2d");
-      if (!context) throw new Error("Não foi possível processar a imagem.");
 
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      let blob = await gerarWebP(canvas, 0.82);
-
-      for (const qualidade of [0.74, 0.66, 0.58, 0.5, 0.42]) {
-        if (blob.size <= MAX_BYTES) break;
-        blob = await gerarWebP(canvas, qualidade);
+      if (!context) {
+        throw new Error("Não foi possível processar a imagem.");
       }
 
-      if (blob.size > MAX_BYTES) {
+      const maiorLadoOriginal = Math.max(
+        video.videoWidth,
+        video.videoHeight
+      );
+
+      const resolucoes = [1600, 1400, 1200, 1000, 900, 800, 700, 600];
+      const qualidades = [0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.35, 0.30];
+
+      let fotoFinal: Blob | null = null;
+
+      for (const limiteResolucao of resolucoes) {
+        const proporcao = Math.min(
+          1,
+          limiteResolucao / maiorLadoOriginal
+        );
+
+        canvas.width = Math.round(video.videoWidth * proporcao);
+        canvas.height = Math.round(video.videoHeight * proporcao);
+
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        for (const qualidade of qualidades) {
+          const blob = await gerarWebP(canvas, qualidade);
+
+          if (blob.size <= MAX_BYTES) {
+            fotoFinal = blob;
+            break;
+          }
+        }
+
+        if (fotoFinal) break;
+      }
+
+      if (!fotoFinal || fotoFinal.size > MAX_BYTES) {
         throw new Error(
-          "A fotografia ficou acima de 350 KB. Tente capturar novamente."
+          "Não foi possível reduzir a fotografia para 350 KB. Tente capturar novamente."
         );
       }
 
-      setFoto(blob);
-      setPreview(URL.createObjectURL(blob));
+      setFoto(fotoFinal);
+      setPreview(URL.createObjectURL(fotoFinal));
       pararCamera();
     } catch (error) {
       setErro(
@@ -192,7 +212,6 @@ export function ConfirmarEntregaModal({
       setCarregando(false);
     }
   }
-
   async function confirmarEntrega() {
     if (!item || !foto) {
       setErro("A fotografia é obrigatória para concluir a entrega.");

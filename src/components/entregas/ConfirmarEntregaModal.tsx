@@ -193,8 +193,8 @@ export function ConfirmarEntregaModal({
         video.videoHeight
       );
 
-      const resolucoes = [1600, 1400, 1200, 1000, 900, 800, 700, 600];
-      const qualidades = [0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.35, 0.30];
+      const resolucoes = [1600, 1400, 1200, 1000, 900, 800, 700, 600, 500, 400, 320];
+      const qualidades = [0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.35, 0.30, 0.25, 0.20, 0.15, 0.12];
 
       let fotoFinal: Blob | null = null;
 
